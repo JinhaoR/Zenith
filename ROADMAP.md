@@ -2,13 +2,14 @@
 
 The roadmap describes development order, not deadlines. Each phase should end with a buildable, testable checkpoint.
 
-## Phase 0: Foundation
+## Phase 0: Foundation (Complete)
 
 - Establish canonical terminology and product documentation.
 - Create the solution structure and shared build configuration.
 - Add the initial Core test project.
+- Add a basic CI build workflow.
 
-## Phase 1: Browser Shell
+## Phase 1: Browser Shell (Current)
 
 - Host WebView2 in WPF.
 - Add basic navigation controls and the Zenith start page.
@@ -77,4 +78,3 @@ Locked
 - Complete accessibility and usability review.
 - Perform security review and end-to-end bypass testing.
 - Prepare the first public release.
-

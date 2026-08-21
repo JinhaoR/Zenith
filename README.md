@@ -47,7 +47,7 @@ The existing policy remains active until confirmation. This prevents an immediat
 
 ## Project Status
 
-Zenith is in early development and is not yet ready for everyday use. The current focus is the browser shell, policy engine, Vault and security boundaries.
+Zenith is in early development and is not yet ready for everyday use. The foundation is complete, and the current roadmap phase is the browser shell.
 
 ## Technology
 
@@ -61,9 +61,9 @@ Zenith is in early development and is not yet ready for everyday use. The curren
 On Windows, with the required .NET SDK installed:
 
 ~~~powershell
-dotnet restore Zenith.sln
-dotnet build Zenith.sln
-dotnet test Zenith.sln
+dotnet restore Zenith.slnx
+dotnet build Zenith.slnx
+dotnet test Zenith.slnx
 ~~~
 
 ## Documentation

@@ -1,8 +1,8 @@
 # Zenith Architecture
 
-> **Status:** Initial target architecture.
+> **Status:** Foundation structure implemented; component architecture remains the initial target.
 >
-> Zenith is still at the foundation stage. This document defines the structure for the first implementation and must be updated when the implemented system diverges from it.
+> The Phase 0 project boundaries are in place. This document defines the structure for subsequent implementation and must be updated when the implemented system diverges from it.
 
 ## 1. Scope
 
@@ -36,7 +36,8 @@ Zenith does not implement a browser engine or operating-system-wide access contr
 
 ~~~text
 Zenith/
-├── Zenith.sln
+├── Zenith.slnx
+├── Directory.Build.props
 ├── src/
 │   ├── Zenith.App/
 │   └── Zenith.Core/

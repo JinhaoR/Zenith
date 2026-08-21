@@ -169,9 +169,9 @@ UI-only changes may omit automated tests when they do not affect application beh
 Run commands from the repository root:
 
 ```powershell
-dotnet restore Zenith.sln
-dotnet build Zenith.sln
-dotnet test Zenith.sln
+dotnet restore Zenith.slnx
+dotnet build Zenith.slnx
+dotnet test Zenith.slnx
 ```
 
 Keep these commands synchronized with the actual solution structure.
