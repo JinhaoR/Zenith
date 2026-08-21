@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework>net10.0-windows</TargetFramework>
     <IsPackable>false</IsPackable>
   </PropertyGroup>
 
@@ -13,6 +13,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\src\Zenith.App\Zenith.App.csproj" />
     <ProjectReference Include="..\..\src\Zenith.Core\Zenith.Core.csproj" />
     <Using Include="Xunit" />
   </ItemGroup>

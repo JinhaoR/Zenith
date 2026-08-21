@@ -9,14 +9,19 @@ The roadmap describes development order, not deadlines. Each phase should end wi
 - Add the initial Core test project.
 - Add a basic CI build workflow.
 
-## Phase 1: Browser Shell (Current)
+## Phase 1: Browser Shell (Complete)
 
 - Host WebView2 in WPF.
-- Add basic navigation controls and the Zenith start page.
+- Add compact navigation controls, one centered top-bar Sphere search and the Sphere start surface.
 - Centralize WebView2 navigation events behind an application service.
+- Keep the unavailable-policy shell fail-closed while presenting denial only after an intentional request.
+- Establish the fixed midnight visual system through semantic resources, including a Windows High Contrast override.
+- Align the shell hierarchy and start surface with the product-experience principles.
 
-## Phase 2: Site Policy
+## Phase 2: Site Policy (Next)
 
+- Define and enforce the rendered-page lifecycle when a native Sphere surface replaces WebView2, so hidden content cannot remain active unintentionally.
+- Define current-site identity and decide whether a secondary direct-address entry point is needed before permitted pages are rendered.
 - Implement URI normalization and site identity.
 - Implement Whitelist, Blacklist and Greylist classification.
 - Deny unclassified navigation by default.
@@ -76,5 +81,6 @@ Locked
 - Add packaging, updates and migration handling.
 - Migration/versioning of Vault data.
 - Complete accessibility and usability review.
+- Evaluate a light palette, theme selection, persistence and system-theme synchronization.
 - Perform security review and end-to-end bypass testing.
 - Prepare the first public release.

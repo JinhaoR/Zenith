@@ -6,7 +6,7 @@ Zenith is a Windows browser built with WPF and WebView2.
 
 It is a policy-driven browser with a default-deny access model. This summary provides context only, do not infer detailed product behavior from it.
 
-Before changing user-facing behavior, read `docs/product-principles.md` and the relevant policy document.
+Before changing user-facing behavior, read `docs/product-principles.md`, `docs/product-experience.md`, `docs/terminology.md` and the relevant policy document.
 
 ---
 
@@ -17,6 +17,12 @@ Use the following documents for their designated purposes:
 * `docs/product-principles.md`
 
   * Product identity and guiding principles.
+* `docs/product-experience.md`
+
+  * User experience, interaction hierarchy and interface character.
+* `docs/terminology.md`
+
+  * Canonical policy vocabulary and the boundary between Sphere interface language and Whitelist policy language.
 * `docs/site-policy.md`
 
   * Site classification, navigation decisions, Greylist access and Vault policy changes.
@@ -183,6 +189,8 @@ Keep these commands synchronized with the actual solution structure.
 Update the document that owns the changed information:
 
 * Product meaning → `docs/product-principles.md`
+* Product experience → `docs/product-experience.md`
+* Terminology → `docs/terminology.md`
 * Site behavior → `docs/site-policy.md`
 * Website capabilities → `docs/permission-model.md`
 * Security assumptions → `docs/threat-model.md`

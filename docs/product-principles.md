@@ -20,9 +20,11 @@ Every site has one effective classification state, which determines what access 
 
 Whitelisted sites form the user’s ordinary Internet.
 
-They have been deliberately selected and are directly accessible. The starting page presents these sites as the user’s normal browsing environment.
+They have been deliberately selected and are directly accessible. The start surface presents these sites as the user’s normal browsing environment.
 
 A site is Whitelisted because it was explicitly included, not merely because it was never blocked.
+
+The interface presents this ordinary browsing environment as the **Sphere**. Sphere is user-facing experience vocabulary; it does not change or replace the Whitelist policy class.
 
 ### Blacklist
 
@@ -62,7 +64,7 @@ Completing this procedure does not add the site to the Whitelist. It grants only
 
 ## 4. The Vault
 
-The Vault is the heart of Zenith.
+The Vault is the protected heart of Zenith's durable policy.
 
 It defines the browser’s durable access policy, including:
 
@@ -122,7 +124,7 @@ WebView2 provides the rendering engine, but it does not decide what the user may
 
 When Zenith cannot determine that access is permitted, it should not navigate.
 
-Restrictions must be predictable, and the browser should explain which policy caused an action to be allowed, delayed or denied.
+Restrictions must be predictable. When navigation is delayed or denied, Zenith should explain the relevant policy. Detailed reasons for permitted navigation may remain available on demand without adding classification labels to routine chrome.
 
 ---
 

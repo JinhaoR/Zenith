@@ -33,6 +33,8 @@ Sites not explicitly placed on the Whitelist or Blacklist belong to the Greylist
 
 Completing the Greylist procedure creates a limited **Access Grant**. It does not add the site to the Whitelist.
 
+In the application, the ordinary browsing environment formed by Whitelisted sites is called your **Sphere**. Sphere is user-facing language; Whitelist remains the underlying policy classification.
+
 ## The Vault
 
 The **Vault** contains Zenith's durable access policy.
@@ -47,7 +49,7 @@ The existing policy remains active until confirmation. This prevents an immediat
 
 ## Project Status
 
-Zenith is in early development and is not yet ready for everyday use. The foundation is complete, and the current roadmap phase is the browser shell.
+Zenith is in early development and is not yet ready for everyday use. Phase 1 is complete: the Sphere-first WPF shell and centralized fail-closed navigation boundary are implemented. Phase 2 Site Policy is next.
 
 ## Technology
 
@@ -66,9 +68,18 @@ dotnet build Zenith.slnx
 dotnet test Zenith.slnx
 ~~~
 
+## Run
+
+~~~powershell
+dotnet run --project src/Zenith.App/Zenith.App.csproj
+~~~
+
+Until Site Policy is implemented, the shell deliberately denies all external navigation.
+
 ## Documentation
 
 - [Product principles](docs/product-principles.md)
+- [Product experience](docs/product-experience.md)
 - [Terminology](docs/terminology.md)
 - [Site policy](docs/site-policy.md)
 - [Architecture](ARCHITECTURE.md)

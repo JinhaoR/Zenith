@@ -1,8 +1,8 @@
 # Zenith Architecture
 
-> **Status:** Foundation structure implemented; component architecture remains the initial target.
+> **Status:** Phase 1 browser shell complete; Phase 2 Site Policy is next.
 >
-> The Phase 0 project boundaries are in place. This document defines the structure for subsequent implementation and must be updated when the implemented system diverges from it.
+> The project boundaries, Sphere-first WPF shell, WebView2 host and fail-closed navigation coordinator are in place. The chrome centers one Sphere search field, and unavailable policy is presented through a native boundary only after an intentional request.
 
 ## 1. Scope
 
@@ -38,10 +38,12 @@ Zenith does not implement a browser engine or operating-system-wide access contr
 Zenith/
 ├── Zenith.slnx
 ├── Directory.Build.props
+├── Directory.Packages.props
 ├── src/
 │   ├── Zenith.App/
 │   └── Zenith.Core/
 └── tests/
+    ├── Zenith.App.Tests/
     └── Zenith.Core.Tests/
 ~~~
 
@@ -52,13 +54,15 @@ The Windows application and composition root.
 It owns:
 
 - WPF Views and ViewModels.
-- Native start page, blocked page, Greylist gate and Vault interfaces.
+- Native Sphere start surface, navigation-boundary and recovery surfaces, Greylist gate and Vault interfaces.
 - WebView2 creation, configuration and event handling.
 - Translation between WebView2 events and Core requests.
 - Implementations of Core interfaces for persistence, authentication, time, external lists and other platform services.
 - Application startup and dependency construction.
 
 It must not decide site classification, Access Grant validity or Policy Change state.
+
+`Sphere` is presentation vocabulary for the ordinary environment backed by current Whitelist membership. It belongs in App copy and view naming where useful; Core models, policy evaluation and persistence continue to use Whitelist.
 
 ### Zenith.Core
 
@@ -92,12 +96,20 @@ It owns tests for:
 
 Additional integration-test projects should be added only when there is concrete behavior that cannot be tested through Core.
 
+### Zenith.App.Tests
+
+Tests application-layer coordination that depends on the App-to-Core boundary but does not require launching the graphical interface.
+
+It currently verifies that direct-address, WebView and new-window navigation requests all reach the same Core policy evaluator.
+
 ## 4. Dependency Direction
 
 ~~~mermaid
 flowchart TD
     App["Zenith.App — WPF and WebView2"] --> Core["Zenith.Core — domain and policy"]
-    Tests["Zenith.Core.Tests"] --> Core
+    CoreTests["Zenith.Core.Tests"] --> Core
+    AppTests["Zenith.App.Tests"] --> App
+    AppTests --> Core
     App --> Adapters["App infrastructure adapters"]
     Adapters -. "implement" .-> Ports["Interfaces owned by Core"]
     Core --> Ports
@@ -107,6 +119,7 @@ The dependency direction is inward:
 
 - **Zenith.App** depends on **Zenith.Core**.
 - **Zenith.Core.Tests** depends on **Zenith.Core**.
+- **Zenith.App.Tests** depends on **Zenith.App** and **Zenith.Core**.
 - Core defines the interfaces it requires.
 - App supplies platform-specific implementations at startup.
 - Core never depends on App.
@@ -120,7 +133,7 @@ The following names describe responsibilities; they do not require one class per
 | Component | Layer | Responsibility |
 | --- | --- | --- |
 | WebView2 adapter | App | Intercept browser events, create Core requests and enact returned decisions. |
-| Navigation coordinator | App | Ensure address-bar, link, redirect, popup and external navigation use the same path. |
+| Navigation coordinator | App | Ensure direct-address, link, redirect, popup and external navigation use the same path. |
 | Site identity service | Core | Normalize URIs and produce the canonical site identity used by policy. |
 | Policy evaluator | Core | Resolve Whitelist, Blacklist or Greylist and return a navigation decision. |
 | Access Grant service | Core | Manage the password–cooldown–password state machine and validate Access Grants. |
@@ -217,7 +230,7 @@ Startup order is:
 2. Recover a valid previous revision where the documented recovery policy permits it.
 3. Construct Core services and App adapters.
 4. Initialize the WebView2 host behind the navigation gate.
-5. Show the local Zenith start page.
+5. Show the local Sphere start surface.
 
 If no trustworthy policy can be established, Zenith enters a restricted recovery state with no external navigation. It must never start as an unrestricted browser.
 
@@ -249,4 +262,4 @@ Add focused end-to-end tests for security-sensitive paths after the browser shel
 - Record consequential technical choices in **docs/decisions/**.
 - Update this document when implemented dependencies, components or state ownership change.
 
-Current unresolved architectural inputs include site-identity scope, Access Grant lifetime, authentication mechanism, persistence format and precise time-tamper handling. These must be settled before their corresponding implementation is considered complete.
+Current unresolved architectural inputs include the rendered-page lifecycle when a native Sphere surface replaces WebView2, site-identity scope, Access Grant lifetime, authentication mechanism, persistence format and precise time-tamper handling. These must be settled before their corresponding implementation is considered complete.

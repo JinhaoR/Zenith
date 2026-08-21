@@ -7,6 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.Web.WebView2" />
     <ProjectReference Include="..\Zenith.Core\Zenith.Core.csproj" />
   </ItemGroup>
 

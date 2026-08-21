@@ -1,5 +1,6 @@
 <Solution>
   <Project Path="src/Zenith.App/Zenith.App.csproj" />
   <Project Path="src/Zenith.Core/Zenith.Core.csproj" />
+  <Project Path="tests/Zenith.App.Tests/Zenith.App.Tests.csproj" />
   <Project Path="tests/Zenith.Core.Tests/Zenith.Core.Tests.csproj" />
 </Solution>
