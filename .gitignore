@@ -1,0 +1,20 @@
+# Visual Studio
+.vs/
+*.user
+*.suo
+
+# Build output
+bin/
+obj/
+
+# Build folders
+[Bb]uild/
+[Dd]ebug/
+[Rr]elease/
+
+# NuGet packages
+*.nupkg
+
+# OS files
+.DS_Store
+Thumbs.db
