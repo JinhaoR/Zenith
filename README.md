@@ -6,7 +6,7 @@ Conventional browsers begin with the entire Internet available and ask users to 
 
 ## How It Works
 
-Every site has one access state:
+Every site has one access classification:
 
 - **Whitelist** — opens directly.
 - **Blacklist** — cannot be opened.
@@ -15,11 +15,18 @@ Every site has one access state:
 ~~~mermaid
 flowchart TD
     Request["Site requested"] --> Classify{"Zenith policy"}
+
     Classify -->|Whitelist| Open["Open directly"]
+
     Classify -->|Blacklist| Block["Block"]
+
     Classify -->|Greylist| Gate["Password → cooldown → password"]
-    Gate --> Grant["Access Grant"]
-    Grant --> Open
+
+    Gate --> Grant["Access Grant issued"]
+    Grant --> OpenTemp["Open temporarily"]
+
+    OpenTemp --> Expire["Grant expires"]
+    Expire --> Greylist["Site remains Greylisted"]
 ~~~
 
 Sites not explicitly placed on the Whitelist or Blacklist belong to the Greylist by default.
