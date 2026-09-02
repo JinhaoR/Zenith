@@ -1,8 +1,8 @@
 # Zenith Architecture
 
-> **Status:** Phase 1 browser shell complete; Phase 2 Site Policy is next.
+> **Status:** Phase 1 browser shell complete; Phase 2 Site Policy starter skeleton in progress.
 >
-> The project boundaries, Sphere-first WPF shell, WebView2 host and fail-closed navigation coordinator are in place. The chrome centers one Sphere search field, and unavailable policy is presented through a native boundary only after an intentional request.
+> The project boundaries, Sphere-first WPF shell, WebView2 host and navigation coordinator are in place. The shell uses a collapsible wayfinding sidebar with live bookmark shortcuts and a searchable Sphere directory, and the current development build uses a Core-owned starter Whitelist with normalized hostname identities while unavailable destinations are presented through a native boundary.
 
 ## 1. Scope
 
@@ -134,7 +134,7 @@ The following names describe responsibilities; they do not require one class per
 | --- | --- | --- |
 | WebView2 adapter | App | Intercept browser events, create Core requests and enact returned decisions. |
 | Navigation coordinator | App | Ensure direct-address, link, redirect, popup and external navigation use the same path. |
-| Site identity service | Core | Normalize URIs and produce the canonical site identity used by policy. |
+| Site identity and URI normalizer | Core | Canonicalize HTTP(S) targets and produce the hostname identity used by policy. |
 | Policy evaluator | Core | Resolve Whitelist, Blacklist or Greylist and return a navigation decision. |
 | Access Grant service | Core | Manage the password–cooldown–password state machine and validate Access Grants. |
 | Vault service | Core | Expose the active policy and create, confirm, cancel or reject Policy Changes. |

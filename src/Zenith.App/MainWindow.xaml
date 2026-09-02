@@ -6,8 +6,8 @@
         xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
         mc:Ignorable="d"
         Title="Zenith"
-        Width="1120"
-        Height="720"
+        Width="1280"
+        Height="800"
         MinWidth="760"
         MinHeight="520"
         WindowStartupLocation="CenterScreen"
@@ -17,13 +17,28 @@
         TextOptions.TextFormattingMode="Display"
         UseLayoutRounding="True"
         SnapsToDevicePixels="True"
+        SourceInitialized="MainWindow_OnSourceInitialized"
         Loaded="MainWindow_OnLoaded"
         Closed="MainWindow_OnClosed"
+        Deactivated="MainWindow_OnDeactivated"
+        PreviewMouseDown="MainWindow_OnPreviewMouseDown"
         PreviewKeyDown="MainWindow_OnPreviewKeyDown">
     <Window.Resources>
-        <Style x:Key="ToolbarIconButtonStyle" TargetType="{x:Type Button}">
-            <Setter Property="Width" Value="42" />
-            <Setter Property="Height" Value="42" />
+        <Geometry x:Key="GitHubIconGeometry">M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12</Geometry>
+        <Geometry x:Key="YouTubeIconGeometry">M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z</Geometry>
+        <Geometry x:Key="WikipediaIconGeometry">M12.09 13.119c-.936 1.932-2.217 4.548-2.853 5.728-.616 1.074-1.127.931-1.532.029-1.406-3.321-4.293-9.144-5.651-12.409-.251-.601-.441-.987-.619-1.139-.181-.15-.554-.24-1.122-.271C.103 5.033 0 4.982 0 4.898v-.455l.052-.045c.924-.005 5.401 0 5.401 0l.051.045v.434c0 .119-.075.176-.225.176l-.564.031c-.485.029-.727.164-.727.436 0 .135.053.33.166.601 1.082 2.646 4.818 10.521 4.818 10.521l.136.046 2.411-4.81-.482-1.067-1.658-3.264s-.318-.654-.428-.872c-.728-1.443-.712-1.518-1.447-1.617-.207-.023-.313-.05-.313-.149v-.468l.06-.045h4.292l.113.037v.451c0 .105-.076.15-.227.15l-.308.047c-.792.061-.661.381-.136 1.422l1.582 3.252 1.758-3.504c.293-.64.233-.801.111-.947-.07-.084-.305-.22-.812-.24l-.201-.021c-.052 0-.098-.015-.145-.051-.045-.031-.067-.076-.067-.129v-.427l.061-.045c1.247-.008 4.043 0 4.043 0l.059.045v.436c0 .121-.059.178-.193.178-.646.03-.782.095-1.023.439-.12.186-.375.589-.646 1.039l-2.301 4.273-.065.135 2.792 5.712.17.048 4.396-10.438c.154-.422.129-.722-.064-.895-.197-.172-.346-.273-.857-.295l-.42-.016c-.061 0-.105-.014-.152-.045-.043-.029-.072-.075-.072-.119v-.436l.059-.045h4.961l.041.045v.437c0 .119-.074.18-.209.18-.648.03-1.127.18-1.443.421-.314.255-.557.616-.736 1.067 0 0-4.043 9.258-5.426 12.339-.525 1.007-1.053.917-1.503-.031-.571-1.171-1.773-3.786-2.646-5.71l.053-.036z</Geometry>
+        <Geometry x:Key="OpenAiIconGeometry">M304.246 295.411V249.828C304.246 245.989 305.687 243.109 309.044 241.191L400.692 188.412C413.167 181.215 428.042 177.858 443.394 177.858C500.971 177.858 537.44 222.482 537.44 269.982C537.44 273.34 537.44 277.179 536.959 281.018L441.954 225.358C436.197 222 430.437 222 424.68 225.358L304.246 295.411ZM518.245 472.945V364.024C518.245 357.304 515.364 352.507 509.608 349.149L389.174 279.096L428.519 256.543C431.877 254.626 434.757 254.626 438.115 256.543L529.762 309.323C556.154 324.679 573.905 357.304 573.905 388.971C573.905 425.436 552.315 459.024 518.245 472.941V472.945ZM275.937 376.982L236.592 353.952C233.235 352.034 231.794 349.154 231.794 345.315V239.756C231.794 188.416 271.139 149.548 324.4 149.548C344.555 149.548 363.264 156.268 379.102 168.262L284.578 222.964C278.822 226.321 275.942 231.119 275.942 237.838V376.986L275.937 376.982ZM360.626 425.922L304.246 394.255V327.083L360.626 295.416L417.002 327.083V394.255L360.626 425.922ZM396.852 571.789C376.698 571.789 357.989 565.07 342.151 553.075L436.674 498.374C442.431 495.017 445.311 490.219 445.311 483.499V344.352L485.138 367.382C488.495 369.299 489.936 372.179 489.936 376.018V481.577C489.936 532.917 450.109 571.785 396.852 571.785V571.789ZM283.134 464.79L191.486 412.01C165.094 396.654 147.343 364.029 147.343 332.362C147.343 295.416 169.415 262.309 203.48 248.393V357.791C203.48 364.51 206.361 369.308 212.117 372.665L332.074 442.237L292.729 464.79C289.372 466.707 286.491 466.707 283.134 464.79ZM277.859 543.48C223.639 543.48 183.813 502.695 183.813 452.314C183.813 448.475 184.294 444.636 184.771 440.797L279.295 495.498C285.051 498.856 290.812 498.856 296.568 495.498L417.002 425.927V471.509C417.002 475.349 415.562 478.229 412.204 480.146L320.557 532.926C308.081 540.122 293.206 543.48 277.854 543.48H277.859ZM396.852 600.576C454.911 600.576 503.37 559.313 514.41 504.612C568.149 490.696 602.696 440.315 602.696 388.976C602.696 355.387 588.303 322.762 562.392 299.25C564.791 289.173 566.231 279.096 566.231 269.024C566.231 200.411 510.571 149.067 446.274 149.067C433.322 149.067 420.846 150.984 408.37 155.305C386.775 134.192 357.026 120.758 324.4 120.758C266.342 120.758 217.883 162.02 206.843 216.721C153.104 230.637 118.557 281.018 118.557 332.357C118.557 365.946 132.95 398.571 158.861 422.083C156.462 432.16 155.022 442.237 155.022 452.309C155.022 520.922 210.682 572.266 274.978 572.266C287.931 572.266 300.407 570.349 312.883 566.028C334.473 587.141 364.222 600.576 396.852 600.576Z</Geometry>
+        <Geometry x:Key="GoogleIconGeometry">M12.48 10.92v3.28h7.84c-.24 1.84-.853 3.187-1.787 4.133-1.147 1.147-2.933 2.4-6.053 2.4-4.827 0-8.6-3.893-8.6-8.72s3.773-8.72 8.6-8.72c2.6 0 4.507 1.027 5.907 2.347l2.307-2.307C18.747 1.44 16.133 0 12.48 0 5.867 0 .307 5.387.307 12s5.56 12 12.173 12c3.573 0 6.267-1.173 8.373-3.36 2.16-2.16 2.84-5.213 2.84-7.667 0-.76-.053-1.467-.173-2.053H12.48z</Geometry>
+        <Geometry x:Key="StackOverflowIconGeometry">M15.725 0l-1.72 1.277 6.39 8.588 1.716-1.277L15.725 0zm-3.94 3.418-1.369 1.644 8.225 6.85 1.369-1.644-8.225-6.85zm-3.15 4.465-.905 1.94 9.702 4.517.904-1.94-9.701-4.517zm-1.85 4.86-.44 2.093 10.473 2.201.44-2.092-10.473-2.203zM1.89 15.47V24h19.19v-8.53h-2.133v6.397H4.021v-6.396H1.89zm4.265 2.133v2.13h10.66v-2.13H6.154Z</Geometry>
+        <Geometry x:Key="GitLabIconGeometry">m23.6004 9.5927-.0337-.0862L20.3.9814a.851.851 0 0 0-.3362-.405.8748.8748 0 0 0-.9997.0539.8748.8748 0 0 0-.29.4399l-2.2055 6.748H7.5375l-2.2057-6.748a.8573.8573 0 0 0-.29-.4412.8748.8748 0 0 0-.9997-.0537.8585.8585 0 0 0-.3362.4049L.4332 9.5015l-.0325.0862a6.0657 6.0657 0 0 0 2.0119 7.0105l.0113.0087.03.0213 4.976 3.7264 2.462 1.8633 1.4995 1.1321a1.0085 1.0085 0 0 0 1.2197 0l1.4995-1.1321 2.4619-1.8633 5.006-3.7489.0125-.01a6.0682 6.0682 0 0 0 2.0094-7.003z</Geometry>
+        <Geometry x:Key="MdnIconGeometry">m21.538 1.1-6.745 21.8h-2.77L18.77 1.1ZM24 1.1v21.8h-2.462V1.1Zm-12 0v21.8H9.538V1.1Zm-2.462 0L2.77 22.9H0L6.746 1.1Z</Geometry>
+        <Geometry x:Key="InternetArchiveIconGeometry">M22.667 22.884V24H1.333v-1.116zm-.842-1.675v1.396H2.175v-1.396zM4.233 6.14l.234.118.118 1.882.117 3.058v2.941l-.117 3.666-.02 2.47-.332.098H3.062l-.352-.098-.136-2.47-.118-3.646v-2.941l.118-3.078.107-1.892.244-.107zm16.842 0l.235.118.117 1.882.117 3.058v2.941l-.117 3.666-.02 2.47-.332.098h-1.171l-.352-.098-.137-2.47-.117-3.646v-2.941l.117-3.078.108-1.892.244-.107zm-11.79 0l.235.118.117 1.882.117 3.058v2.941l-.117 3.666-.02 2.47-.331.098H8.114l-.352-.098-.136-2.47-.117-3.646v-2.941l.117-3.078.107-1.892.244-.107zm6.457 0l.234.118.117 1.882.118 3.058v2.941l-.118 3.666-.019 2.47-.332.098H14.57l-.351-.098-.137-2.47-.117-3.646v-2.941l.117-3.078.108-1.892.244-.107zm6.083-2.511V5.58H2.175V3.628zM11.798 0l10.307 2.347-.413.723H1.951l-.618-.587Z</Geometry>
+        <Geometry x:Key="RedditIconGeometry">M12 0C5.373 0 0 5.373 0 12c0 3.314 1.343 6.314 3.515 8.485l-2.286 2.286C.775 23.225 1.097 24 1.738 24H12c6.627 0 12-5.373 12-12S18.627 0 12 0Zm4.388 3.199c1.104 0 1.999.895 1.999 1.999 0 1.105-.895 2-1.999 2-.946 0-1.739-.657-1.947-1.539v.002c-1.147.162-2.032 1.15-2.032 2.341v.007c1.776.067 3.4.567 4.686 1.363.473-.363 1.064-.58 1.707-.58 1.547 0 2.802 1.254 2.802 2.802 0 1.117-.655 2.081-1.601 2.531-.088 3.256-3.637 5.876-7.997 5.876-4.361 0-7.905-2.617-7.998-5.87-.954-.447-1.614-1.415-1.614-2.538 0-1.548 1.255-2.802 2.803-2.802.645 0 1.239.218 1.712.585 1.275-.79 2.881-1.291 4.64-1.365v-.01c0-1.663 1.263-3.034 2.88-3.207.188-.911.993-1.595 1.959-1.595Zm-8.085 8.376c-.784 0-1.459.78-1.506 1.797-.047 1.016.64 1.429 1.426 1.429.786 0 1.371-.369 1.418-1.385.047-1.017-.553-1.841-1.338-1.841Zm7.406 0c-.786 0-1.385.824-1.338 1.841.047 1.017.634 1.385 1.418 1.385.785 0 1.473-.413 1.426-1.429-.046-1.017-.721-1.797-1.506-1.797Zm-3.703 4.013c-.974 0-1.907.048-2.77.135-.147.015-.241.168-.183.305.483 1.154 1.622 1.964 2.953 1.964 1.33 0 2.47-.81 2.953-1.964.057-.137-.037-.29-.184-.305-.863-.087-1.795-.135-2.769-.135Z</Geometry>
+        <Geometry x:Key="MicrosoftIconGeometry">M1,1 H10 V10 H1 Z M14,1 H23 V10 H14 Z M1,14 H10 V23 H1 Z M14,14 H23 V23 H14 Z</Geometry>
+
+        <Style x:Key="SidebarIconButtonStyle" TargetType="{x:Type Button}">
+            <Setter Property="Width" Value="38" />
+            <Setter Property="Height" Value="38" />
             <Setter Property="Margin" Value="0,0,4,0" />
             <Setter Property="Padding" Value="0" />
             <Setter Property="Background" Value="Transparent" />
@@ -31,7 +46,7 @@
             <Setter Property="BorderThickness" Value="2" />
             <Setter Property="Foreground" Value="{DynamicResource ZenithMutedTextBrush}" />
             <Setter Property="FontFamily" Value="Segoe MDL2 Assets" />
-            <Setter Property="FontSize" Value="15" />
+            <Setter Property="FontSize" Value="14" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Template">
                 <Setter.Value>
@@ -40,10 +55,8 @@
                                 Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="10">
-                            <ContentPresenter HorizontalAlignment="Center"
-                                              VerticalAlignment="Center"
-                                              RecognizesAccessKey="True" />
+                                CornerRadius="9">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
@@ -66,10 +79,107 @@
             </Setter>
         </Style>
 
-        <Style x:Key="BrandButtonStyle"
-               TargetType="{x:Type Button}"
-               BasedOn="{StaticResource ToolbarIconButtonStyle}">
+        <Style x:Key="SidebarTextButtonStyle" TargetType="{x:Type Button}">
+            <Setter Property="Height" Value="40" />
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
+            <Setter Property="Padding" Value="10,0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="2" />
+            <Setter Property="Foreground" Value="{DynamicResource ZenithMutedTextBrush}" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type Button}">
+                        <Border x:Name="ButtonBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="9">
+                            <ContentPresenter Margin="{TemplateBinding Padding}"
+                                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ButtonBorder" Property="Background" Value="{DynamicResource ZenithHoverBrush}" />
+                                <Setter Property="Foreground" Value="{DynamicResource ZenithTextBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="ButtonBorder" Property="Background" Value="{DynamicResource ZenithRaisedSurfaceBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="ButtonBorder" Property="BorderBrush" Value="{DynamicResource ZenithFocusBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="BookmarkIconButtonStyle" TargetType="{x:Type Button}" BasedOn="{StaticResource SidebarIconButtonStyle}">
+            <Setter Property="Width" Value="54" />
+            <Setter Property="Height" Value="54" />
+            <Setter Property="Margin" Value="0,0,8,8" />
+            <Setter Property="Background" Value="{DynamicResource ZenithSurfaceBrush}" />
             <Setter Property="Foreground" Value="{DynamicResource ZenithAccentBrush}" />
+            <Setter Property="FontFamily" Value="Segoe UI" />
+            <Setter Property="FontSize" Value="16" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+
+        <Style x:Key="SlimScrollThumbStyle" TargetType="{x:Type Thumb}">
+            <Setter Property="MinHeight" Value="24" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type Thumb}">
+                        <Border x:Name="ThumbSurface"
+                                Width="4"
+                                HorizontalAlignment="Center"
+                                Background="{DynamicResource ZenithInteractiveBorderBrush}"
+                                CornerRadius="2" />
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ThumbSurface" Property="Background" Value="{DynamicResource ZenithAccentBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsDragging" Value="True">
+                                <Setter TargetName="ThumbSurface" Property="Background" Value="{DynamicResource ZenithAccentHoverBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="SlimVerticalScrollBarStyle" TargetType="{x:Type ScrollBar}">
+            <Setter Property="Width" Value="8" />
+            <Setter Property="Margin" Value="2,0,0,0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Opacity" Value="0" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type ScrollBar}">
+                        <Track x:Name="PART_Track"
+                               IsDirectionReversed="True"
+                               Orientation="Vertical">
+                            <Track.DecreaseRepeatButton>
+                                <RepeatButton Command="{x:Static ScrollBar.PageUpCommand}"
+                                              Focusable="False"
+                                              Opacity="0" />
+                            </Track.DecreaseRepeatButton>
+                            <Track.Thumb>
+                                <Thumb Style="{StaticResource SlimScrollThumbStyle}" />
+                            </Track.Thumb>
+                            <Track.IncreaseRepeatButton>
+                                <RepeatButton Command="{x:Static ScrollBar.PageDownCommand}"
+                                              Focusable="False"
+                                              Opacity="0" />
+                            </Track.IncreaseRepeatButton>
+                        </Track>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
 
         <Style x:Key="PrimaryButtonStyle" TargetType="{x:Type Button}">
@@ -91,9 +201,7 @@
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
                                 CornerRadius="10">
-                            <ContentPresenter HorizontalAlignment="Center"
-                                              VerticalAlignment="Center"
-                                              RecognizesAccessKey="True" />
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
@@ -110,284 +218,287 @@
                 </Setter.Value>
             </Setter>
         </Style>
-
-        <Style x:Key="TextLinkButtonStyle" TargetType="{x:Type Button}">
-            <Setter Property="MinHeight" Value="40" />
-            <Setter Property="Padding" Value="10,0" />
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderBrush" Value="Transparent" />
-            <Setter Property="BorderThickness" Value="2" />
-            <Setter Property="Foreground" Value="{DynamicResource ZenithAccentBrush}" />
-            <Setter Property="FontSize" Value="13" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="{x:Type Button}">
-                        <Border x:Name="ButtonBorder"
-                                Padding="{TemplateBinding Padding}"
-                                Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="9">
-                            <ContentPresenter HorizontalAlignment="Center"
-                                              VerticalAlignment="Center"
-                                              RecognizesAccessKey="True" />
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="ButtonBorder" Property="Background" Value="{DynamicResource ZenithHoverBrush}" />
-                                <Setter Property="Foreground" Value="{DynamicResource ZenithHighlightForegroundBrush}" />
-                            </Trigger>
-                            <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="ButtonBorder" Property="Background" Value="{DynamicResource ZenithRaisedSurfaceBrush}" />
-                            </Trigger>
-                            <Trigger Property="IsKeyboardFocused" Value="True">
-                                <Setter TargetName="ButtonBorder" Property="BorderBrush" Value="{DynamicResource ZenithFocusBrush}" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
     </Window.Resources>
 
     <Grid Background="{DynamicResource ZenithWindowBrush}">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
-            <RowDefinition Height="Auto" />
-        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition x:Name="SidebarColumn" Width="248" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
 
-        <Border Grid.Row="0"
-                Padding="14,10"
+        <Border x:Name="Sidebar"
+                Grid.Column="0"
+                Padding="12,14,12,12"
                 Background="{DynamicResource ZenithChromeBrush}"
                 BorderBrush="{DynamicResource ZenithBorderBrush}"
-                BorderThickness="0,0,0,1">
+                BorderThickness="0,0,1,0">
             <Grid>
-                <StackPanel HorizontalAlignment="Left" Orientation="Horizontal">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <Grid Grid.Row="0" Height="38" Margin="0,0,0,10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
                     <Button x:Name="HomeButton"
-                            Style="{StaticResource BrandButtonStyle}"
-                            Margin="0,0,10,0"
-                            FontFamily="Segoe UI"
+                            Grid.Column="0"
+                            Style="{StaticResource SidebarTextButtonStyle}"
+                            Width="38"
+                            Padding="0"
+                            HorizontalContentAlignment="Center"
                             FontSize="17"
                             FontWeight="Bold"
+                            Foreground="{DynamicResource ZenithAccentBrush}"
                             Content="Z"
-                            ToolTip="Sphere"
+                            ToolTip="Your Sphere"
                             AutomationProperties.Name="Go to your Sphere"
                             Click="HomeButton_OnClick" />
+                    <Button x:Name="CollapseSidebarButton"
+                            Grid.Column="1"
+                            Style="{StaticResource SidebarIconButtonStyle}"
+                            Margin="0"
+                            Content="&#xE76B;"
+                            ToolTip="Collapse sidebar"
+                            AutomationProperties.Name="Collapse sidebar"
+                            Click="CollapseSidebarButton_OnClick" />
+                </Grid>
+
+                <StackPanel x:Name="NavigationButtonsPanel"
+                            Grid.Row="1"
+                            Margin="0,0,0,12"
+                            Orientation="Horizontal">
                     <Button x:Name="BackButton"
-                            Style="{StaticResource ToolbarIconButtonStyle}"
+                            Style="{StaticResource SidebarIconButtonStyle}"
                             Content="&#xE72B;"
                             IsEnabled="False"
                             ToolTip="Back (Alt+Left)"
                             AutomationProperties.Name="Back"
                             Click="BackButton_OnClick" />
                     <Button x:Name="ForwardButton"
-                            Style="{StaticResource ToolbarIconButtonStyle}"
+                            Style="{StaticResource SidebarIconButtonStyle}"
                             Content="&#xE72A;"
                             IsEnabled="False"
                             ToolTip="Forward (Alt+Right)"
                             AutomationProperties.Name="Forward"
                             Click="ForwardButton_OnClick" />
                     <Button x:Name="ReloadButton"
-                            Style="{StaticResource ToolbarIconButtonStyle}"
+                            Style="{StaticResource SidebarIconButtonStyle}"
                             Content="&#xE72C;"
                             IsEnabled="False"
                             ToolTip="Reload (F5)"
                             AutomationProperties.Name="Reload"
                             Click="ReloadButton_OnClick" />
+                    <Button x:Name="BookmarkButton"
+                            Style="{StaticResource SidebarIconButtonStyle}"
+                            Content="&#xE734;"
+                            IsEnabled="False"
+                            ToolTip="Bookmark this page (Ctrl+D)"
+                            AutomationProperties.Name="Bookmark this page"
+                            Click="BookmarkButton_OnClick" />
                 </StackPanel>
 
-                <Border Width="344"
-                        Height="42"
-                        Padding="14,0"
-                        HorizontalAlignment="Center"
-                        Background="{DynamicResource ZenithSurfaceBrush}"
-                        BorderThickness="2"
-                        CornerRadius="11">
-                    <Border.Style>
-                        <Style TargetType="{x:Type Border}">
-                            <Setter Property="BorderBrush" Value="{DynamicResource ZenithBorderBrush}" />
-                            <Style.Triggers>
-                                <Trigger Property="IsKeyboardFocusWithin" Value="True">
-                                    <Setter Property="BorderBrush" Value="{DynamicResource ZenithFocusBrush}" />
-                                </Trigger>
-                            </Style.Triggers>
-                        </Style>
-                    </Border.Style>
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0"
-                                   Margin="0,0,11,0"
-                                   VerticalAlignment="Center"
-                                   FontFamily="Segoe MDL2 Assets"
-                                   FontSize="14"
-                                   Foreground="{DynamicResource ZenithAccentBrush}"
-                                   Text="&#xE721;" />
-                        <TextBox x:Name="SphereSearchTextBox"
-                                 Grid.Column="1"
-                                 VerticalContentAlignment="Center"
-                                 Background="Transparent"
-                                 BorderThickness="0"
-                                 CaretBrush="{DynamicResource ZenithTextBrush}"
-                                 FontSize="14"
-                                 Foreground="{DynamicResource ZenithTextBrush}"
-                                 SelectionBrush="{DynamicResource ZenithAccentPressedBrush}"
-                                 AutomationProperties.Name="Find in your Sphere"
-                                 TextChanged="SphereSearchTextBox_OnTextChanged"
-                                 KeyDown="SphereSearchTextBox_OnKeyDown" />
-                        <TextBlock x:Name="SphereSearchPlaceholder"
-                                   Grid.Column="1"
-                                   VerticalAlignment="Center"
+                <Grid Grid.Row="2" Margin="0,0,0,18">
+                    <Border x:Name="SphereSearchContainer"
+                            Height="40"
+                            Padding="11,0"
+                            Background="{DynamicResource ZenithSurfaceBrush}"
+                            BorderBrush="{DynamicResource ZenithBorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="10">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0"
+                                       Margin="0,0,9,0"
+                                       VerticalAlignment="Center"
+                                       FontFamily="Segoe MDL2 Assets"
+                                       FontSize="13"
+                                       Foreground="{DynamicResource ZenithAccentBrush}"
+                                       Text="&#xE721;" />
+                            <TextBox x:Name="SphereSearchTextBox"
+                                     Grid.Column="1"
+                                     VerticalContentAlignment="Center"
+                                     Background="Transparent"
+                                     BorderThickness="0"
+                                     CaretBrush="{DynamicResource ZenithTextBrush}"
+                                     FontSize="13"
+                                     Foreground="{DynamicResource ZenithTextBrush}"
+                                     SelectionBrush="{DynamicResource ZenithAccentPressedBrush}"
+                                     AutomationProperties.Name="Find in your Sphere"
+                                     TextChanged="SphereSearchTextBox_OnTextChanged"
+                                     GotKeyboardFocus="SphereSearchTextBox_OnGotKeyboardFocus"
+                                     KeyDown="SphereSearchTextBox_OnKeyDown" />
+                            <TextBlock x:Name="SphereSearchPlaceholder"
+                                       Grid.Column="1"
+                                       VerticalAlignment="Center"
+                                       IsHitTestVisible="False"
+                                       FontSize="13"
+                                       Foreground="{DynamicResource ZenithMutedTextBrush}"
+                                       Text="Find in your Sphere" />
+                        </Grid>
+                    </Border>
+                    <Button x:Name="CollapsedSearchButton"
+                            Style="{StaticResource SidebarIconButtonStyle}"
+                            Margin="0"
+                            HorizontalAlignment="Center"
+                            Content="&#xE721;"
+                            ToolTip="Find in your Sphere (Ctrl+K)"
+                            AutomationProperties.Name="Find in your Sphere"
+                            Visibility="Collapsed"
+                            Click="CollapsedSearchButton_OnClick" />
+                    <Popup x:Name="SphereResultsPopup"
+                           PlacementTarget="{Binding ElementName=SphereSearchContainer}"
+                           Placement="Bottom"
+                           VerticalOffset="6"
+                           AllowsTransparency="True"
+                           PopupAnimation="Fade"
+                           StaysOpen="True">
+                        <Border Width="224"
+                                Padding="8"
+                                Background="{DynamicResource ZenithChromeBrush}"
+                                BorderBrush="{DynamicResource ZenithInteractiveBorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="12">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+                                <TextBlock x:Name="SphereResultsHeadingTextBlock"
+                                           Margin="8,5,8,8"
+                                           FontSize="12"
+                                           FontWeight="SemiBold"
+                                           Foreground="{DynamicResource ZenithTextBrush}"
+                                           Text="Your Sphere" />
+                                <ScrollViewer Grid.Row="1"
+                                              MaxHeight="380"
+                                              HorizontalScrollBarVisibility="Disabled"
+                                              VerticalScrollBarVisibility="Auto">
+                                    <StackPanel x:Name="SphereResultsPanel" />
+                                </ScrollViewer>
+                                <TextBlock Grid.Row="2"
+                                           Margin="8,8,8,4"
+                                           FontSize="10"
+                                           Foreground="{DynamicResource ZenithSubtleTextBrush}"
+                                           Text="Select a place to open it · star to save" />
+                            </Grid>
+                        </Border>
+                    </Popup>
+                </Grid>
+
+                <StackPanel Grid.Row="3" Margin="0,0,0,12">
+                    <TextBlock x:Name="BookmarksSectionLabel"
+                               Margin="8,0,0,8"
+                               FontSize="11"
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource ZenithSubtleTextBrush}"
+                               Text="BOOKMARKS" />
+                    <Grid MaxHeight="140">
+                        <ScrollViewer x:Name="BookmarkScrollViewer"
+                                      HorizontalScrollBarVisibility="Disabled"
+                                      VerticalScrollBarVisibility="Hidden"
+                                      PreviewMouseWheel="BookmarkScrollViewer_OnPreviewMouseWheel"
+                                      ScrollChanged="BookmarkScrollViewer_OnScrollChanged">
+                            <UniformGrid x:Name="BookmarkGrid" Columns="3">
+                                <Button x:Name="AddBookmarkButton"
+                                        Style="{StaticResource BookmarkIconButtonStyle}"
+                                        Content="+"
+                                        ToolTip="Add a bookmark"
+                                        AutomationProperties.Name="Add a bookmark"
+                                        Click="AddBookmarkButton_OnClick" />
+                            </UniformGrid>
+                        </ScrollViewer>
+                        <ScrollBar x:Name="BookmarkOverlayScrollBar"
+                                   Style="{StaticResource SlimVerticalScrollBarStyle}"
+                                   HorizontalAlignment="Right"
+                                   VerticalAlignment="Stretch"
+                                   Orientation="Vertical"
+                                   Visibility="Collapsed"
                                    IsHitTestVisible="False"
-                                   FontSize="14"
-                                   Foreground="{DynamicResource ZenithMutedTextBrush}"
-                                   Text="Find in your Sphere" />
+                                   ValueChanged="BookmarkOverlayScrollBar_OnValueChanged" />
+                    </Grid>
+                </StackPanel>
+
+                <Border x:Name="TabsRow" Grid.Row="4" MinHeight="0" Margin="4,0,4,8" BorderBrush="{DynamicResource ZenithBorderBrush}" BorderThickness="0,1,0,0">
+                    <Grid Margin="0,14,0,0">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <TextBlock x:Name="TabsSectionLabel"
+                                   Margin="8,0,0,8"
+                                   FontSize="11"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource ZenithSubtleTextBrush}"
+                                   Text="OPEN TABS" />
+                        <ScrollViewer Grid.Row="1"
+                                      MaxHeight="280"
+                                      HorizontalScrollBarVisibility="Disabled"
+                                      VerticalScrollBarVisibility="Auto">
+                            <StackPanel x:Name="OpenTabsPanel" />
+                        </ScrollViewer>
+                        <Button x:Name="NewTabButton"
+                                Grid.Row="2"
+                                Style="{StaticResource SidebarTextButtonStyle}"
+                                Margin="0,4,0,0"
+                                AutomationProperties.Name="New tab"
+                                Click="NewTabButton_OnClick">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock x:Name="NewTabIcon" Width="22" Margin="0,0,9,0" HorizontalAlignment="Center" FontSize="20" Foreground="{DynamicResource ZenithMutedTextBrush}" Text="+" />
+                                <TextBlock x:Name="NewTabText" VerticalAlignment="Center" Text="New tab" />
+                            </StackPanel>
+                        </Button>
                     </Grid>
                 </Border>
 
                 <Button x:Name="SettingsButton"
-                        Style="{StaticResource ToolbarIconButtonStyle}"
-                        Margin="0"
-                        HorizontalAlignment="Right"
-                        Content="&#xE713;"
-                        ToolTip="Settings"
-                        AutomationProperties.Name="Settings"
-                        Click="SettingsButton_OnClick" />
+                        Grid.Row="5"
+                        Style="{StaticResource SidebarTextButtonStyle}"
+                        AutomationProperties.Name="Settings and application menu"
+                        ToolTip="Settings and application menu"
+                        Click="OpenSettingsMenu_OnClick">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock x:Name="SettingsButtonIcon" Width="22" Margin="0,0,9,0" HorizontalAlignment="Center" FontFamily="Segoe MDL2 Assets" FontSize="14" Text="&#xE713;" />
+                        <TextBlock x:Name="SettingsButtonText" VerticalAlignment="Center" Text="Settings" />
+                    </StackPanel>
+                    <Button.ContextMenu>
+                        <ContextMenu>
+                            <MenuItem Header="Settings" Click="SettingsMenuItem_OnClick" />
+                            <MenuItem Header="Bookmarks" Click="BookmarksMenuItem_OnClick" />
+                            <MenuItem Header="Vault" ToolTip="The Vault is not available yet" Click="VaultMenuItem_OnClick" />
+                            <Separator />
+                            <MenuItem Header="About Zenith" Click="AboutMenuItem_OnClick" />
+                        </ContextMenu>
+                    </Button.ContextMenu>
+                </Button>
             </Grid>
         </Border>
 
-        <Grid Grid.Row="1" Background="{DynamicResource ZenithWindowBrush}">
-            <wv2:WebView2 x:Name="Browser" Visibility="Collapsed" />
+        <Grid Grid.Column="1" Background="{DynamicResource ZenithAmbientBrush}">
+            <Grid x:Name="BrowserHost">
+                <wv2:WebView2 x:Name="Browser" Visibility="Collapsed" />
+            </Grid>
 
-            <ScrollViewer x:Name="StartSurface"
-                          HorizontalScrollBarVisibility="Disabled"
-                          VerticalScrollBarVisibility="Auto"
-                          HorizontalContentAlignment="Stretch">
-                <Grid MaxWidth="980" Margin="48,48,48,38">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
-
-                    <StackPanel Grid.Row="0">
-                        <TextBlock FontSize="12"
-                                   FontWeight="SemiBold"
-                                   Foreground="{DynamicResource ZenithAccentBrush}"
-                                   Text="ZENITH" />
-                        <TextBlock Margin="0,8,0,0"
-                                   FontSize="46"
-                                   FontWeight="SemiBold"
-                                   Foreground="{DynamicResource ZenithTextBrush}"
-                                   Text="Sphere" />
-                        <TextBlock Margin="0,8,0,0"
-                                   FontSize="17"
-                                   Foreground="{DynamicResource ZenithMutedTextBrush}"
-                                   Text="Everything you chose, close at hand." />
-                    </StackPanel>
-
-                    <Grid Grid.Row="1" Margin="0,36,0,0">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="5*" />
-                            <ColumnDefinition Width="20" />
-                            <ColumnDefinition Width="3*" />
-                        </Grid.ColumnDefinitions>
-
-                        <Border Grid.Column="0"
-                                Padding="26"
-                                Background="{DynamicResource ZenithSurfaceBrush}"
-                                BorderBrush="{DynamicResource ZenithBorderBrush}"
-                                BorderThickness="1"
-                                CornerRadius="16">
-                            <Grid>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="Auto" />
-                                </Grid.RowDefinitions>
-                                <DockPanel Grid.Row="0" LastChildFill="True">
-                                    <Button x:Name="AllSitesButton"
-                                            DockPanel.Dock="Right"
-                                            Style="{StaticResource TextLinkButtonStyle}"
-                                            Content="All sites  →"
-                                            AutomationProperties.Name="Show all sites in your Sphere"
-                                            Click="AllSitesButton_OnClick" />
-                                    <TextBlock VerticalAlignment="Center"
-                                               FontSize="18"
-                                               FontWeight="SemiBold"
-                                               Text="Pinned" />
-                                </DockPanel>
-
-                                <Border Grid.Row="1"
-                                        MinHeight="174"
-                                        Margin="0,18,0,0"
-                                        Padding="24"
-                                        Background="{DynamicResource ZenithRaisedSurfaceBrush}"
-                                        BorderBrush="{DynamicResource ZenithBorderBrush}"
-                                        BorderThickness="1"
-                                        CornerRadius="13">
-                                    <StackPanel VerticalAlignment="Center">
-                                        <TextBlock FontFamily="Segoe MDL2 Assets"
-                                                   FontSize="19"
-                                                   Foreground="{DynamicResource ZenithAccentBrush}"
-                                                   Text="&#xE734;" />
-                                        <TextBlock Margin="0,16,0,0"
-                                                   FontSize="16"
-                                                   FontWeight="SemiBold"
-                                                   Text="Your Sphere is quiet for now" />
-                                        <TextBlock MaxWidth="460"
-                                                   Margin="0,7,0,0"
-                                                   TextWrapping="Wrap"
-                                                   LineHeight="21"
-                                                   Foreground="{DynamicResource ZenithMutedTextBrush}"
-                                                   Text="Sites in your Sphere will gather here. Pinned sites stay close; everything else remains easy to find." />
-                                    </StackPanel>
-                                </Border>
-                            </Grid>
-                        </Border>
-
-                        <Border Grid.Column="2"
-                                Padding="26"
-                                Background="{DynamicResource ZenithSurfaceBrush}"
-                                BorderBrush="{DynamicResource ZenithBorderBrush}"
-                                BorderThickness="1"
-                                CornerRadius="16">
-                            <StackPanel>
-                                <TextBlock FontSize="18"
-                                           FontWeight="SemiBold"
-                                           Text="Collections" />
-                                <Border MinHeight="174"
-                                        Margin="0,18,0,0"
-                                        Padding="24"
-                                        Background="{DynamicResource ZenithRaisedSurfaceBrush}"
-                                        BorderBrush="{DynamicResource ZenithBorderBrush}"
-                                        BorderThickness="1"
-                                        CornerRadius="13">
-                                    <StackPanel VerticalAlignment="Center">
-                                        <TextBlock FontFamily="Segoe MDL2 Assets"
-                                                   FontSize="19"
-                                                   Foreground="{DynamicResource ZenithAccentBrush}"
-                                                   Text="&#xE8B7;" />
-                                        <TextBlock Margin="0,16,0,0"
-                                                   FontSize="15"
-                                                   FontWeight="SemiBold"
-                                                   Text="Make room for what matters" />
-                                        <TextBlock Margin="0,7,0,0"
-                                                   TextWrapping="Wrap"
-                                                   LineHeight="21"
-                                                   Foreground="{DynamicResource ZenithMutedTextBrush}"
-                                                   Text="Collections will keep a growing Sphere calm and easy to explore." />
-                                    </StackPanel>
-                                </Border>
-                            </StackPanel>
-                        </Border>
-                    </Grid>
-
-                </Grid>
-            </ScrollViewer>
+            <Grid x:Name="StartSurface" Background="{DynamicResource ZenithAmbientBrush}">
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="32">
+                    <Border Width="72" Height="72" HorizontalAlignment="Center" Background="{DynamicResource ZenithSurfaceBrush}" BorderBrush="{DynamicResource ZenithBorderBrush}" BorderThickness="1" CornerRadius="24">
+                        <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="30" FontWeight="SemiBold" Foreground="{DynamicResource ZenithAccentBrush}" Text="Z" />
+                    </Border>
+                    <TextBlock Margin="0,24,0,0" HorizontalAlignment="Center" FontSize="28" FontWeight="SemiBold" Text="Your Sphere" />
+                    <TextBlock Margin="0,8,0,0" HorizontalAlignment="Center" FontSize="15" Foreground="{DynamicResource ZenithMutedTextBrush}" Text="A calm place to begin." />
+                </StackPanel>
+            </Grid>
 
             <Grid x:Name="BoundarySurface"
                   Background="{DynamicResource ZenithWindowBrush}"
@@ -406,94 +517,49 @@
                             BorderBrush="{DynamicResource ZenithBorderBrush}"
                             BorderThickness="1"
                             CornerRadius="18">
-                    <StackPanel>
-                        <Border Width="46"
-                                Height="46"
-                                HorizontalAlignment="Left"
-                                Background="{DynamicResource ZenithRaisedSurfaceBrush}"
-                                CornerRadius="14">
-                            <TextBlock HorizontalAlignment="Center"
-                                       VerticalAlignment="Center"
-                                       FontFamily="Segoe MDL2 Assets"
-                                       FontSize="18"
-                                       Foreground="{DynamicResource ZenithAccentBrush}"
-                                       Text="&#xE946;" />
-                        </Border>
-                        <TextBlock x:Name="BoundaryHeadingTextBlock"
-                                   Margin="0,22,0,0"
-                                   FontSize="28"
-                                   FontWeight="SemiBold"
-                                   Text="This destination isn’t available" />
-                        <TextBlock x:Name="BoundaryExplanationTextBlock"
-                                   Margin="0,12,0,0"
-                                   TextWrapping="Wrap"
-                                   LineHeight="23"
-                                   FontSize="15"
-                                   Foreground="{DynamicResource ZenithMutedTextBrush}" />
-
-                        <Border Margin="0,24,0,0"
-                                Padding="16,13"
-                                Background="{DynamicResource ZenithRaisedSurfaceBrush}"
-                                BorderBrush="{DynamicResource ZenithBorderBrush}"
-                                BorderThickness="1"
-                                CornerRadius="10">
-                            <StackPanel>
-                                <TextBlock FontSize="11"
-                                           FontWeight="SemiBold"
-                                           Foreground="{DynamicResource ZenithSubtleTextBrush}"
-                                           Text="REQUESTED ADDRESS" />
-                                <TextBlock x:Name="BoundaryTargetTextBlock"
-                                           Margin="0,5,0,0"
-                                           FontSize="13"
-                                           Foreground="{DynamicResource ZenithTextBrush}"
-                                           TextTrimming="CharacterEllipsis" />
-                            </StackPanel>
-                        </Border>
-
-                        <WrapPanel Margin="0,28,0,0" Orientation="Horizontal">
-                            <Button x:Name="ReturnToSphereButton"
-                                    Style="{StaticResource PrimaryButtonStyle}"
-                                    Content="Return to your Sphere"
-                                    AutomationProperties.Name="Return to your Sphere"
-                                    Click="ReturnToSphereButton_OnClick" />
-                        </WrapPanel>
-                    </StackPanel>
+                        <StackPanel>
+                            <Border Width="46" Height="46" HorizontalAlignment="Left" Background="{DynamicResource ZenithRaisedSurfaceBrush}" CornerRadius="14">
+                                <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" FontFamily="Segoe MDL2 Assets" FontSize="18" Foreground="{DynamicResource ZenithAccentBrush}" Text="&#xE946;" />
+                            </Border>
+                            <TextBlock x:Name="BoundaryHeadingTextBlock" Margin="0,22,0,0" FontSize="28" FontWeight="SemiBold" Text="This destination is not available" />
+                            <TextBlock x:Name="BoundaryExplanationTextBlock" Margin="0,12,0,0" TextWrapping="Wrap" LineHeight="23" FontSize="15" Foreground="{DynamicResource ZenithMutedTextBrush}" />
+                            <Border Margin="0,24,0,0" Padding="16,13" Background="{DynamicResource ZenithRaisedSurfaceBrush}" BorderBrush="{DynamicResource ZenithBorderBrush}" BorderThickness="1" CornerRadius="10">
+                                <StackPanel>
+                                    <TextBlock FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource ZenithSubtleTextBrush}" Text="REQUESTED ADDRESS" />
+                                    <TextBlock x:Name="BoundaryTargetTextBlock" Margin="0,5,0,0" FontSize="13" Foreground="{DynamicResource ZenithTextBrush}" TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                            </Border>
+                            <WrapPanel Margin="0,28,0,0" Orientation="Horizontal">
+                                <Button x:Name="ReturnToSphereButton" Style="{StaticResource PrimaryButtonStyle}" Content="Return to your Sphere" AutomationProperties.Name="Return to your Sphere" Click="ReturnToSphereButton_OnClick" />
+                            </WrapPanel>
+                        </StackPanel>
                     </Border>
                 </ScrollViewer>
             </Grid>
-        </Grid>
 
-        <Border x:Name="NoticeBar"
-                Grid.Row="2"
-                Margin="18,10,18,16"
-                Padding="14,10,8,10"
-                Background="{DynamicResource ZenithRaisedSurfaceBrush}"
-                BorderBrush="{DynamicResource ZenithInteractiveBorderBrush}"
-                BorderThickness="1"
-                CornerRadius="11"
-                Visibility="Collapsed">
-            <DockPanel LastChildFill="True">
-                <Button DockPanel.Dock="Right"
-                        Style="{StaticResource ToolbarIconButtonStyle}"
-                        Width="38"
-                        Height="38"
-                        Margin="12,0,0,0"
-                        Content="&#xE711;"
-                        ToolTip="Dismiss"
-                        AutomationProperties.Name="Dismiss message"
-                        Click="DismissNoticeButton_OnClick" />
-                <Ellipse DockPanel.Dock="Left"
-                         Width="7"
-                         Height="7"
-                         Margin="2,0,12,0"
-                         VerticalAlignment="Center"
-                         Fill="{DynamicResource ZenithAccentBrush}" />
-                <TextBlock x:Name="NoticeTextBlock"
-                           VerticalAlignment="Center"
-                           TextWrapping="Wrap"
-                           Foreground="{DynamicResource ZenithMutedTextBrush}"
-                           AutomationProperties.LiveSetting="Polite" />
-            </DockPanel>
-        </Border>
+            <Border x:Name="NoticeBar"
+                    Margin="18"
+                    Padding="14,10,8,10"
+                    VerticalAlignment="Bottom"
+                    Background="{DynamicResource ZenithRaisedSurfaceBrush}"
+                    BorderBrush="{DynamicResource ZenithInteractiveBorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="11"
+                    Visibility="Collapsed">
+                <DockPanel LastChildFill="True">
+                    <Button DockPanel.Dock="Right"
+                            Style="{StaticResource SidebarIconButtonStyle}"
+                            Width="34"
+                            Height="34"
+                            Margin="12,0,0,0"
+                            Content="&#xE711;"
+                            ToolTip="Dismiss"
+                            AutomationProperties.Name="Dismiss message"
+                            Click="DismissNoticeButton_OnClick" />
+                    <Ellipse DockPanel.Dock="Left" Width="7" Height="7" Margin="2,0,12,0" VerticalAlignment="Center" Fill="{DynamicResource ZenithAccentBrush}" />
+                    <TextBlock x:Name="NoticeTextBlock" VerticalAlignment="Center" TextWrapping="Wrap" Foreground="{DynamicResource ZenithMutedTextBrush}" AutomationProperties.LiveSetting="Polite" />
+                </DockPanel>
+            </Border>
+        </Grid>
     </Grid>
 </Window>

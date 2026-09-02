@@ -18,11 +18,18 @@ The roadmap describes development order, not deadlines. Each phase should end wi
 - Establish the fixed midnight visual system through semantic resources, including a Windows High Contrast override.
 - Align the shell hierarchy and start surface with the product-experience principles.
 
-## Phase 2: Site Policy (Next)
+## Phase 2: Site Policy (In progress)
+
+The current development checkpoint uses an immutable starter Whitelist so browser mechanics can be exercised against real sites while the durable Vault-backed policy is designed. It is deliberately temporary and is not a substitute for the final policy model.
+
+- Starter sites: GitHub, ChatGPT, OpenAI, YouTube, Wikipedia, Reddit, Microsoft Learn, Google, Stack Overflow, GitLab, MDN Web Docs and Internet Archive.
+- Only HTTP(S) targets whose hostname exactly matches a starter site or is a subdomain are allowed.
+- Tabs and bookmarks do not expand the starter Whitelist; every opened target still goes through the Core evaluator.
+- Canonical hostname identity and URI normalization are implemented in Core, including explicit subdomain scope and deceptive-host tests.
+- Focusing "Find in your Sphere" exposes a stable filterable directory of all starter sites and currently permitted bookmarks. Bookmark stars can add or remove entries directly, and saved bookmarks become sidebar shortcuts.
 
 - Define and enforce the rendered-page lifecycle when a native Sphere surface replaces WebView2, so hidden content cannot remain active unintentionally.
 - Define current-site identity and decide whether a secondary direct-address entry point is needed before permitted pages are rendered.
-- Implement URI normalization and site identity.
 - Implement Whitelist, Blacklist and Greylist classification.
 - Deny unclassified navigation by default.
 - Add policy-decision explanations and Core tests.

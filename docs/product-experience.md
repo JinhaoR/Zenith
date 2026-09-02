@@ -54,7 +54,7 @@ The start surface should help the user move within their Sphere. It should not a
 It should use progressive layers:
 
 1. **Continue and frequent destinations** - a small set of recently or commonly used sites.
-2. **Pinned destinations** - stable user-chosen shortcuts that are never replaced by automatic ranking.
+2. **Bookmarks** - stable user-chosen shortcuts, shown compactly in the sidebar and never replaced by automatic ranking.
 3. **Collections** - user-meaningful groups such as Research, Work, Reference, Communication or Reading.
 4. **Find in your Sphere** - search across accessible sites, collections, bookmarks and appropriate local history.
 5. **All sites** - a searchable and browsable directory for the long tail of the Sphere.
@@ -65,7 +65,7 @@ Collections and frequency are presentation concepts only. They must never create
 
 Ordinary discovery and ranking should include only currently Whitelisted destinations: the destinations that currently make up the Sphere. An Access Grant or a past Greylist visit must not cause a destination to appear among frequent sites, collections or ordinary suggestions.
 
-The start surface should continue to work when there is little or no history. Pinned destinations, collections and the full directory provide stable navigation independent of behavioral inference.
+The start surface should continue to work when there is little or no history. Bookmarks, collections and the full directory provide stable navigation independent of behavioral inference.
 
 ---
 
@@ -76,7 +76,6 @@ Zenith needs a first-class way to navigate a large Sphere without making raw URL
 The primary find experience should search the user's Sphere first. Results may include:
 
 - Accessible sites.
-- Pinned destinations.
 - Collections.
 - Bookmarks.
 - Previously visited pages where local history is enabled.
@@ -207,7 +206,7 @@ Phase 1 establishes a single default midnight-blue theme because visual hierarch
 
 Views should consume semantic color resources rather than hardcoded theme colors. Windows High Contrast is an accessibility override and should replace the fixed palette when active.
 
-A theme picker, light palette, persistence and normal system light/dark synchronization are deliberately deferred until a later usability and product-readiness pass. The native Windows frame should remain intact; custom window chrome is not justified merely to recolor the title bar.
+A theme picker, light palette, persistence and normal system light/dark synchronization are deliberately deferred until a later usability and product-readiness pass. The native Windows frame remains intact; where Windows supports it, the native DWM caption color follows Zenith's semantic chrome palette without replacing the frame.
 
 ---
 
@@ -232,11 +231,14 @@ An interface change is consistent with Zenith only if all of the following remai
 The completed Phase 1 shell establishes the first concrete expression of this experience:
 
 - A Sphere-first start surface replaces the previous lock-focused explanation.
-- The top bar contains one centered "Find in your Sphere" field; the start surface does not duplicate it.
-- Raw address entry and `Ctrl+L` are intentionally absent from the current shell.
+- The shell uses an approximately 248 px open sidebar, collapsing to approximately 64 px, for navigation and wayfinding.
+- The sidebar contains the single "Find in your Sphere" field, bookmark shortcuts, open tabs and the application menu; the start surface does not duplicate it.
+- The main browser surface fills the remaining window. When it is empty, it uses Zenith's ambient background rather than homepage cards or widgets.
+- There is no separate permanent address bar in the shell; the Sphere field accepts a typed URL only when the Core policy allows it, and `Ctrl+L` focuses that field.
 - Ordinary chrome contains no permanent classification or policy-warning status.
+- The Vault is reached through the application menu rather than a permanent browser control.
 - An intentional unavailable navigation opens a calm native boundary with returning to the Sphere as the primary action.
 - A fixed midnight visual system is expressed through semantic resources and yields to Windows High Contrast.
 - The WebView2 host and every implemented navigation origin remain behind the centralized fail-closed coordinator.
 
-Site Policy, populated Sphere discovery, the Greylist procedure and the Vault are later phases. Their interfaces must extend this baseline without changing its hierarchy or moving policy decisions into App.
+Phase 2 extends this baseline with a filterable directory beneath "Find in your Sphere." Focusing the field reveals all currently accessible starter sites and permitted bookmarks; typing narrows the list, and bookmark stars manage ordinary saved destinations without changing Site Policy. Saved bookmarks immediately become sidebar shortcuts. Removing a bookmark is consistently expressed by de-starring it from the current page or Sphere directory rather than by a separate shortcut-close action. Durable Site Policy, collections, history ranking, the Greylist procedure and the Vault remain later work. Their interfaces must extend this baseline without changing its hierarchy or moving policy decisions into App.

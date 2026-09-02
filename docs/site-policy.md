@@ -4,6 +4,12 @@
 
 This document defines how Zenith classifies sites, evaluates navigation, issues Access Grants and applies Policy Changes.
 
+## 1.1 Development Starter Policy
+
+Until the durable Vault-backed policy is implemented, the development application uses an immutable starter Whitelist for browser-mechanics testing. It includes GitHub, ChatGPT, OpenAI, YouTube, Wikipedia, Reddit, Microsoft Learn, Google, Stack Overflow, GitLab, MDN Web Docs and Internet Archive.
+
+The starter evaluator accepts only HTTP(S) targets whose normalized hostname exactly matches one of those entries or ends with `.` followed by one of those entries. Lookalike hosts, other schemes and all other hosts remain denied. This temporary Whitelist does not define the final persisted policy and must be replaced by the Vault-backed evaluator before release.
+
 ## 2. Classification
 
 Every site resolves to exactly one effective class:
@@ -18,13 +24,16 @@ Site matching must use normalized URIs and structured host comparison. Substring
 
 ## Site Identity
 
-Defines the unit that receives an Access Class.
+The unit that receives an Access Class is a normalized hostname.
 
-Examples:
-- registrable domain
-- hostname
-- origin
-- URL path
+- Only absolute HTTP and HTTPS navigation targets are eligible for Site Policy evaluation.
+- DNS hostnames are represented in lowercase ASCII IDN form with any trailing dot removed.
+- IP addresses are canonicalized and match only exactly.
+- URL credentials are rejected rather than normalized.
+- Scheme, port, path, query and fragment remain part of the requested navigation target but do not change site identity.
+- A policy entry must state whether it includes subdomains. Subdomains are matched only at DNS-label boundaries.
+
+For example, `www.github.com` is a subdomain of `github.com`, while `notgithub.com` and `github.com.evil.example` are unrelated identities. The development starter entries currently include their subdomains. The durable policy must preserve this scope explicitly rather than inferring it from interface behavior.
 
 ## 3. Navigation Evaluation
 

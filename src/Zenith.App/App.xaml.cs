@@ -12,6 +12,7 @@ public partial class App : Application
     [
         "ZenithWindowBrush",
         "ZenithChromeBrush",
+        "ZenithAmbientBrush",
         "ZenithSurfaceBrush",
         "ZenithRaisedSurfaceBrush",
         "ZenithHoverBrush",
@@ -39,7 +40,7 @@ public partial class App : Application
         SystemParameters.StaticPropertyChanged += SystemParameters_OnStaticPropertyChanged;
         ApplyAccessibilityPalette();
 
-        var policyEvaluator = new UnavailableNavigationPolicyEvaluator();
+        var policyEvaluator = new StarterWhitelistNavigationPolicyEvaluator();
         var navigationCoordinator = new NavigationCoordinator(policyEvaluator);
         var mainWindow = new MainWindow(navigationCoordinator);
 
@@ -87,6 +88,7 @@ public partial class App : Application
 
         SetHighContrastBrush("ZenithWindowBrush", SystemColors.WindowBrush);
         SetHighContrastBrush("ZenithChromeBrush", SystemColors.WindowBrush);
+        SetHighContrastBrush("ZenithAmbientBrush", SystemColors.WindowBrush);
         SetHighContrastBrush("ZenithSurfaceBrush", SystemColors.ControlBrush);
         SetHighContrastBrush("ZenithRaisedSurfaceBrush", SystemColors.ControlBrush);
         SetHighContrastBrush("ZenithHoverBrush", SystemColors.HighlightBrush);
@@ -113,6 +115,7 @@ public partial class App : Application
         if (MainWindow is MainWindow mainWindow)
         {
             mainWindow.UpdateBrowserHostBackground();
+            mainWindow.UpdateWindowFrameAppearance();
         }
     }
 }

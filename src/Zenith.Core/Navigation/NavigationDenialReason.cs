@@ -2,5 +2,6 @@ namespace Zenith.Core.Navigation;
 
 public enum NavigationDenialReason
 {
-    PolicyUnavailable
+    PolicyUnavailable,
+    NotWhitelisted
 }

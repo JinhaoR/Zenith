@@ -10,6 +10,11 @@
         -->
         <SolidColorBrush x:Key="ZenithWindowBrush" Color="#081321" />
         <SolidColorBrush x:Key="ZenithChromeBrush" Color="#0B1828" />
+        <LinearGradientBrush x:Key="ZenithAmbientBrush" StartPoint="0,0" EndPoint="1,1">
+            <GradientStop Offset="0" Color="#10263D" />
+            <GradientStop Offset="0.52" Color="#0A1A2D" />
+            <GradientStop Offset="1" Color="#1E2934" />
+        </LinearGradientBrush>
         <SolidColorBrush x:Key="ZenithSurfaceBrush" Color="#11243A" />
         <SolidColorBrush x:Key="ZenithRaisedSurfaceBrush" Color="#172C46" />
         <SolidColorBrush x:Key="ZenithHoverBrush" Color="#1D3652" />

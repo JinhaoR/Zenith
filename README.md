@@ -49,7 +49,7 @@ The existing policy remains active until confirmation. This prevents an immediat
 
 ## Project Status
 
-Zenith is in early development and is not yet ready for everyday use. Phase 1 is complete: the Sphere-first WPF shell and centralized fail-closed navigation boundary are implemented. Phase 2 Site Policy is next.
+Zenith is in early development and is not yet ready for everyday use. Phase 1 is complete, and Phase 2 now includes normalized hostname identity, a Core-owned starter Whitelist and a searchable Sphere directory so tabs, navigation and bookmarks can be exercised against selected sites. The durable Vault-backed Site Policy is still ahead.
 
 ## Technology
 
@@ -74,7 +74,7 @@ dotnet test Zenith.slnx
 dotnet run --project src/Zenith.App/Zenith.App.csproj
 ~~~
 
-Until Site Policy is implemented, the shell deliberately denies all external navigation.
+Until durable Site Policy is implemented, the development build permits only its explicit starter Whitelist and denies every other external destination.
 
 ## Documentation
 

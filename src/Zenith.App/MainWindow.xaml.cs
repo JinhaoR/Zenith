@@ -2,8 +2,16 @@ using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Automation.Peers;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using System.Windows.Interop;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using System.Windows.Threading;
 using Microsoft.Web.WebView2.Core;
+using Microsoft.Web.WebView2.Wpf;
+using System.Runtime.InteropServices;
+using Zenith.App.Bookmarks;
 using Zenith.App.Navigation;
 using Zenith.Core.Navigation;
 
@@ -11,11 +19,55 @@ namespace Zenith.App;
 
 public partial class MainWindow : Window
 {
+    private const int DwmwaUseImmersiveDarkMode = 20;
+    private const int DwmwaCaptionColor = 35;
+    private const int DwmwaTextColor = 36;
+
     private readonly NavigationCoordinator _navigationCoordinator;
+    private readonly BookmarkStore _bookmarkStore = new();
+    private readonly List<Bookmark> _bookmarks = [];
+    private readonly List<TabState> _tabs = [];
+    private readonly List<SphereResult> _visibleSphereResults = [];
+    private readonly DispatcherTimer _bookmarkScrollBarHideTimer = new()
+    {
+        Interval = TimeSpan.FromMilliseconds(900)
+    };
     private IInputElement? _noticeReturnFocus;
+    private TabState? _activeTab;
     private bool _initializationStarted;
     private bool _isClosing;
-    private bool _webViewReady;
+    private bool _syncingBookmarkScrollBar;
+    private bool _suppressSphereResultsRefresh;
+
+    private sealed class TabState(WebView2 browser, string title)
+    {
+        public WebView2 Browser { get; } = browser;
+
+        public string Title { get; set; } = title;
+
+        public Uri? CurrentUri { get; set; }
+
+        public bool IsStartSurface { get; set; } = true;
+
+        public string? FaviconUri { get; set; }
+
+        public bool IsReady { get; set; }
+
+        public bool CoreEventsAttached { get; set; }
+    }
+
+    private sealed record SphereResult(
+        string Title,
+        Uri Target,
+        SphereResultSource Source);
+
+    private enum SphereResultSource
+    {
+        Site,
+        Bookmark
+    }
+
+    private WebView2 ActiveBrowser => _activeTab?.Browser ?? Browser;
 
     internal MainWindow(NavigationCoordinator navigationCoordinator)
     {
@@ -23,7 +75,58 @@ public partial class MainWindow : Window
 
         _navigationCoordinator = navigationCoordinator;
         InitializeComponent();
+        _bookmarkScrollBarHideTimer.Tick += BookmarkScrollBarHideTimer_OnTick;
+        _bookmarks.AddRange(_bookmarkStore.Load());
+        _activeTab = new TabState(Browser, "New tab");
+        _tabs.Add(_activeTab);
+        SetSidebarExpanded(true);
         UpdateBrowserHostBackground();
+    }
+
+    private void MainWindow_OnSourceInitialized(object? sender, EventArgs e) =>
+        UpdateWindowFrameAppearance();
+
+    private async Task InitializeTabAsync(TabState tab)
+    {
+        tab.Browser.NavigationStarting += Browser_OnNavigationStarting;
+        tab.Browser.NavigationCompleted += Browser_OnNavigationCompleted;
+
+        try
+        {
+            await tab.Browser.EnsureCoreWebView2Async();
+
+            if (_isClosing)
+            {
+                return;
+            }
+
+            tab.Browser.CoreWebView2.NewWindowRequested += Browser_OnNewWindowRequested;
+            tab.Browser.CoreWebView2.HistoryChanged += Browser_OnHistoryChanged;
+            tab.CoreEventsAttached = true;
+            tab.IsReady = true;
+            UpdateNavigationControls();
+        }
+        catch (Exception)
+        {
+            tab.IsReady = false;
+            if (tab == _activeTab && !_isClosing)
+            {
+                ShowStartSurface();
+                ShowNotice("Page rendering isn't available right now, so pages can't open.");
+            }
+        }
+    }
+
+    private void DetachTabEvents(TabState tab)
+    {
+        tab.Browser.NavigationStarting -= Browser_OnNavigationStarting;
+        tab.Browser.NavigationCompleted -= Browser_OnNavigationCompleted;
+
+        if (tab.CoreEventsAttached && tab.Browser.CoreWebView2 is not null)
+        {
+            tab.Browser.CoreWebView2.NewWindowRequested -= Browser_OnNewWindowRequested;
+            tab.Browser.CoreWebView2.HistoryChanged -= Browser_OnHistoryChanged;
+        }
     }
 
     private async void MainWindow_OnLoaded(object sender, RoutedEventArgs e)
@@ -48,7 +151,10 @@ public partial class MainWindow : Window
 
             Browser.CoreWebView2.NewWindowRequested += Browser_OnNewWindowRequested;
             Browser.CoreWebView2.HistoryChanged += Browser_OnHistoryChanged;
-            _webViewReady = true;
+            if (_activeTab is not null)
+            {
+                _activeTab.IsReady = true;
+            }
             UpdateNavigationControls();
         }
         catch (Exception)
@@ -58,7 +164,6 @@ public partial class MainWindow : Window
                 return;
             }
 
-            _webViewReady = false;
             ShowStartSurface();
             ShowNotice("Page rendering isn’t available right now, so pages can’t open.");
         }
@@ -67,6 +172,8 @@ public partial class MainWindow : Window
     private void MainWindow_OnClosed(object? sender, EventArgs e)
     {
         _isClosing = true;
+        _bookmarkScrollBarHideTimer.Stop();
+        _bookmarkScrollBarHideTimer.Tick -= BookmarkScrollBarHideTimer_OnTick;
 
         Browser.NavigationStarting -= Browser_OnNavigationStarting;
         Browser.NavigationCompleted -= Browser_OnNavigationCompleted;
@@ -78,6 +185,94 @@ public partial class MainWindow : Window
         }
 
         Browser.Dispose();
+
+        foreach (var tab in _tabs.Where(tab => tab.Browser != Browser))
+        {
+            DetachTabEvents(tab);
+            tab.Browser.Dispose();
+        }
+    }
+
+    private void BookmarkScrollViewer_OnPreviewMouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        if (BookmarkScrollViewer.ScrollableHeight <= 0)
+        {
+            return;
+        }
+
+        ShowBookmarkScrollBar();
+    }
+
+    private void BookmarkScrollViewer_OnScrollChanged(object sender, ScrollChangedEventArgs e)
+    {
+        var hasOverflow = BookmarkScrollViewer.ScrollableHeight > 0;
+        BookmarkOverlayScrollBar.Visibility = hasOverflow
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+
+        if (!hasOverflow)
+        {
+            _bookmarkScrollBarHideTimer.Stop();
+            BookmarkOverlayScrollBar.Opacity = 0;
+            BookmarkOverlayScrollBar.IsHitTestVisible = false;
+            return;
+        }
+
+        _syncingBookmarkScrollBar = true;
+        BookmarkOverlayScrollBar.Maximum = BookmarkScrollViewer.ScrollableHeight;
+        BookmarkOverlayScrollBar.ViewportSize = BookmarkScrollViewer.ViewportHeight;
+        BookmarkOverlayScrollBar.LargeChange = BookmarkScrollViewer.ViewportHeight;
+        BookmarkOverlayScrollBar.Value = BookmarkScrollViewer.VerticalOffset;
+        _syncingBookmarkScrollBar = false;
+    }
+
+    private void BookmarkOverlayScrollBar_OnValueChanged(
+        object sender,
+        RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (_syncingBookmarkScrollBar)
+        {
+            return;
+        }
+
+        BookmarkScrollViewer.ScrollToVerticalOffset(e.NewValue);
+        ShowBookmarkScrollBar();
+    }
+
+    private void ShowBookmarkScrollBar()
+    {
+        BookmarkOverlayScrollBar.Opacity = 0.55;
+        BookmarkOverlayScrollBar.IsHitTestVisible = true;
+        _bookmarkScrollBarHideTimer.Stop();
+        _bookmarkScrollBarHideTimer.Start();
+    }
+
+    private void BookmarkScrollBarHideTimer_OnTick(object? sender, EventArgs e)
+    {
+        if (BookmarkOverlayScrollBar.IsMouseOver ||
+            BookmarkOverlayScrollBar.IsMouseCaptureWithin)
+        {
+            return;
+        }
+
+        BookmarkOverlayScrollBar.Opacity = 0;
+        BookmarkOverlayScrollBar.IsHitTestVisible = false;
+        _bookmarkScrollBarHideTimer.Stop();
+    }
+
+    private void MainWindow_OnDeactivated(object? sender, EventArgs e) =>
+        SphereResultsPopup.IsOpen = false;
+
+    private void MainWindow_OnPreviewMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (!SphereResultsPopup.IsOpen ||
+            SphereSearchContainer.IsMouseOver ||
+            SphereResultsPopup.Child is UIElement { IsMouseOver: true })
+        {
+            return;
+        }
+
+        SphereResultsPopup.IsOpen = false;
     }
 
     private void MainWindow_OnPreviewKeyDown(object sender, KeyEventArgs e)
@@ -91,8 +286,36 @@ public partial class MainWindow : Window
             return;
         }
 
+        if ((modifiers & ModifierKeys.Control) != 0 && e.Key == Key.L)
+        {
+            FocusSphereSearch();
+            e.Handled = true;
+            return;
+        }
+
+        if ((modifiers & ModifierKeys.Control) != 0 && e.Key == Key.T)
+        {
+            _ = CreateTabAsync();
+            e.Handled = true;
+            return;
+        }
+
+        if ((modifiers & ModifierKeys.Control) != 0 && e.Key == Key.W && _activeTab is not null)
+        {
+            CloseTab(_activeTab);
+            e.Handled = true;
+            return;
+        }
+
         if (e.Key == Key.Escape)
         {
+            if (SphereResultsPopup.IsOpen)
+            {
+                SphereResultsPopup.IsOpen = false;
+                e.Handled = true;
+                return;
+            }
+
             if (BoundarySurface.Visibility == Visibility.Visible)
             {
                 ReturnToSphere();
@@ -110,21 +333,27 @@ public partial class MainWindow : Window
 
         if ((modifiers & ModifierKeys.Alt) != 0 && e.Key == Key.Left && BackButton.IsEnabled)
         {
-            Browser.GoBack();
+            ActiveBrowser.GoBack();
             e.Handled = true;
             return;
         }
 
         if ((modifiers & ModifierKeys.Alt) != 0 && e.Key == Key.Right && ForwardButton.IsEnabled)
         {
-            Browser.GoForward();
+            ActiveBrowser.GoForward();
             e.Handled = true;
             return;
         }
 
         if (e.Key == Key.F5 && ReloadButton.IsEnabled)
         {
-            Browser.Reload();
+            ActiveBrowser.Reload();
+            e.Handled = true;
+        }
+
+        if ((modifiers & ModifierKeys.Control) != 0 && e.Key == Key.D && BookmarkButton.IsEnabled)
+        {
+            ToggleBookmark();
             e.Handled = true;
         }
     }
@@ -145,13 +374,135 @@ public partial class MainWindow : Window
         SphereSearchPlaceholder.Visibility = string.IsNullOrEmpty(SphereSearchTextBox.Text)
             ? Visibility.Visible
             : Visibility.Collapsed;
+
+        if (!_suppressSphereResultsRefresh && SphereSearchTextBox.IsKeyboardFocusWithin)
+        {
+            RefreshSphereResults();
+            SphereResultsPopup.IsOpen = true;
+        }
     }
 
-    private void AllSitesButton_OnClick(object sender, RoutedEventArgs e) =>
-        ShowNotice("There are no sites in your Sphere yet.");
+    private void SphereSearchTextBox_OnGotKeyboardFocus(
+        object sender,
+        KeyboardFocusChangedEventArgs e)
+    {
+        RefreshSphereResults();
+        SphereResultsPopup.IsOpen = true;
+    }
 
-    private void SettingsButton_OnClick(object sender, RoutedEventArgs e) =>
-        ShowNotice("Settings aren’t available yet.");
+    private void OpenSettingsMenu_OnClick(object sender, RoutedEventArgs e)
+    {
+        if (SettingsButton.ContextMenu is { } menu)
+        {
+            menu.IsOpen = true;
+        }
+    }
+
+    private void SettingsMenuItem_OnClick(object sender, RoutedEventArgs e) =>
+        ShowNotice("Settings aren't available yet.");
+
+    private void VaultMenuItem_OnClick(object sender, RoutedEventArgs e) =>
+        ShowNotice("The Vault isn't available yet.");
+
+    private void AboutMenuItem_OnClick(object sender, RoutedEventArgs e) =>
+        ShowNotice("Zenith is a browser where Internet access is granted, not presumed.");
+
+    private void BookmarksMenuItem_OnClick(object sender, RoutedEventArgs e)
+    {
+        FocusSphereSearch();
+    }
+
+    private void CollapseSidebarButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        SetSidebarExpanded(SidebarColumn.Width.Value < 100);
+    }
+
+    private void CollapsedSearchButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        SetSidebarExpanded(true);
+        FocusSphereSearch();
+    }
+
+    private void AddBookmarkButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        FocusSphereSearch();
+    }
+
+    private void BookmarkShortcutButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: Bookmark bookmark })
+        {
+            RequestNavigation(bookmark.Target.AbsoluteUri, NavigationOrigin.AddressBar);
+        }
+    }
+
+    private void NewTabButton_OnClick(object sender, RoutedEventArgs e) => _ = CreateTabAsync();
+
+    private void TabButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: TabState tab })
+        {
+            ActivateTab(tab);
+        }
+    }
+
+    private void CloseTabButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: TabState tab })
+        {
+            return;
+        }
+
+        CloseTab(tab);
+    }
+
+    private void BookmarkButton_OnClick(object sender, RoutedEventArgs e) => ToggleBookmark();
+
+    private void SphereResultButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: SphereResult result })
+        {
+            OpenSphereResult(result);
+        }
+    }
+
+    private void SphereResultBookmarkButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: SphereResult result })
+        {
+            return;
+        }
+
+        ToggleBookmark(result.Target, result.Title);
+        RefreshSphereResults();
+        SphereResultsPopup.IsOpen = true;
+        e.Handled = true;
+    }
+
+    private void CloseTab(TabState tab)
+    {
+        if (_tabs.Count == 1)
+        {
+            ReturnToSphere();
+            return;
+        }
+
+        var tabIndex = _tabs.IndexOf(tab);
+        var wasActive = tab == _activeTab;
+        DetachTabEvents(tab);
+        BrowserHost.Children.Remove(tab.Browser);
+        tab.Browser.Dispose();
+        _tabs.Remove(tab);
+
+        if (wasActive)
+        {
+            ActivateTab(_tabs[Math.Min(tabIndex, _tabs.Count - 1)]);
+        }
+        else
+        {
+            RefreshTabStrip();
+        }
+    }
 
     private void DismissNoticeButton_OnClick(object sender, RoutedEventArgs e) =>
         HideNotice(restoreFocus: true);
@@ -160,25 +511,25 @@ public partial class MainWindow : Window
 
     private void BackButton_OnClick(object sender, RoutedEventArgs e)
     {
-        if (Browser.CanGoBack)
+        if (ActiveBrowser.CanGoBack)
         {
-            Browser.GoBack();
+            ActiveBrowser.GoBack();
         }
     }
 
     private void ForwardButton_OnClick(object sender, RoutedEventArgs e)
     {
-        if (Browser.CanGoForward)
+        if (ActiveBrowser.CanGoForward)
         {
-            Browser.GoForward();
+            ActiveBrowser.GoForward();
         }
     }
 
     private void ReloadButton_OnClick(object sender, RoutedEventArgs e)
     {
-        if (_webViewReady && Browser.Visibility == Visibility.Visible)
+        if (_activeTab?.IsReady == true && ActiveBrowser.Visibility == Visibility.Visible)
         {
-            Browser.Reload();
+            ActiveBrowser.Reload();
         }
     }
 
@@ -188,17 +539,33 @@ public partial class MainWindow : Window
         object? sender,
         CoreWebView2NavigationStartingEventArgs e)
     {
+        if (sender is not WebView2 browser || FindTab(browser) is not { } tab)
+        {
+            e.Cancel = true;
+            return;
+        }
+
         var decision = _navigationCoordinator.EvaluateWebViewRequest(e.Uri);
 
         if (decision is NavigationDecision.Allowed)
         {
+            tab.CurrentUri = new Uri(e.Uri, UriKind.Absolute);
+            tab.IsStartSurface = false;
+            tab.Title = tab.CurrentUri.Host;
+            RefreshTabStrip();
             HideNotice();
-            ShowBrowserSurface();
+            if (tab == _activeTab)
+            {
+                ShowBrowserSurface();
+            }
             return;
         }
 
         e.Cancel = true;
-        ApplyNavigationDecision(decision, e.Uri);
+        if (tab == _activeTab)
+        {
+            ApplyNavigationDecision(decision, e.Uri);
+        }
     }
 
     private void Browser_OnNewWindowRequested(
@@ -207,16 +574,42 @@ public partial class MainWindow : Window
     {
         e.Handled = true;
         var decision = _navigationCoordinator.EvaluateNewWindowRequest(e.Uri);
-        ApplyNavigationDecision(decision, e.Uri);
+        if (decision is NavigationDecision.Allowed allowed)
+        {
+            _ = CreateTabAsync(allowed.Target);
+        }
+        else
+        {
+            ApplyNavigationDecision(decision, e.Uri);
+        }
     }
 
     private void Browser_OnNavigationCompleted(
         object? sender,
         CoreWebView2NavigationCompletedEventArgs e)
     {
-        if (!e.IsSuccess && Browser.Visibility == Visibility.Visible)
+        if (sender is not WebView2 browser || FindTab(browser) is not { } tab)
         {
-            var target = Browser.Source?.AbsoluteUri ?? "Unknown destination";
+            return;
+        }
+
+        if (e.IsSuccess)
+        {
+            tab.CurrentUri = browser.Source;
+            tab.Title = browser.CoreWebView2?.DocumentTitle ?? string.Empty;
+            tab.FaviconUri = browser.CoreWebView2?.FaviconUri;
+            if (string.IsNullOrWhiteSpace(tab.Title))
+            {
+                tab.Title = tab.CurrentUri?.Host ?? "New tab";
+            }
+
+            RefreshTabStrip();
+            UpdateBookmarkButton();
+        }
+
+        if (!e.IsSuccess && tab == _activeTab && browser.Visibility == Visibility.Visible)
+        {
+            var target = browser.Source?.AbsoluteUri ?? "Unknown destination";
             ShowBoundarySurface(
                 "This destination couldn’t open",
                 target,
@@ -226,7 +619,13 @@ public partial class MainWindow : Window
         UpdateNavigationControls();
     }
 
-    private void Browser_OnHistoryChanged(object? sender, object e) => UpdateNavigationControls();
+    private void Browser_OnHistoryChanged(object? sender, object e)
+    {
+        if (sender is WebView2 browser && FindTab(browser) == _activeTab)
+        {
+            UpdateNavigationControls();
+        }
+    }
 
     private void ApplyNavigationDecision(NavigationDecision decision, string requestedTarget)
     {
@@ -244,6 +643,8 @@ public partial class MainWindow : Window
                     {
                         NavigationDenialReason.PolicyUnavailable =>
                             "Zenith can’t check whether this destination is in your Sphere right now. No page was opened.",
+                        NavigationDenialReason.NotWhitelisted =>
+                            "This destination isn't in your Sphere yet. No page was opened.",
                         _ =>
                             "Zenith couldn’t confirm that this destination is in your Sphere. No page was opened."
                     });
@@ -260,7 +661,7 @@ public partial class MainWindow : Window
 
     private void NavigateTo(Uri target)
     {
-        if (!_webViewReady)
+        if (_activeTab is not { } tab || !tab.IsReady)
         {
             HideNotice();
             ShowBoundarySurface(
@@ -270,24 +671,115 @@ public partial class MainWindow : Window
             return;
         }
 
+        tab.IsStartSurface = false;
+        tab.CurrentUri = target;
+        tab.Title = target.Host;
         HideNotice();
         ShowBrowserSurface();
-        Browser.Source = target;
+        RefreshTabStrip();
+        ActiveBrowser.Source = target;
     }
+
+    private void RequestNavigation(string target, NavigationOrigin origin)
+    {
+        var decision = origin switch
+        {
+            NavigationOrigin.AddressBar => _navigationCoordinator.EvaluateAddressBarRequest(target),
+            NavigationOrigin.NewWindow => _navigationCoordinator.EvaluateNewWindowRequest(target),
+            _ => _navigationCoordinator.EvaluateWebViewRequest(target)
+        };
+
+        ApplyNavigationDecision(decision, target);
+    }
+
+    private async Task CreateTabAsync(Uri? target = null)
+    {
+        if (_isClosing)
+        {
+            return;
+        }
+
+        var browser = new WebView2
+        {
+            Visibility = Visibility.Collapsed,
+            DefaultBackgroundColor = System.Drawing.Color.FromArgb(255, 8, 19, 33)
+        };
+        BrowserHost.Children.Add(browser);
+        var tab = new TabState(browser, "New tab");
+        _tabs.Add(tab);
+        UpdateBrowserHostBackground();
+        ActivateTab(tab);
+        await InitializeTabAsync(tab);
+
+        if (target is not null && tab.IsReady)
+        {
+            NavigateTo(target);
+        }
+    }
+
+    private void ActivateTab(TabState tab)
+    {
+        if (!_tabs.Contains(tab))
+        {
+            return;
+        }
+
+        foreach (var item in _tabs)
+        {
+            item.Browser.Visibility = Visibility.Collapsed;
+        }
+
+        _activeTab = tab;
+        if (tab.IsStartSurface || !tab.IsReady)
+        {
+            ShowStartSurface();
+        }
+        else
+        {
+            ShowBrowserSurface();
+        }
+
+        RefreshTabStrip();
+        UpdateBookmarkButton();
+    }
+
+    private TabState? FindTab(WebView2 browser) =>
+        _tabs.FirstOrDefault(tab => tab.Browser == browser);
 
     private void FocusSphereSearch()
     {
         HideNotice();
         ShowStartSurface();
+        SetSidebarExpanded(true);
         SphereSearchTextBox.Focus();
         SphereSearchTextBox.SelectAll();
+        RefreshSphereResults();
+        SphereResultsPopup.IsOpen = true;
     }
 
     private void SearchSphere()
     {
-        if (string.IsNullOrWhiteSpace(SphereSearchTextBox.Text))
+        var query = SphereSearchTextBox.Text.Trim();
+        if (string.IsNullOrWhiteSpace(query))
         {
+            RefreshSphereResults();
+            SphereResultsPopup.IsOpen = true;
             SphereSearchTextBox.Focus();
+            return;
+        }
+
+        if (Uri.TryCreate(query, UriKind.Absolute, out var directTarget) &&
+            (directTarget.Scheme == Uri.UriSchemeHttps || directTarget.Scheme == Uri.UriSchemeHttp))
+        {
+            SphereResultsPopup.IsOpen = false;
+            RequestNavigation(directTarget.AbsoluteUri, NavigationOrigin.AddressBar);
+            return;
+        }
+
+        RefreshSphereResults();
+        if (_visibleSphereResults.FirstOrDefault() is { } result)
+        {
+            OpenSphereResult(result);
             return;
         }
 
@@ -296,13 +788,19 @@ public partial class MainWindow : Window
 
     private void ReturnToSphere()
     {
+        if (_activeTab is not null)
+        {
+            _activeTab.IsStartSurface = true;
+            _activeTab.Title = "New tab";
+        }
         HideNotice();
         ShowStartSurface();
+        RefreshTabStrip();
     }
 
     private void ShowStartSurface()
     {
-        Browser.Visibility = Visibility.Collapsed;
+        ActiveBrowser.Visibility = Visibility.Collapsed;
         BoundarySurface.Visibility = Visibility.Collapsed;
         StartSurface.Visibility = Visibility.Visible;
         UpdateNavigationControls();
@@ -310,15 +808,17 @@ public partial class MainWindow : Window
 
     private void ShowBrowserSurface()
     {
+        SphereResultsPopup.IsOpen = false;
         StartSurface.Visibility = Visibility.Collapsed;
         BoundarySurface.Visibility = Visibility.Collapsed;
-        Browser.Visibility = Visibility.Visible;
+        ActiveBrowser.Visibility = Visibility.Visible;
         UpdateNavigationControls();
     }
 
     private void ShowBoundarySurface(string heading, string target, string explanation)
     {
-        Browser.Visibility = Visibility.Collapsed;
+        SphereResultsPopup.IsOpen = false;
+        ActiveBrowser.Visibility = Visibility.Collapsed;
         StartSurface.Visibility = Visibility.Collapsed;
         BoundarySurface.Visibility = Visibility.Visible;
         BoundaryHeadingTextBlock.Text = heading;
@@ -378,18 +878,636 @@ public partial class MainWindow : Window
         }
 
         var color = brush.Color;
-        Browser.DefaultBackgroundColor = System.Drawing.Color.FromArgb(
-            color.A,
-            color.R,
-            color.G,
-            color.B);
+        var background = System.Drawing.Color.FromArgb(color.A, color.R, color.G, color.B);
+        foreach (var tab in _tabs)
+        {
+            tab.Browser.DefaultBackgroundColor = background;
+        }
     }
+
+    internal void UpdateWindowFrameAppearance()
+    {
+        var handle = new WindowInteropHelper(this).Handle;
+        if (handle == IntPtr.Zero ||
+            TryFindResource("ZenithChromeBrush") is not SolidColorBrush chromeBrush ||
+            TryFindResource("ZenithTextBrush") is not SolidColorBrush textBrush)
+        {
+            return;
+        }
+
+        try
+        {
+            var darkMode = 1;
+            var captionColor = ToColorRef(chromeBrush.Color);
+            var textColor = ToColorRef(textBrush.Color);
+            DwmSetWindowAttribute(handle, DwmwaUseImmersiveDarkMode, ref darkMode, sizeof(int));
+            DwmSetWindowAttribute(handle, DwmwaCaptionColor, ref captionColor, sizeof(int));
+            DwmSetWindowAttribute(handle, DwmwaTextColor, ref textColor, sizeof(int));
+        }
+        catch (DllNotFoundException)
+        {
+            // The native frame remains available on Windows versions without DWM theming support.
+        }
+        catch (EntryPointNotFoundException)
+        {
+            // The native frame remains available on Windows versions without DWM theming support.
+        }
+    }
+
+    private static int ToColorRef(Color color) => color.R | (color.G << 8) | (color.B << 16);
+
+    [DllImport("dwmapi.dll")]
+    private static extern int DwmSetWindowAttribute(
+        IntPtr hwnd,
+        int attribute,
+        ref int value,
+        int valueSize);
 
     private void UpdateNavigationControls()
     {
-        var browserIsVisible = _webViewReady && Browser.Visibility == Visibility.Visible;
-        BackButton.IsEnabled = browserIsVisible && Browser.CanGoBack;
-        ForwardButton.IsEnabled = browserIsVisible && Browser.CanGoForward;
+        var browserIsVisible = _activeTab?.IsReady == true && ActiveBrowser.Visibility == Visibility.Visible;
+        BackButton.IsEnabled = browserIsVisible && ActiveBrowser.CanGoBack;
+        ForwardButton.IsEnabled = browserIsVisible && ActiveBrowser.CanGoForward;
         ReloadButton.IsEnabled = browserIsVisible;
+        BookmarkButton.IsEnabled = browserIsVisible && _activeTab?.CurrentUri is not null;
+        UpdateBookmarkButton();
+    }
+
+    private void RefreshSphereResults()
+    {
+        var query = SphereSearchTextBox.Text.Trim();
+        var bookmarkResults = _bookmarks
+            .Where(bookmark => IsTargetInSphere(bookmark.Target))
+            .Where(bookmark => MatchesSphereQuery(bookmark.Title, bookmark.Host, query))
+            .OrderBy(bookmark => bookmark.Title, StringComparer.OrdinalIgnoreCase)
+            .Select(bookmark => new SphereResult(
+                bookmark.Title,
+                bookmark.Target,
+                SphereResultSource.Bookmark))
+            .ToList();
+        var siteResults = StarterWhitelistNavigationPolicyEvaluator.StarterSites
+            .Where(site => MatchesSphereQuery(site.Name, site.Host, query))
+            .OrderBy(site => site.Name, StringComparer.OrdinalIgnoreCase)
+            .Select(site => new SphereResult(
+                site.Name,
+                site.Target,
+                SphereResultSource.Site))
+            .ToList();
+
+        _visibleSphereResults.Clear();
+        _visibleSphereResults.AddRange(bookmarkResults);
+        _visibleSphereResults.AddRange(siteResults);
+        SphereResultsPanel.Children.Clear();
+        SphereResultsHeadingTextBlock.Text = query.Length == 0
+            ? $"{StarterWhitelistNavigationPolicyEvaluator.StarterSites.Count} sites · {bookmarkResults.Count} bookmarks"
+            : $"Results for “{query}”";
+
+        if (bookmarkResults.Count > 0)
+        {
+            AddSphereResultSection("BOOKMARKS", bookmarkResults);
+        }
+
+        if (siteResults.Count > 0)
+        {
+            AddSphereResultSection(query.Length == 0 ? "ALL SITES" : "SITES", siteResults);
+        }
+
+        if (_visibleSphereResults.Count == 0)
+        {
+            SphereResultsPanel.Children.Add(new TextBlock
+            {
+                Margin = new Thickness(8, 14, 8, 18),
+                Text = "No places in your Sphere match this search.",
+                TextWrapping = TextWrapping.Wrap,
+                Foreground = (Brush)FindResource("ZenithMutedTextBrush")
+            });
+        }
+    }
+
+    private void AddSphereResultSection(string heading, IEnumerable<SphereResult> results)
+    {
+        SphereResultsPanel.Children.Add(new TextBlock
+        {
+            Margin = new Thickness(8, 7, 8, 5),
+            Text = heading,
+            FontSize = 10,
+            FontWeight = FontWeights.SemiBold,
+            Foreground = (Brush)FindResource("ZenithSubtleTextBrush")
+        });
+
+        foreach (var result in results)
+        {
+            SphereResultsPanel.Children.Add(CreateSphereResultRow(result));
+        }
+    }
+
+    private Grid CreateSphereResultRow(SphereResult result)
+    {
+        var row = new Grid { Height = 52, Margin = new Thickness(0, 0, 0, 2) };
+        row.ColumnDefinitions.Add(new ColumnDefinition());
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(36) });
+
+        var openButton = new Button
+        {
+            Tag = result,
+            Style = (Style)FindResource("SidebarTextButtonStyle"),
+            Height = 52,
+            Padding = new Thickness(7, 0, 3, 0),
+            ToolTip = result.Target.AbsoluteUri,
+            Content = CreateSphereResultContent(result)
+        };
+        AutomationProperties.SetName(openButton, $"Open {result.Title}");
+        openButton.Click += SphereResultButton_OnClick;
+        row.Children.Add(openButton);
+
+        var isBookmarked = IsBookmarked(result.Target);
+        var bookmarkButton = new Button
+        {
+            Tag = result,
+            Style = (Style)FindResource("SidebarIconButtonStyle"),
+            Width = 32,
+            Height = 32,
+            Margin = new Thickness(2, 10, 2, 10),
+            Content = isBookmarked ? "\uE735" : "\uE734",
+            Foreground = (Brush)FindResource(
+                isBookmarked ? "ZenithAccentBrush" : "ZenithMutedTextBrush"),
+            ToolTip = isBookmarked ? "Remove bookmark" : "Add bookmark"
+        };
+        AutomationProperties.SetName(
+            bookmarkButton,
+            isBookmarked
+                ? $"Remove {result.Title} from bookmarks"
+                : $"Add {result.Title} to bookmarks");
+        bookmarkButton.Click += SphereResultBookmarkButton_OnClick;
+        Grid.SetColumn(bookmarkButton, 1);
+        row.Children.Add(bookmarkButton);
+
+        return row;
+    }
+
+    private Grid CreateSphereResultContent(SphereResult result)
+    {
+        var content = new Grid();
+        content.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(38) });
+        content.ColumnDefinitions.Add(new ColumnDefinition());
+        content.Children.Add(CreateSphereSiteIcon(result.Target.Host));
+
+        var labels = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+        labels.Children.Add(new TextBlock
+        {
+            Text = result.Title,
+            FontSize = 12,
+            FontWeight = FontWeights.SemiBold,
+            Foreground = (Brush)FindResource("ZenithTextBrush"),
+            TextTrimming = TextTrimming.CharacterEllipsis
+        });
+        labels.Children.Add(new TextBlock
+        {
+            Margin = new Thickness(0, 2, 0, 0),
+            Text = result.Source == SphereResultSource.Bookmark
+                ? $"{result.Target.Host} · Bookmark"
+                : $"{result.Target.Host} · Site",
+            FontSize = 10,
+            Foreground = (Brush)FindResource("ZenithSubtleTextBrush"),
+            TextTrimming = TextTrimming.CharacterEllipsis
+        });
+        Grid.SetColumn(labels, 1);
+        content.Children.Add(labels);
+        return content;
+    }
+
+    private Border CreateSphereSiteIcon(string host)
+    {
+        return new Border
+        {
+            Width = 30,
+            Height = 30,
+            HorizontalAlignment = HorizontalAlignment.Left,
+            VerticalAlignment = VerticalAlignment.Center,
+            Background = (Brush)FindResource("ZenithSurfaceBrush"),
+            CornerRadius = new CornerRadius(8),
+            Child = CreateSiteIconContent(host, 17)
+        };
+    }
+
+    private UIElement CreateSiteIconContent(string host, double size)
+    {
+        var geometry = FindStarterSiteIcon(host);
+        return geometry is null
+            ? new TextBlock
+            {
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+                FontFamily = new FontFamily("Segoe MDL2 Assets"),
+                FontSize = size,
+                Foreground = (Brush)FindResource("ZenithAccentBrush"),
+                Text = "\uE774"
+            }
+            : new Viewbox
+            {
+                Width = size,
+                Height = size,
+                Child = new System.Windows.Shapes.Path
+                {
+                    Data = geometry,
+                    Fill = (Brush)FindResource("ZenithAccentBrush"),
+                    Stretch = Stretch.Uniform
+                }
+            };
+    }
+
+    private void RefreshBookmarkGrid()
+    {
+        var expanded = SidebarColumn.Width.Value >= 100;
+        BookmarkGrid.Children.Clear();
+        BookmarkGrid.Columns = expanded ? 3 : 1;
+
+        foreach (var bookmark in _bookmarks.Where(bookmark => IsTargetInSphere(bookmark.Target)))
+        {
+            BookmarkGrid.Children.Add(CreateBookmarkButton(bookmark, expanded));
+        }
+
+        AddBookmarkButton.Width = expanded ? 54 : 32;
+        AddBookmarkButton.Height = expanded ? 54 : 32;
+        AddBookmarkButton.Margin = expanded
+            ? new Thickness(0, 0, 8, 8)
+            : new Thickness(0, 0, 0, 4);
+        BookmarkGrid.Children.Add(AddBookmarkButton);
+    }
+
+    private Button CreateBookmarkButton(Bookmark bookmark, bool expanded)
+    {
+        var size = expanded ? 54 : 32;
+        var openButton = new Button
+        {
+            Tag = bookmark,
+            Style = (Style)FindResource("BookmarkIconButtonStyle"),
+            Width = size,
+            Height = size,
+            Margin = expanded
+                ? new Thickness(0, 0, 8, 8)
+                : new Thickness(0, 0, 0, 4),
+            ToolTip = bookmark.Title,
+            Content = CreateSiteIconContent(bookmark.Host, expanded ? 22 : 17)
+        };
+        AutomationProperties.SetName(openButton, $"Open bookmark {bookmark.Title}");
+        openButton.Click += BookmarkShortcutButton_OnClick;
+        return openButton;
+    }
+
+    private static bool MatchesSphereQuery(string title, string host, string query)
+    {
+        return query.Length == 0 ||
+               title.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+               host.Contains(query, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private bool IsTargetInSphere(Uri target)
+    {
+        return _navigationCoordinator.EvaluateAddressBarRequest(target.AbsoluteUri)
+            is NavigationDecision.Allowed;
+    }
+
+    private void OpenSphereResult(SphereResult result)
+    {
+        SphereResultsPopup.IsOpen = false;
+        _suppressSphereResultsRefresh = true;
+        SphereSearchTextBox.Clear();
+        _suppressSphereResultsRefresh = false;
+        RequestNavigation(result.Target.AbsoluteUri, NavigationOrigin.AddressBar);
+    }
+
+    private void ToggleBookmark()
+    {
+        if (_activeTab?.CurrentUri is not { } target || _activeTab.IsStartSurface)
+        {
+            return;
+        }
+
+        ToggleBookmark(target, _activeTab.Title);
+    }
+
+    private void ToggleBookmark(Uri target, string title)
+    {
+        var index = _bookmarks.FindIndex(bookmark =>
+            TargetsEqual(bookmark.Target, target));
+        if (index >= 0)
+        {
+            _bookmarks.RemoveAt(index);
+            _bookmarkStore.Save(_bookmarks);
+            ShowNotice("Removed from bookmarks.");
+        }
+        else
+        {
+            if (!IsTargetInSphere(target))
+            {
+                ShowNotice("Only places in your Sphere can be bookmarked.");
+                return;
+            }
+
+            _bookmarks.Add(new Bookmark(title, target));
+            _bookmarkStore.Save(_bookmarks);
+            ShowNotice("Saved to bookmarks.");
+        }
+
+        UpdateBookmarkButton();
+        RefreshBookmarkGrid();
+    }
+
+    private bool IsBookmarked(Uri target) =>
+        _bookmarks.Any(bookmark => TargetsEqual(bookmark.Target, target));
+
+    private static bool TargetsEqual(Uri left, Uri right) =>
+        Uri.Compare(
+            left,
+            right,
+            UriComponents.AbsoluteUri,
+            UriFormat.SafeUnescaped,
+            StringComparison.OrdinalIgnoreCase) == 0;
+
+    private void UpdateBookmarkButton()
+    {
+        if (_activeTab?.CurrentUri is not { } target || _activeTab.IsStartSurface)
+        {
+            BookmarkButton.IsEnabled = false;
+            BookmarkButton.Content = "\uE734";
+            BookmarkButton.Foreground = (Brush)FindResource("ZenithMutedTextBrush");
+            BookmarkButton.ToolTip = "Bookmark this page (Ctrl+D)";
+            AutomationProperties.SetName(BookmarkButton, "Bookmark this page");
+            return;
+        }
+
+        var isBookmarked = IsBookmarked(target);
+        BookmarkButton.IsEnabled = _activeTab.IsReady;
+        BookmarkButton.Content = isBookmarked ? "\uE735" : "\uE734";
+        BookmarkButton.Foreground = (Brush)FindResource(
+            isBookmarked ? "ZenithAccentBrush" : "ZenithMutedTextBrush");
+        BookmarkButton.ToolTip = isBookmarked
+            ? "Remove bookmark (Ctrl+D)"
+            : "Bookmark this page (Ctrl+D)";
+        AutomationProperties.SetName(
+            BookmarkButton,
+            isBookmarked ? "Remove bookmark" : "Bookmark this page");
+    }
+
+    private void RefreshTabStrip()
+    {
+        OpenTabsPanel.Children.Clear();
+        var expanded = SidebarColumn.Width.Value >= 100;
+
+        foreach (var tab in _tabs)
+        {
+            var row = new Grid
+            {
+                Height = 40,
+                Margin = new Thickness(0, 0, 0, 4),
+                Background = Brushes.Transparent
+            };
+
+            var tabButton = new Button
+            {
+                Tag = tab,
+                Style = (Style)FindResource("SidebarTextButtonStyle"),
+                Padding = expanded ? new Thickness(10, 0, 36, 0) : new Thickness(0),
+                HorizontalContentAlignment = expanded
+                    ? HorizontalAlignment.Left
+                    : HorizontalAlignment.Center,
+                Background = tab == _activeTab
+                    ? (Brush)FindResource("ZenithRaisedSurfaceBrush")
+                    : Brushes.Transparent,
+                ToolTip = tab.Title,
+                Content = CreateTabButtonContent(tab, expanded)
+            };
+            AutomationProperties.SetName(tabButton, $"Switch to {tab.Title}");
+            tabButton.Click += TabButton_OnClick;
+            row.Children.Add(tabButton);
+
+            var closeButton = new Button
+            {
+                Tag = tab,
+                Style = (Style)FindResource("SidebarIconButtonStyle"),
+                Width = expanded ? 24 : 17,
+                Height = expanded ? 24 : 17,
+                Margin = expanded
+                    ? new Thickness(0, 0, 5, 0)
+                    : new Thickness(0),
+                HorizontalAlignment = HorizontalAlignment.Right,
+                VerticalAlignment = expanded
+                    ? VerticalAlignment.Center
+                    : VerticalAlignment.Top,
+                Background = expanded
+                    ? Brushes.Transparent
+                    : (Brush)FindResource("ZenithRaisedSurfaceBrush"),
+                BorderBrush = expanded
+                    ? Brushes.Transparent
+                    : (Brush)FindResource("ZenithInteractiveBorderBrush"),
+                BorderThickness = expanded ? new Thickness(2) : new Thickness(1),
+                Content = "\uE711",
+                FontSize = expanded ? 10 : 7,
+                ToolTip = "Close tab",
+                Visibility = Visibility.Collapsed
+            };
+            AutomationProperties.SetName(closeButton, $"Close {tab.Title}");
+            closeButton.Click += CloseTabButton_OnClick;
+            Panel.SetZIndex(closeButton, 1);
+            row.Children.Add(closeButton);
+
+            void UpdateCloseButtonVisibility()
+            {
+                closeButton.Visibility = row.IsMouseOver || row.IsKeyboardFocusWithin
+                    ? Visibility.Visible
+                    : Visibility.Collapsed;
+            }
+
+            row.MouseEnter += (_, _) => UpdateCloseButtonVisibility();
+            row.MouseLeave += (_, _) => UpdateCloseButtonVisibility();
+            row.IsKeyboardFocusWithinChanged += (_, _) => UpdateCloseButtonVisibility();
+
+            OpenTabsPanel.Children.Add(row);
+        }
+    }
+
+    private StackPanel CreateTabButtonContent(TabState tab, bool expanded)
+    {
+        var brandGeometry = FindStarterSiteIcon(tab.CurrentUri?.Host);
+        var favicon = brandGeometry is null
+            ? CreateFaviconSource(tab.FaviconUri)
+            : null;
+        UIElement iconContent;
+        if (brandGeometry is not null)
+        {
+            iconContent = new Viewbox
+            {
+                Width = 15,
+                Height = 15,
+                Child = new System.Windows.Shapes.Path
+                {
+                    Data = brandGeometry,
+                    Fill = (Brush)FindResource("ZenithAccentBrush"),
+                    Stretch = Stretch.Uniform
+                }
+            };
+        }
+        else if (favicon is not null)
+        {
+            iconContent = new Image
+            {
+                Source = favicon,
+                Width = 15,
+                Height = 15,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+        }
+        else
+        {
+            iconContent = new TextBlock
+            {
+                Text = tab.IsStartSurface ? "Z" : tab.Title[..1].ToUpperInvariant(),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+                FontSize = 11,
+                FontWeight = FontWeights.Bold,
+                Foreground = (Brush)FindResource("ZenithAccentBrush")
+            };
+        }
+
+        var icon = new Border
+        {
+            Width = 22,
+            Height = 22,
+            Margin = expanded ? new Thickness(0, 0, 9, 0) : new Thickness(0),
+            Background = (Brush)FindResource("ZenithSurfaceBrush"),
+            CornerRadius = new CornerRadius(7),
+            Child = iconContent
+        };
+        return new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Children =
+            {
+                icon,
+                new TextBlock
+                {
+                    Text = tab.Title,
+                    Visibility = expanded ? Visibility.Visible : Visibility.Collapsed,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    TextTrimming = TextTrimming.CharacterEllipsis
+                }
+            }
+        };
+    }
+
+    private Geometry? FindStarterSiteIcon(string? host)
+    {
+        var resourceKey = host switch
+        {
+            not null when HostMatches(host, "wikipedia.org") => "WikipediaIconGeometry",
+            not null when HostMatches(host, "github.com") => "GitHubIconGeometry",
+            not null when HostMatches(host, "youtube.com") => "YouTubeIconGeometry",
+            not null when HostMatches(host, "chatgpt.com") || HostMatches(host, "openai.com") => "OpenAiIconGeometry",
+            not null when HostMatches(host, "google.com") => "GoogleIconGeometry",
+            not null when HostMatches(host, "stackoverflow.com") => "StackOverflowIconGeometry",
+            not null when HostMatches(host, "gitlab.com") => "GitLabIconGeometry",
+            not null when HostMatches(host, "developer.mozilla.org") => "MdnIconGeometry",
+            not null when HostMatches(host, "archive.org") => "InternetArchiveIconGeometry",
+            not null when HostMatches(host, "reddit.com") => "RedditIconGeometry",
+            not null when HostMatches(host, "learn.microsoft.com") => "MicrosoftIconGeometry",
+            _ => null
+        };
+
+        return resourceKey is null ? null : TryFindResource(resourceKey) as Geometry;
+    }
+
+    private static bool HostMatches(string host, string expectedHost)
+    {
+        return host.Equals(expectedHost, StringComparison.OrdinalIgnoreCase) ||
+               host.EndsWith($".{expectedHost}", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static ImageSource? CreateFaviconSource(string? faviconUri)
+    {
+        if (!Uri.TryCreate(faviconUri, UriKind.Absolute, out var uri))
+        {
+            return null;
+        }
+
+        try
+        {
+            return new BitmapImage(uri);
+        }
+        catch (ArgumentException)
+        {
+            return null;
+        }
+    }
+
+    private void SetSidebarExpanded(bool expanded)
+    {
+        if (!expanded)
+        {
+            SphereResultsPopup.IsOpen = false;
+        }
+
+        SidebarColumn.Width = new GridLength(expanded ? 248 : 64);
+        SphereSearchContainer.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
+        CollapsedSearchButton.Visibility = expanded ? Visibility.Collapsed : Visibility.Visible;
+        BookmarksSectionLabel.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
+        TabsSectionLabel.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
+        NewTabText.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
+        SettingsButtonText.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
+        TabsRow.MinHeight = expanded ? 0 : 110;
+        TabsRow.Margin = expanded
+            ? new Thickness(4, 0, 4, 8)
+            : new Thickness(0, 0, 0, 8);
+        NewTabButton.Padding = expanded ? new Thickness(10, 0, 10, 0) : new Thickness(0);
+        NewTabButton.HorizontalContentAlignment = expanded
+            ? HorizontalAlignment.Left
+            : HorizontalAlignment.Center;
+        NewTabIcon.Margin = expanded ? new Thickness(0, 0, 9, 0) : new Thickness(0);
+        SettingsButton.Padding = expanded ? new Thickness(10, 0, 10, 0) : new Thickness(0);
+        SettingsButton.HorizontalContentAlignment = expanded
+            ? HorizontalAlignment.Left
+            : HorizontalAlignment.Center;
+        SettingsButtonIcon.Margin = expanded ? new Thickness(0, 0, 9, 0) : new Thickness(0);
+        RefreshBookmarkGrid();
+        NavigationButtonsPanel.HorizontalAlignment = expanded
+            ? HorizontalAlignment.Left
+            : HorizontalAlignment.Center;
+        NavigationButtonsPanel.Orientation = expanded
+            ? Orientation.Horizontal
+            : Orientation.Vertical;
+        NavigationButtonsPanel.Margin = expanded
+            ? new Thickness(0, 0, 0, 12)
+            : new Thickness(0, 0, 0, 8);
+        CollapseSidebarButton.HorizontalAlignment = expanded
+            ? HorizontalAlignment.Right
+            : HorizontalAlignment.Center;
+        HomeButton.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
+        Grid.SetColumn(CollapseSidebarButton, expanded ? 1 : 0);
+        SetCollapsedButtonSizes(expanded);
+        CollapseSidebarButton.Content = expanded ? "\uE76B" : "\uE76C";
+        CollapseSidebarButton.ToolTip = expanded ? "Collapse sidebar" : "Expand sidebar";
+        AutomationProperties.SetName(
+            CollapseSidebarButton,
+            expanded ? "Collapse sidebar" : "Expand sidebar");
+        RefreshTabStrip();
+    }
+
+    private void SetCollapsedButtonSizes(bool expanded)
+    {
+        var size = expanded ? 38 : 32;
+        foreach (var button in NavigationButtonsPanel.Children.OfType<Button>())
+        {
+            button.Width = size;
+            button.Height = size;
+            button.Margin = expanded
+                ? new Thickness(0, 0, 4, 0)
+                : new Thickness(0, 0, 0, 4);
+        }
+
+        CollapsedSearchButton.Width = expanded ? 38 : 32;
+        CollapsedSearchButton.Height = expanded ? 38 : 32;
+        CollapsedSearchButton.Margin = new Thickness(0);
     }
 }
