@@ -26,6 +26,7 @@ Threats include:
 - A filter-list update that is unavailable, malformed or compromised.
 - Sensitive values appearing in logs or diagnostics.
 - Web content attempting to invoke privileged host functionality.
+- External content continuing to run after a native Sphere or policy-boundary surface visually replaces it.
 
 ## 3. Trust Boundaries
 
@@ -38,6 +39,7 @@ Threats include:
 ## 4. Required Mitigations
 
 - Route every navigation mechanism through common policy logic.
+- Unload external documents replaced by native Zenith surfaces. A host-initiated internal clear may admit only its exact internal target and must not become a general navigation exception.
 - Evaluate policy before allowing content to load.
 - Normalize and compare URIs structurally.
 - Persist cooldowns, Access Grants and Policy Changes safely.

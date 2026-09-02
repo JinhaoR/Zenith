@@ -35,6 +35,7 @@ public partial class MainWindow : Window
     private IInputElement? _noticeReturnFocus;
     private TabState? _activeTab;
     private bool _initializationStarted;
+    private bool _isAddressEditing;
     private bool _isClosing;
     private bool _syncingBookmarkScrollBar;
     private bool _suppressSphereResultsRefresh;
@@ -54,6 +55,12 @@ public partial class MainWindow : Window
         public bool IsReady { get; set; }
 
         public bool CoreEventsAttached { get; set; }
+
+        public bool IsInternalClearPending { get; set; }
+
+        public ulong? InternalClearNavigationId { get; set; }
+
+        public int LifecycleVersion { get; set; }
     }
 
     private sealed record SphereResult(
@@ -288,7 +295,7 @@ public partial class MainWindow : Window
 
         if ((modifiers & ModifierKeys.Control) != 0 && e.Key == Key.L)
         {
-            FocusSphereSearch();
+            FocusAddressEditing();
             e.Handled = true;
             return;
         }
@@ -309,6 +316,13 @@ public partial class MainWindow : Window
 
         if (e.Key == Key.Escape)
         {
+            if (_isAddressEditing)
+            {
+                CancelAddressEditing();
+                e.Handled = true;
+                return;
+            }
+
             if (SphereResultsPopup.IsOpen)
             {
                 SphereResultsPopup.IsOpen = false;
@@ -375,7 +389,9 @@ public partial class MainWindow : Window
             ? Visibility.Visible
             : Visibility.Collapsed;
 
-        if (!_suppressSphereResultsRefresh && SphereSearchTextBox.IsKeyboardFocusWithin)
+        if (!_suppressSphereResultsRefresh &&
+            !_isAddressEditing &&
+            SphereSearchTextBox.IsKeyboardFocusWithin)
         {
             RefreshSphereResults();
             SphereResultsPopup.IsOpen = true;
@@ -386,8 +402,24 @@ public partial class MainWindow : Window
         object sender,
         KeyboardFocusChangedEventArgs e)
     {
+        if (_isAddressEditing)
+        {
+            SphereResultsPopup.IsOpen = false;
+            return;
+        }
+
         RefreshSphereResults();
         SphereResultsPopup.IsOpen = true;
+    }
+
+    private void SphereSearchTextBox_OnLostKeyboardFocus(
+        object sender,
+        KeyboardFocusChangedEventArgs e)
+    {
+        if (_isAddressEditing)
+        {
+            CancelAddressEditing(restoreBrowserFocus: false);
+        }
     }
 
     private void OpenSettingsMenu_OnClick(object sender, RoutedEventArgs e)
@@ -427,6 +459,9 @@ public partial class MainWindow : Window
     {
         FocusSphereSearch();
     }
+
+    private void CurrentSiteButton_OnClick(object sender, RoutedEventArgs e) =>
+        FocusAddressEditing();
 
     private void BookmarkShortcutButton_OnClick(object sender, RoutedEventArgs e)
     {
@@ -545,11 +580,25 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (tab.IsInternalClearPending)
+        {
+            // This exact host-initiated target unloads replaced content; it is not a
+            // policy bypass for website-initiated or external navigation.
+            if (string.Equals(e.Uri, "about:blank", StringComparison.OrdinalIgnoreCase))
+            {
+                tab.InternalClearNavigationId = e.NavigationId;
+                return;
+            }
+
+            tab.IsInternalClearPending = false;
+            tab.InternalClearNavigationId = null;
+        }
+
         var decision = _navigationCoordinator.EvaluateWebViewRequest(e.Uri);
 
-        if (decision is NavigationDecision.Allowed)
+        if (decision is NavigationDecision.Allowed allowed)
         {
-            tab.CurrentUri = new Uri(e.Uri, UriKind.Absolute);
+            tab.CurrentUri = allowed.Target;
             tab.IsStartSurface = false;
             tab.Title = tab.CurrentUri.Host;
             RefreshTabStrip();
@@ -557,6 +606,7 @@ public partial class MainWindow : Window
             if (tab == _activeTab)
             {
                 ShowBrowserSurface();
+                UpdateCurrentSiteIdentity();
             }
             return;
         }
@@ -573,12 +623,17 @@ public partial class MainWindow : Window
         CoreWebView2NewWindowRequestedEventArgs e)
     {
         e.Handled = true;
+        if (sender is not CoreWebView2 coreWebView || FindTab(coreWebView) is not { } tab)
+        {
+            return;
+        }
+
         var decision = _navigationCoordinator.EvaluateNewWindowRequest(e.Uri);
         if (decision is NavigationDecision.Allowed allowed)
         {
             _ = CreateTabAsync(allowed.Target);
         }
-        else
+        else if (tab == _activeTab)
         {
             ApplyNavigationDecision(decision, e.Uri);
         }
@@ -590,6 +645,14 @@ public partial class MainWindow : Window
     {
         if (sender is not WebView2 browser || FindTab(browser) is not { } tab)
         {
+            return;
+        }
+
+        if (tab.InternalClearNavigationId == e.NavigationId)
+        {
+            tab.IsInternalClearPending = false;
+            tab.InternalClearNavigationId = null;
+            HideAndSuspendTab(tab);
             return;
         }
 
@@ -605,6 +668,10 @@ public partial class MainWindow : Window
 
             RefreshTabStrip();
             UpdateBookmarkButton();
+            if (tab == _activeTab)
+            {
+                UpdateCurrentSiteIdentity();
+            }
         }
 
         if (!e.IsSuccess && tab == _activeTab && browser.Visibility == Visibility.Visible)
@@ -616,14 +683,41 @@ public partial class MainWindow : Window
                 "The page couldn’t finish loading. Try the address again or return to your Sphere.");
         }
 
+        if (tab != _activeTab || browser.Visibility != Visibility.Visible)
+        {
+            HideAndSuspendTab(tab);
+        }
+
         UpdateNavigationControls();
     }
 
     private void Browser_OnHistoryChanged(object? sender, object e)
     {
-        if (sender is WebView2 browser && FindTab(browser) == _activeTab)
+        if (sender is not CoreWebView2 coreWebView ||
+            FindTab(coreWebView) is not { IsStartSurface: false } tab ||
+            string.IsNullOrWhiteSpace(coreWebView.Source))
         {
-            UpdateNavigationControls();
+            return;
+        }
+
+        var decision = _navigationCoordinator.EvaluateWebViewRequest(coreWebView.Source);
+        if (decision is NavigationDecision.Allowed allowed)
+        {
+            tab.CurrentUri = allowed.Target;
+            if (tab == _activeTab)
+            {
+                UpdateCurrentSiteIdentity();
+                UpdateNavigationControls();
+            }
+        }
+        else if (tab == _activeTab)
+        {
+            ApplyNavigationDecision(decision, coreWebView.Source);
+        }
+        else
+        {
+            ClearTabWebContent(tab);
+            HideAndSuspendTab(tab);
         }
     }
 
@@ -636,18 +730,28 @@ public partial class MainWindow : Window
                 break;
             case NavigationDecision.Denied denied:
                 HideNotice();
+                var (heading, explanation) = denied.Reason switch
+                {
+                    NavigationDenialReason.PolicyUnavailable =>
+                        ("Zenith can’t check this destination",
+                         "The active Site Policy is unavailable, so no page was opened."),
+                    NavigationDenialReason.UnsupportedTarget =>
+                        ("This address can’t be opened",
+                         "Zenith can open only complete HTTP or HTTPS addresses without embedded credentials. No page was opened."),
+                    NavigationDenialReason.Greylisted =>
+                        ("This destination isn’t in your Sphere",
+                         "This destination is Greylisted. Temporary access will become available in a later phase; no page was opened."),
+                    NavigationDenialReason.Blacklisted =>
+                        ("This destination is unavailable",
+                         "This destination is Blacklisted and cannot be opened while that policy remains active."),
+                    _ =>
+                        ("This destination isn’t available",
+                         "Zenith couldn’t confirm that this destination is in your Sphere. No page was opened.")
+                };
                 ShowBoundarySurface(
-                    "This destination isn’t available",
+                    heading,
                     requestedTarget,
-                    denied.Reason switch
-                    {
-                        NavigationDenialReason.PolicyUnavailable =>
-                            "Zenith can’t check whether this destination is in your Sphere right now. No page was opened.",
-                        NavigationDenialReason.NotWhitelisted =>
-                            "This destination isn't in your Sphere yet. No page was opened.",
-                        _ =>
-                            "Zenith couldn’t confirm that this destination is in your Sphere. No page was opened."
-                    });
+                    explanation);
                 break;
             default:
                 HideNotice();
@@ -671,6 +775,8 @@ public partial class MainWindow : Window
             return;
         }
 
+        tab.IsInternalClearPending = false;
+        tab.InternalClearNavigationId = null;
         tab.IsStartSurface = false;
         tab.CurrentUri = target;
         tab.Title = target.Host;
@@ -726,7 +832,10 @@ public partial class MainWindow : Window
 
         foreach (var item in _tabs)
         {
-            item.Browser.Visibility = Visibility.Collapsed;
+            if (item != tab)
+            {
+                HideAndSuspendTab(item);
+            }
         }
 
         _activeTab = tab;
@@ -746,20 +855,60 @@ public partial class MainWindow : Window
     private TabState? FindTab(WebView2 browser) =>
         _tabs.FirstOrDefault(tab => tab.Browser == browser);
 
+    private TabState? FindTab(CoreWebView2 coreWebView) =>
+        _tabs.FirstOrDefault(tab => tab.Browser.CoreWebView2 == coreWebView);
+
     private void FocusSphereSearch()
     {
+        _isAddressEditing = false;
         HideNotice();
-        ShowStartSurface();
         SetSidebarExpanded(true);
+        SetSphereSearchText(string.Empty);
         SphereSearchTextBox.Focus();
-        SphereSearchTextBox.SelectAll();
         RefreshSphereResults();
         SphereResultsPopup.IsOpen = true;
+    }
+
+    private void FocusAddressEditing()
+    {
+        if (_activeTab?.CurrentUri is not { } currentUri || _activeTab.IsStartSurface)
+        {
+            FocusSphereSearch();
+            return;
+        }
+
+        HideNotice();
+        SetSidebarExpanded(true);
+        _isAddressEditing = true;
+        SetSphereSearchText(currentUri.AbsoluteUri);
+        SphereResultsPopup.IsOpen = false;
+        SphereSearchTextBox.Focus();
+        SphereSearchTextBox.SelectAll();
+    }
+
+    private void CancelAddressEditing(bool restoreBrowserFocus = true)
+    {
+        _isAddressEditing = false;
+        SetSphereSearchText(string.Empty);
+        SphereResultsPopup.IsOpen = false;
+
+        if (restoreBrowserFocus && ActiveBrowser.Visibility == Visibility.Visible)
+        {
+            ActiveBrowser.Focus();
+        }
+    }
+
+    private void SetSphereSearchText(string value)
+    {
+        _suppressSphereResultsRefresh = true;
+        SphereSearchTextBox.Text = value;
+        _suppressSphereResultsRefresh = false;
     }
 
     private void SearchSphere()
     {
         var query = SphereSearchTextBox.Text.Trim();
+        _isAddressEditing = false;
         if (string.IsNullOrWhiteSpace(query))
         {
             RefreshSphereResults();
@@ -772,6 +921,7 @@ public partial class MainWindow : Window
             (directTarget.Scheme == Uri.UriSchemeHttps || directTarget.Scheme == Uri.UriSchemeHttp))
         {
             SphereResultsPopup.IsOpen = false;
+            SetSphereSearchText(string.Empty);
             RequestNavigation(directTarget.AbsoluteUri, NavigationOrigin.AddressBar);
             return;
         }
@@ -792,6 +942,7 @@ public partial class MainWindow : Window
         {
             _activeTab.IsStartSurface = true;
             _activeTab.Title = "New tab";
+            ClearTabWebContent(_activeTab);
         }
         HideNotice();
         ShowStartSurface();
@@ -800,9 +951,13 @@ public partial class MainWindow : Window
 
     private void ShowStartSurface()
     {
-        ActiveBrowser.Visibility = Visibility.Collapsed;
+        if (_activeTab is { } tab)
+        {
+            HideAndSuspendTab(tab);
+        }
         BoundarySurface.Visibility = Visibility.Collapsed;
         StartSurface.Visibility = Visibility.Visible;
+        UpdateCurrentSiteIdentity();
         UpdateNavigationControls();
     }
 
@@ -811,20 +966,29 @@ public partial class MainWindow : Window
         SphereResultsPopup.IsOpen = false;
         StartSurface.Visibility = Visibility.Collapsed;
         BoundarySurface.Visibility = Visibility.Collapsed;
-        ActiveBrowser.Visibility = Visibility.Visible;
+        if (_activeTab is { } tab)
+        {
+            ResumeAndShowTab(tab);
+        }
+        UpdateCurrentSiteIdentity();
         UpdateNavigationControls();
     }
 
     private void ShowBoundarySurface(string heading, string target, string explanation)
     {
         SphereResultsPopup.IsOpen = false;
-        ActiveBrowser.Visibility = Visibility.Collapsed;
+        if (_activeTab is { } tab)
+        {
+            ClearTabWebContent(tab);
+            HideAndSuspendTab(tab);
+        }
         StartSurface.Visibility = Visibility.Collapsed;
         BoundarySurface.Visibility = Visibility.Visible;
         BoundaryHeadingTextBlock.Text = heading;
         BoundaryTargetTextBlock.Text = target;
         BoundaryTargetTextBlock.ToolTip = target;
         BoundaryExplanationTextBlock.Text = explanation;
+        UpdateCurrentSiteIdentity();
         UpdateNavigationControls();
 
         var announcement = $"{heading}. {explanation} Requested address: {target}";
@@ -835,6 +999,129 @@ public partial class MainWindow : Window
         peer?.RaiseAutomationEvent(AutomationEvents.LiveRegionChanged);
 
         ReturnToSphereButton.Focus();
+    }
+
+    private void ClearTabWebContent(TabState tab)
+    {
+        tab.IsStartSurface = true;
+        tab.CurrentUri = null;
+        tab.FaviconUri = null;
+        tab.Title = "New tab";
+
+        if (!tab.IsReady ||
+            tab.Browser.CoreWebView2 is null ||
+            tab.IsInternalClearPending)
+        {
+            return;
+        }
+
+        tab.IsInternalClearPending = true;
+        tab.InternalClearNavigationId = null;
+        var browser = tab.Browser;
+        _ = Dispatcher.BeginInvoke(
+            DispatcherPriority.Background,
+            () =>
+            {
+                if (_isClosing ||
+                    !_tabs.Contains(tab) ||
+                    !tab.IsInternalClearPending ||
+                    browser.CoreWebView2 is null)
+                {
+                    return;
+                }
+
+                try
+                {
+                    browser.CoreWebView2.Navigate("about:blank");
+                }
+                catch (Exception)
+                {
+                    tab.IsInternalClearPending = false;
+                    tab.InternalClearNavigationId = null;
+                    HideAndSuspendTab(tab);
+                }
+            });
+    }
+
+    private void HideAndSuspendTab(TabState tab)
+    {
+        tab.Browser.Visibility = Visibility.Collapsed;
+        var lifecycleVersion = ++tab.LifecycleVersion;
+
+        if (!tab.IsReady ||
+            tab.IsInternalClearPending ||
+            tab.Browser.CoreWebView2 is not { } coreWebView)
+        {
+            return;
+        }
+
+        _ = TrySuspendTabAsync(tab, coreWebView, lifecycleVersion);
+    }
+
+    private async Task TrySuspendTabAsync(
+        TabState tab,
+        CoreWebView2 coreWebView,
+        int lifecycleVersion)
+    {
+        try
+        {
+            if (!coreWebView.IsSuspended)
+            {
+                await coreWebView.TrySuspendAsync();
+            }
+
+            if (!_isClosing &&
+                (tab.LifecycleVersion != lifecycleVersion ||
+                 tab.Browser.Visibility == Visibility.Visible) &&
+                coreWebView.IsSuspended)
+            {
+                coreWebView.Resume();
+            }
+        }
+        catch (Exception)
+        {
+            // Suspension is best-effort. Native surfaces still unload replaced content.
+        }
+    }
+
+    private void ResumeAndShowTab(TabState tab)
+    {
+        ++tab.LifecycleVersion;
+        if (tab.IsReady && tab.Browser.CoreWebView2 is { IsSuspended: true } coreWebView)
+        {
+            try
+            {
+                coreWebView.Resume();
+            }
+            catch (Exception)
+            {
+                // Making the controller visible also requests an automatic resume.
+            }
+        }
+
+        tab.Browser.Visibility = Visibility.Visible;
+    }
+
+    private void UpdateCurrentSiteIdentity()
+    {
+        if (_activeTab is not { IsStartSurface: false, CurrentUri: { } target } tab ||
+            tab.Browser.Visibility != Visibility.Visible ||
+            BoundarySurface.Visibility == Visibility.Visible)
+        {
+            CurrentSiteButton.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        var host = SiteIdentity.TryCreate(target.Host, out var identity)
+            ? identity.Host
+            : target.IdnHost;
+        CurrentSiteText.Text = host;
+        CurrentSiteButton.ToolTip = target.AbsoluteUri;
+        CurrentSiteButton.Visibility = Visibility.Visible;
+        AutomationProperties.SetName(
+            CurrentSiteButton,
+            $"Current site {host}. Show and edit the full address.");
+        AutomationProperties.SetHelpText(CurrentSiteButton, target.AbsoluteUri);
     }
 
     private void ShowNotice(string message)
@@ -945,7 +1232,7 @@ public partial class MainWindow : Window
                 bookmark.Target,
                 SphereResultSource.Bookmark))
             .ToList();
-        var siteResults = StarterWhitelistNavigationPolicyEvaluator.StarterSites
+        var siteResults = DevelopmentStarterPolicy.Sites
             .Where(site => MatchesSphereQuery(site.Name, site.Host, query))
             .OrderBy(site => site.Name, StringComparer.OrdinalIgnoreCase)
             .Select(site => new SphereResult(
@@ -959,7 +1246,7 @@ public partial class MainWindow : Window
         _visibleSphereResults.AddRange(siteResults);
         SphereResultsPanel.Children.Clear();
         SphereResultsHeadingTextBlock.Text = query.Length == 0
-            ? $"{StarterWhitelistNavigationPolicyEvaluator.StarterSites.Count} sites · {bookmarkResults.Count} bookmarks"
+            ? $"{DevelopmentStarterPolicy.Sites.Count} sites · {bookmarkResults.Count} bookmarks"
             : $"Results for “{query}”";
 
         if (bookmarkResults.Count > 0)
@@ -1456,6 +1743,12 @@ public partial class MainWindow : Window
         TabsSectionLabel.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
         NewTabText.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
         SettingsButtonText.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
+        CurrentSiteText.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
+        CurrentSiteIcon.Margin = expanded ? new Thickness(0, 0, 9, 0) : new Thickness(0);
+        CurrentSiteButton.Padding = expanded ? new Thickness(10, 0, 10, 0) : new Thickness(0);
+        CurrentSiteButton.HorizontalContentAlignment = expanded
+            ? HorizontalAlignment.Left
+            : HorizontalAlignment.Center;
         TabsRow.MinHeight = expanded ? 0 : 110;
         TabsRow.Margin = expanded
             ? new Thickness(4, 0, 4, 8)

@@ -18,21 +18,19 @@ The roadmap describes development order, not deadlines. Each phase should end wi
 - Establish the fixed midnight visual system through semantic resources, including a Windows High Contrast override.
 - Align the shell hierarchy and start surface with the product-experience principles.
 
-## Phase 2: Site Policy (In progress)
+## Phase 2: Site Policy (Complete)
 
-The current development checkpoint uses an immutable starter Whitelist so browser mechanics can be exercised against real sites while the durable Vault-backed policy is designed. It is deliberately temporary and is not a substitute for the final policy model.
+The current development checkpoint uses the general Core Site Policy classifier with an immutable development snapshot. That snapshot is seeded with a starter Whitelist so browser mechanics can be exercised against real sites while Vault-backed persistence is designed. The seed data is deliberately temporary; the classifier and policy-entry model are the foundation the future Vault will supply.
 
 - Starter sites: GitHub, ChatGPT, OpenAI, YouTube, Wikipedia, Reddit, Microsoft Learn, Google, Stack Overflow, GitLab, MDN Web Docs and Internet Archive.
 - Only HTTP(S) targets whose hostname exactly matches a starter site or is a subdomain are allowed.
 - Tabs and bookmarks do not expand the starter Whitelist; every opened target still goes through the Core evaluator.
 - Canonical hostname identity and URI normalization are implemented in Core, including explicit subdomain scope and deceptive-host tests.
 - Focusing "Find in your Sphere" exposes a stable filterable directory of all starter sites and currently permitted bookmarks. Bookmark stars can add or remove entries directly, and saved bookmarks become sidebar shortcuts.
-
-- Define and enforce the rendered-page lifecycle when a native Sphere surface replaces WebView2, so hidden content cannot remain active unintentionally.
-- Define current-site identity and decide whether a secondary direct-address entry point is needed before permitted pages are rendered.
-- Implement Whitelist, Blacklist and Greylist classification.
-- Deny unclassified navigation by default.
-- Add policy-decision explanations and Core tests.
+- Core now resolves every valid HTTP(S) hostname to Whitelist, Blacklist or the default Greylist. Blacklist takes precedence over overlapping Whitelist entries, unsupported targets fail closed, and each denied class produces a distinct native explanation.
+- Native Sphere and policy-boundary surfaces unload the external document they replace; inactive tabs use WebView2 suspension and resume on activation.
+- A compact current-site control shows the canonical hostname and progressively reveals the complete address for inspection or editing through the existing Sphere field and `Ctrl+L`.
+- Navigation reads a validated, revisioned snapshot through a fail-closed policy-source interface that a later Vault persistence adapter can implement.
 
 ## Phase 3: Greylist and Access Grants
 

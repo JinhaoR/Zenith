@@ -6,9 +6,11 @@ This document defines how Zenith classifies sites, evaluates navigation, issues 
 
 ## 1.1 Development Starter Policy
 
-Until the durable Vault-backed policy is implemented, the development application uses an immutable starter Whitelist for browser-mechanics testing. It includes GitHub, ChatGPT, OpenAI, YouTube, Wikipedia, Reddit, Microsoft Learn, Google, Stack Overflow, GitLab, MDN Web Docs and Internet Archive.
+Until the durable Vault-backed policy is implemented, the development application uses an immutable Site Policy snapshot for browser-mechanics testing. Its Whitelist entries are GitHub, ChatGPT, OpenAI, YouTube, Wikipedia, Reddit, Microsoft Learn, Google, Stack Overflow, GitLab, MDN Web Docs and Internet Archive. It currently has no Blacklist entries.
 
-The starter evaluator accepts only HTTP(S) targets whose normalized hostname exactly matches one of those entries or ends with `.` followed by one of those entries. Lookalike hosts, other schemes and all other hosts remain denied. This temporary Whitelist does not define the final persisted policy and must be replaced by the Vault-backed evaluator before release.
+The general evaluator permits only HTTP(S) targets whose normalized hostname matches one of those Whitelist entries under its explicit subdomain scope. Other valid sites resolve to Greylist and remain unavailable because Access Grants are not implemented yet. Unsupported targets fail closed. Lookalike hosts do not inherit another site's classification. The immutable development snapshot does not define the final persisted policy and must be replaced by a validated Vault-backed policy source before release.
+
+Navigation reads the active immutable snapshot through `ISitePolicySource` for every decision. Snapshots carry a non-negative revision and validate their entries at construction. If the source cannot provide a trustworthy snapshot, or fails while doing so, navigation is denied as policy unavailable. The development source is fixed; a future Vault-backed App adapter may atomically replace the snapshot without changing Core classification behavior.
 
 ## 2. Classification
 

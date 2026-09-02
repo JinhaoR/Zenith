@@ -1,8 +1,8 @@
 # Zenith Architecture
 
-> **Status:** Phase 1 browser shell complete; Phase 2 Site Policy starter skeleton in progress.
+> **Status:** Phase 1 browser shell and Phase 2 Site Policy complete; Phase 3 Greylist access is next.
 >
-> The project boundaries, Sphere-first WPF shell, WebView2 host and navigation coordinator are in place. The shell uses a collapsible wayfinding sidebar with live bookmark shortcuts and a searchable Sphere directory, and the current development build uses a Core-owned starter Whitelist with normalized hostname identities while unavailable destinations are presented through a native boundary.
+> The project boundaries, Sphere-first WPF shell, WebView2 host and navigation coordinator are in place. Core classifies normalized hostnames from a revisioned policy source as Whitelist, Blacklist or default Greylist, while App presents distinct native boundaries for unavailable destinations. Native surfaces unload replaced web content, inactive tabs are suspended where WebView2 permits it, and the sidebar exposes inspectable current-site identity with progressive address editing. The current source remains seeded with a temporary starter Whitelist until Vault-backed persistence exists.
 
 ## 1. Scope
 
@@ -135,7 +135,8 @@ The following names describe responsibilities; they do not require one class per
 | WebView2 adapter | App | Intercept browser events, create Core requests and enact returned decisions. |
 | Navigation coordinator | App | Ensure direct-address, link, redirect, popup and external navigation use the same path. |
 | Site identity and URI normalizer | Core | Canonicalize HTTP(S) targets and produce the hostname identity used by policy. |
-| Policy evaluator | Core | Resolve Whitelist, Blacklist or Greylist and return a navigation decision. |
+| Policy evaluator | Core | Read the active revisioned snapshot, resolve Whitelist, Blacklist or Greylist and return a fail-closed navigation decision. |
+| Site Policy source | Core interface, App adapter | Expose one validated active snapshot without coupling classification to its eventual persistence format. |
 | Access Grant service | Core | Manage the password–cooldown–password state machine and validate Access Grants. |
 | Vault service | Core | Expose the active policy and create, confirm, cancel or reject Policy Changes. |
 | Permission evaluator | Core | Decide website capabilities independently from navigation access. |
@@ -262,4 +263,4 @@ Add focused end-to-end tests for security-sensitive paths after the browser shel
 - Record consequential technical choices in **docs/decisions/**.
 - Update this document when implemented dependencies, components or state ownership change.
 
-Current unresolved architectural inputs include the rendered-page lifecycle when a native Sphere surface replaces WebView2, site-identity scope, Access Grant lifetime, authentication mechanism, persistence format and precise time-tamper handling. These must be settled before their corresponding implementation is considered complete.
+Current unresolved architectural inputs include Access Grant lifetime, authentication mechanism, persistence format and precise time-tamper handling. These must be settled before their corresponding implementation is considered complete.

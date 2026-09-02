@@ -14,12 +14,9 @@ Possible states:
 
 ## Active Questions
 
-### Site Identity
+### Site Identity — Decided
 
-- Should classification use exact hosts or registrable domains?
-- How should `www` aliases, subdomains, ports and paths behave?
-- Should HTTP and HTTPS share classification?
-- How should internationalized domain names be displayed and compared?
+ADR 0002 selects normalized hostnames with explicit subdomain scope. HTTP and HTTPS, ports and paths do not alter Site Policy identity. DNS names use lowercase ASCII IDN form for comparison. User-facing display of internationalized names can be revisited as an interface concern without changing the accepted policy identity.
 
 ### Access Grants
 

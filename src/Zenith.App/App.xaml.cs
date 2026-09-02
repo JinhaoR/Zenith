@@ -40,7 +40,8 @@ public partial class App : Application
         SystemParameters.StaticPropertyChanged += SystemParameters_OnStaticPropertyChanged;
         ApplyAccessibilityPalette();
 
-        var policyEvaluator = new StarterWhitelistNavigationPolicyEvaluator();
+        var policySource = new FixedSitePolicySource(DevelopmentStarterPolicy.Snapshot);
+        var policyEvaluator = new SitePolicyNavigationEvaluator(policySource);
         var navigationCoordinator = new NavigationCoordinator(policyEvaluator);
         var mainWindow = new MainWindow(navigationCoordinator);
 

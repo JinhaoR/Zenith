@@ -3,5 +3,7 @@ namespace Zenith.Core.Navigation;
 public enum NavigationDenialReason
 {
     PolicyUnavailable,
-    NotWhitelisted
+    UnsupportedTarget,
+    Greylisted,
+    Blacklisted
 }

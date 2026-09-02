@@ -49,7 +49,7 @@ The existing policy remains active until confirmation. This prevents an immediat
 
 ## Project Status
 
-Zenith is in early development and is not yet ready for everyday use. Phase 1 is complete, and Phase 2 now includes normalized hostname identity, a Core-owned starter Whitelist and a searchable Sphere directory so tabs, navigation and bookmarks can be exercised against selected sites. The durable Vault-backed Site Policy is still ahead.
+Zenith is in early development and is not yet ready for everyday use. Phases 1 and 2 are complete: the browser shell now uses normalized hostname identity, a Core-owned Whitelist/Blacklist/Greylist classifier, a revisioned policy-source boundary, native navigation explanations, safe native-surface lifecycle handling and a searchable Sphere directory. Greylist Access Grants and Vault-backed persistence are still ahead.
 
 ## Technology
 
@@ -74,7 +74,7 @@ dotnet test Zenith.slnx
 dotnet run --project src/Zenith.App/Zenith.App.csproj
 ~~~
 
-Until durable Site Policy is implemented, the development build permits only its explicit starter Whitelist and denies every other external destination.
+Until Vault-backed Site Policy is implemented, the development build permits only its explicit starter Whitelist. Other valid external destinations are Greylisted and remain unavailable because Access Grants have not been implemented; unsupported targets fail closed.
 
 ## Documentation
 
