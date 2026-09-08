@@ -17,6 +17,46 @@ internal sealed class BrowserCapabilityGuard : IDisposable
         core.PermissionRequested += PermissionRequested;
         core.DownloadStarting += DownloadStarting;
         core.LaunchingExternalUriScheme += LaunchingExternalUriScheme;
+        core.ServerCertificateErrorDetected += ServerCertificateErrorDetected;
+        core.ClientCertificateRequested += ClientCertificateRequested;
+        core.BasicAuthenticationRequested += BasicAuthenticationRequested;
+    }
+
+    internal async Task InitializeAsync(bool enableCosmeticMessages)
+    {
+        var settings = _core.Settings;
+        settings.AreHostObjectsAllowed = false;
+        settings.IsWebMessageEnabled = enableCosmeticMessages;
+        settings.IsPasswordAutosaveEnabled = false;
+        settings.IsGeneralAutofillEnabled = false;
+        settings.AreDevToolsEnabled = false;
+        settings.AreDefaultContextMenusEnabled = false;
+        settings.AreDefaultScriptDialogsEnabled = false;
+        settings.IsReputationCheckingRequired = true;
+        await _core.ClearServerCertificateErrorActionsAsync();
+        // Old renderer grants must not bypass PermissionRequested in an existing profile.
+        foreach (var permission in await _core.Profile.GetNonDefaultPermissionSettingsAsync())
+            await _core.Profile.SetPermissionStateAsync(permission.PermissionKind, permission.PermissionOrigin,
+                CoreWebView2PermissionState.Default);
+    }
+
+    private void ServerCertificateErrorDetected(object? sender, CoreWebView2ServerCertificateErrorDetectedEventArgs e)
+    {
+        e.Action = CoreWebView2ServerCertificateErrorAction.Cancel;
+        _notify(_policy.Evaluate(BrowserCapability.InvalidServerCertificate).Explanation);
+    }
+
+    private void ClientCertificateRequested(object? sender, CoreWebView2ClientCertificateRequestedEventArgs e)
+    {
+        e.Cancel = true;
+        e.Handled = true;
+        _notify(_policy.Evaluate(BrowserCapability.ClientCertificate).Explanation);
+    }
+
+    private void BasicAuthenticationRequested(object? sender, CoreWebView2BasicAuthenticationRequestedEventArgs e)
+    {
+        e.Cancel = true;
+        _notify(_policy.Evaluate(BrowserCapability.HttpAuthentication).Explanation);
     }
 
     private void PermissionRequested(object? sender, CoreWebView2PermissionRequestedEventArgs e)
@@ -53,5 +93,8 @@ internal sealed class BrowserCapabilityGuard : IDisposable
         _core.PermissionRequested -= PermissionRequested;
         _core.DownloadStarting -= DownloadStarting;
         _core.LaunchingExternalUriScheme -= LaunchingExternalUriScheme;
+        _core.ServerCertificateErrorDetected -= ServerCertificateErrorDetected;
+        _core.ClientCertificateRequested -= ClientCertificateRequested;
+        _core.BasicAuthenticationRequested -= BasicAuthenticationRequested;
     }
 }

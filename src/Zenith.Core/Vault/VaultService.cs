@@ -80,8 +80,9 @@ public sealed class VaultService : ISitePolicySource, IAccessRulesSource
         lock (_store.SyncRoot)
         {
             var state = ReadState();
-            ValidateMandatoryBlacklist(edit);
-            return new(VaultProposalRules.Normalize(state, edit), state.Settings, state.Revision);
+            var normalized = VaultProposalRules.Normalize(state, edit);
+            ValidateMandatoryBlacklist(normalized);
+            return new(normalized, state.Settings, state.Revision);
         }
     }
 
@@ -134,10 +135,9 @@ public sealed class VaultService : ISitePolicySource, IAccessRulesSource
                 if (_clockInvalid || now < pending.EligibleAt) return Unavailable();
                 var edit = VaultProposalRules.Normalize(state, pending.Edit);
                 ValidateMandatoryBlacklist(edit);
-                var sites = state.Sites.ToList();
-                if (edit.AddHost is { } host) sites.Add(new(host, AccessClass.Whitelist, edit.IncludeSubdomains));
+                var sites = VaultProposalRules.ApplySites(state, edit);
                 var next = state with { Revision = checked(state.Revision + 1), Settings = VaultProposalRules.ApplySettings(state.Settings, edit),
-                    Sites = sites.ToArray(), Pending = null, LastObservedUtc = now, RetryAfter = DateTimeOffset.MinValue };
+                    Sites = sites, Pending = null, LastObservedUtc = now, RetryAfter = DateTimeOffset.MinValue };
                 _store.SaveVault(next, pending.PasswordVerifier);
                 return new(VaultResult.Applied, "Changes applied. Your new rules are now active.");
             }
@@ -162,10 +162,11 @@ public sealed class VaultService : ISitePolicySource, IAccessRulesSource
 
     private void ValidateMandatoryBlacklist(VaultEdit edit)
     {
-        if (_blacklist is null || string.IsNullOrWhiteSpace(edit.AddHost)) return;
+        if (_blacklist is null || !edit.Additions().Any()) return;
         var list = _blacklist.Current ?? throw new InvalidOperationException("Blacklist unavailable.");
-        if (SiteIdentity.TryCreate(edit.AddHost.Trim(), out var site) && list.Contains(site))
-            throw new ArgumentException("This hostname is on the permanent Blacklist and cannot be added to your Sphere.");
+        foreach (var addition in edit.Additions())
+            if (SiteIdentity.TryCreate(addition.Host, out var site) && list.Contains(site))
+                throw new ArgumentException("This hostname is on the permanent Blacklist and cannot be added to your Sphere.");
     }
 
     private VaultState ReadState()

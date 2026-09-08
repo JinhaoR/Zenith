@@ -8,6 +8,9 @@ public sealed class BrowserCapabilityPolicyTests
     [InlineData(BrowserCapability.PermissionRequest)]
     [InlineData(BrowserCapability.Download)]
     [InlineData(BrowserCapability.ExternalApplication)]
+    [InlineData(BrowserCapability.InvalidServerCertificate)]
+    [InlineData(BrowserCapability.ClientCertificate)]
+    [InlineData(BrowserCapability.HttpAuthentication)]
     [InlineData((BrowserCapability)999)]
     public void CapabilitiesWithoutExplicitGrantsAreDenied(BrowserCapability capability)
     {

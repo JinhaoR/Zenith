@@ -72,7 +72,7 @@ public sealed class ProtectedAccessStore : IVaultStore, IDisposable
             var verifier = Rfc2898DeriveBytes.Pbkdf2(password, salt, Iterations, HashAlgorithmName.SHA256, 32);
             try
             {
-                var envelope = new Envelope(2, Iterations, salt, verifier,
+                var envelope = new Envelope(4, Iterations, salt, verifier,
                     new(now, DateTimeOffset.MinValue, []), VaultState.CreateDevelopment(now));
                 // A failed initial write leaves a marker and requires recovery; it must
                 // never silently offer fresh credential setup over missing state.
@@ -168,7 +168,8 @@ public sealed class ProtectedAccessStore : IVaultStore, IDisposable
         try
         {
             using var document = JsonDocument.Parse(plaintext);
-            if (document.RootElement.GetProperty("Version").GetInt32() == 2)
+            var storedVersion = document.RootElement.GetProperty("Version").GetInt32();
+            if (storedVersion is 2 or 3 or 4)
             {
                 // Missing current-schema fields must not acquire constructor defaults,
                 // especially a shorter wait or a longer grant lifetime.
@@ -187,6 +188,20 @@ public sealed class ProtectedAccessStore : IVaultStore, IDisposable
                         _ = pending.GetProperty(field);
                     foreach (var field in new[] { "GreylistSeconds", "GrantSeconds", "VaultSeconds", "AddHost", "IncludeSubdomains", "ChangePassword" })
                         _ = pending.GetProperty("Edit").GetProperty(field);
+                    if (storedVersion >= 3)
+                        _ = pending.GetProperty("Edit").GetProperty("RemoveHost");
+                    if (storedVersion == 4)
+                    {
+                        var edit = pending.GetProperty("Edit");
+                        var additions = edit.GetProperty("AddSites");
+                        _ = edit.GetProperty("RemoveSites");
+                        if (additions.ValueKind != JsonValueKind.Null)
+                            foreach (var addition in additions.EnumerateArray())
+                            {
+                                _ = addition.GetProperty("Host");
+                                _ = addition.GetProperty("IncludeSubdomains");
+                            }
+                    }
                 }
                 foreach (var field in new[] { "LastObservedUtc", "RetryAfter", "Requests" })
                     _ = document.RootElement.GetProperty("State").GetProperty(field);
@@ -197,19 +212,23 @@ public sealed class ProtectedAccessStore : IVaultStore, IDisposable
                 }
             }
             var envelope = JsonSerializer.Deserialize<Envelope>(plaintext);
-            if (envelope is not { Version: 1 or 2, Iterations: Iterations, Salt.Length: 32, Verifier.Length: 32, State: not null })
+            if (envelope is not { Version: 1 or 2 or 3 or 4, Iterations: Iterations, Salt.Length: 32, Verifier.Length: 32, State: not null })
             {
                 throw new InvalidDataException("Invalid access envelope.");
             }
             if (envelope.Version == 1)
             {
-                envelope = envelope with { Version = 2, Vault = VaultState.CreateDevelopment(envelope.State.LastObservedUtc) };
-                WriteEnvelope(envelope, overwrite: true);
+                envelope = envelope with { Vault = VaultState.CreateDevelopment(envelope.State.LastObservedUtc) };
             }
             if (envelope.Vault is null) throw new InvalidDataException("Missing initialized Vault policy.");
             envelope.Vault.Validate();
             if (envelope.Vault.Pending?.PasswordVerifier is { } pendingVerifier && Convert.FromBase64String(pendingVerifier).Length != 64)
                 throw new InvalidDataException("Invalid pending verifier.");
+            if (storedVersion < 4)
+            {
+                envelope = envelope with { Version = 4 };
+                WriteEnvelope(envelope, overwrite: true);
+            }
             return envelope;
         }
         finally { CryptographicOperations.ZeroMemory(plaintext); }

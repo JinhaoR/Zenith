@@ -2,7 +2,7 @@
 
 > **Status:** Phases 1–4 complete as development checkpoints; Phase 5 policy hardening is in progress.
 >
-> The project boundaries, Sphere-first WPF shell, WebView2 host and navigation coordinator are in place. Core classifies normalized hostnames from a revisioned Vault policy source as Whitelist, Blacklist or default Greylist, while App presents distinct native boundaries for unavailable destinations. Native surfaces unload replaced web content, inactive tabs are suspended where WebView2 permits it, and the sidebar exposes inspectable current-site identity with progressive address editing. The starter Whitelist seeds initial policy; confirmed Vault proposals extend it durably.
+> The project boundaries, Sphere-first WPF shell, WebView2 host and navigation coordinator are in place. Core classifies normalized hostnames from a revisioned Vault policy source as Whitelist, Blacklist or default Greylist, while App presents distinct native boundaries for unavailable destinations. Native surfaces unload replaced web content, inactive tabs are suspended where WebView2 permits it, and tab help plus progressive address editing expose site identity. The starter Whitelist seeds initial policy; confirmed Vault proposals add, broaden or remove host scopes durably. Core defines independent parent scopes and atomically consolidates covered Whitelist children; the Sphere catalog uses that domain state for compact presentation without becoming a policy authority.
 
 ## 1. Scope
 
@@ -156,13 +156,15 @@ The following names describe responsibilities; they do not require one class per
 
 `GreylistAccessService` implements `IAccessGrantSource` and owns both authentication transitions, cooldown/retry eligibility, state validation, clock checks and in-memory grants. It depends on `IAccessAuthenticator`, `IAccessStateStore`, `ISitePolicySource` and an injectable `TimeProvider`. State writes must succeed before transitions or grant issuance become observable.
 
-The App composition root supplies `ProtectedAccessStore` for authentication, temporal persistence and `IVaultStore`. Version 2 of the Windows DPAPI envelope holds the password verifier, cooldown snapshot, active Vault policy and pending proposal. Atomic file replacement retains a protected previous envelope; a lifetime exclusive file lease serializes supported application instances. An initialization marker distinguishes missing initialized state from fresh setup. Version 1 migrates once, preserving credentials and existing waits. Missing mandatory version-2 fields fail closed rather than acquiring development defaults. See ADRs 0007 and 0008.
+The App composition root supplies `ProtectedAccessStore` for authentication, temporal persistence and `IVaultStore`. Version 4 of the Windows DPAPI envelope holds the password verifier, cooldown snapshot, active Vault policy, presentation names and pending batch proposal. Atomic file replacement retains a protected previous envelope; a lifetime exclusive file lease serializes supported application instances. An initialization marker distinguishes missing initialized state from fresh setup. Older supported versions migrate after validation, preserving existing credentials, deadlines and saved Vault scopes. Missing mandatory current-schema fields fail closed rather than acquiring development defaults. See ADRs 0007, 0008 and 0013.
 
 `SitePolicyNavigationEvaluator` checks classification before consulting the grant source and independently checks the returned `AccessGrant` against exact site identity and time. Allowed decisions retain the Core-resolved `AccessClass`, so App can distinguish Whitelist discovery from temporary Greylist authorization without duplicating classification logic. The optional source preserves fail-closed behavior for callers without temporary access.
 
 MainWindow re-evaluates retained tab targets on a one-second dispatcher tick and before tab activation. Denials hide and unload the document through the existing native-surface lifecycle. All WebView2 tabs share the initial environment; no separate renderer instance becomes an authorization authority.
 
 ### Active Vault policy
+
+Account security remains separate from the Vault (ADR 0014). `BrowserCapabilityGuard` installs renderer security defaults and authentication/certificate guards; `DocumentRequestGuard` controls document interception and cache/worker-response bypass. `MainWindow.Security` owns native identity presentation, runtime-update notices and the confirmed dispose-clear-close profile lifecycle. Cleanup uses WebView2's profile API, never the policy store. Core normalizes website identity and supplies capability decisions.
 
 The active Vault policy is durable, versioned state. It contains the current classifications and access-affecting configuration.
 
@@ -172,7 +174,7 @@ Only the Vault service may replace it, and only through a confirmed Policy Chang
 
 Both domain services lock the store's explicit `SyncRoot` across read, authentication and commit. This serializes their full transactions and prevents an interleaving credential rotation or temporal-state write from losing another operation. The Windows adapter preserves unrelated fields when updating one part of the envelope. This is an in-process transaction boundary backed by the existing single-instance file lease, not a cross-process database.
 
-`VaultPanel` presents active settings, builds a draft, requests staging, displays a saved pending proposal and submits its ID for confirmation or cancellation. It never writes policy or decides eligibility. MainWindow refreshes Sphere directory/bookmark eligibility from confirmed snapshots; settings receives a live directory provider rather than retaining the original starter list.
+`VaultPanel` presents active settings, builds a name-first batch draft with per-service subdomain choices, requests staging, displays a saved pending proposal and submits its ID for confirmation or cancellation. Core's shared proposal rules normalize removals before additions and apply the batch atomically. The panel never writes policy or decides eligibility. MainWindow refreshes Sphere directory/bookmark eligibility from confirmed snapshots; settings receives a live directory provider rather than retaining the original starter list. Display names are metadata, never authorization.
 
 `BrowserCapabilityPolicy` owns the current default-deny capability decisions. Each initialized tab owns a disposable `BrowserCapabilityGuard`, which adapts WebView2 permission, download and external-scheme events to those decisions and presents active-tab notices. The adapter installs fail-closed event values before invoking presentation. This is independent of site classification and does not introduce capability grants into the Vault.
 

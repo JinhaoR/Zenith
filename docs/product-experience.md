@@ -176,7 +176,7 @@ Sphere is deliberately scoped experience vocabulary, not a friendly replacement 
 Examples:
 
 - A normal start surface presents the user's Sphere without labeling individual destinations "Whitelisted" or "Sphere-classified."
-- A compact current-site control shows site identity without announcing its Access Class.
+- Tab tooltips and accessible help expose site identity without announcing its Access Class.
 - A boundary explanation says a destination is not in the user's Sphere before offering the deliberate Greylist path.
 - The Vault says "Add to your Sphere" while the underlying domain operation changes Whitelist membership through a Policy Change.
 - An Access Grant never expands the Sphere, even when it temporarily permits a Greylisted visit.
@@ -212,15 +212,17 @@ A theme picker, light palette, persistence and normal system light/dark synchron
 
 ### Settings checkpoint
 
+General settings includes a privacy/security card with the running WebView2 version, restart advice for engine updates and confirmed browsing-data cleanup. Cleanup explains sign-out, unsaved-work loss and app closure before proceeding; Vault rules, waits and Zenith bookmarks remain intact. The application menu's Website identity command shows the actual normalized origin without exposing URL tokens, distinguishes HTTP from HTTPS and points to Ctrl+L for the complete address. It does not add a permanent policy badge or claim that HTTPS proves site trustworthiness.
+
 The sidebar settings control opens a dedicated, owned native settings window. It uses the shared midnight palette and Windows High Contrast resources, with General, Your Sphere, Temporary access, Vault and About sections. Closing settings returns to the existing browsing surface without unloading or navigating its page.
 
 General settings persist the startup sidebar layout and default page zoom. The page zoom applies to existing and newly created tabs. These presentation preferences are ordinary local data, separate from durable access policy. The Sphere directory is filterable and opens destinations through the normal coordinator. Full theme selection remains deferred.
 
 Temporary access provides initial password setup and a list of pending requests with eligibility and resume actions. The native gate identifies the exact hostname, explains each challenge using current timing rules and preserves the saved wait when closed. It is reached as a secondary action on an intentional Greylist boundary, with returning to the Sphere still primary.
 
-The Vault page separates active rules, a proposed change and its pending confirmation. Users can edit durations with seconds/minutes/hours/days, add a hostname with explicit subdomain scope, and propose a password replacement. Review describes the exact changes and the current wait before authentication. Pending changes show their saved deadline, countdown, confirmation, edit and cancel actions. Editing explains that it starts the wait again; nothing applies automatically. Five-second development values are visibly identified as testing values. Forgotten-password recovery is not offered.
+The Vault page separates active rules, a proposed change and its pending confirmation. Users can edit durations with seconds/minutes/hours/days, add or remove multiple services, and propose a password replacement. Known services are selected by friendly name; an expandable custom-site form accepts another hostname and an optional display name. Each new addition defaults to “this service only,” with an explicit option to include subdomains. Additions can be queued and undone; removal uses checkboxes for independent active scopes rather than exposing redundant covered children. A broad parent can be removed while selected services are added in the same reviewed change. Review uses names and plain-language scope, with technical addresses available under “Addresses and scope.” Copy explains that parent and sibling services are never included by a child entry. Pending changes show their saved deadline, countdown, confirmation, edit and cancel actions. Editing explains that it starts the wait again; nothing applies automatically. Five-second development values are visibly identified as testing values. Forgotten-password recovery is not offered.
 
-Settings → Temporary access includes a quiet, explicitly labelled website-address field. It accepts complete HTTP(S) URLs, not search queries, and continues to the existing access challenge without loading the site or starting a wait. Core decides eligibility; invalid or ineligible addresses receive inline feedback. Pending requests remain resumable below it. This portal does not change Sphere search, add suggestions, or promote temporary destinations into ordinary discovery.
+Settings → Temporary access includes a quiet, explicitly labelled website-address field. It accepts HTTP(S) URLs or bare website addresses such as `example.com/path`, not search queries. Omitted schemes default to HTTPS; `www.` is neither required nor automatically added. It continues to the existing access challenge without loading the site or starting a wait. Core decides eligibility; invalid or ineligible addresses receive inline feedback. Pending requests remain resumable below it. A separate active temporary visits section lists currently authorized exact hostnames and their expiry times, refreshing while the page is open. Expired visits disappear; this is not persistent browsing history. This portal does not add suggestions or promote temporary destinations into ordinary discovery.
 
 ## 12. Experience Invariants
 
@@ -247,7 +249,7 @@ The completed Phase 1 shell establishes the first concrete expression of this ex
 - The sidebar contains the single "Find in your Sphere" field, bookmark shortcuts, open tabs and the application menu; the start surface does not duplicate it.
 - The main browser surface fills the remaining window. When it is empty, it uses Zenith's ambient background rather than homepage cards or widgets.
 - There is no separate permanent address bar in the shell; the Sphere field accepts a typed URL only when the Core policy allows it, and `Ctrl+L` focuses that field.
-- A compact current-site control appears only for a visible permitted page. It shows the canonical hostname; its tooltip and accessible help expose the complete address, while activation or `Ctrl+L` places that address in the Sphere field for deliberate editing. `Ctrl+K` remains Sphere search.
+- There is no separate current-address row. Tab tooltips and accessible help expose the complete address, while `Ctrl+L` places the current address in the Sphere field for deliberate editing. `Ctrl+K` remains Sphere search. Typed website addresses accept omitted HTTPS and do not require `www.`, using the same Core input parser as Temporary access.
 - Ordinary chrome contains no permanent classification or policy-warning status.
 - The Vault is reached through the application menu rather than a permanent browser control.
 - An intentional unavailable navigation opens a calm native boundary with returning to the Sphere as the primary action.

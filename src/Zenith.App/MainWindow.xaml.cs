@@ -47,6 +47,9 @@ public partial class MainWindow : Window
     private bool _initializationStarted;
     private bool _isAddressEditing;
     private bool _isClosing;
+    private bool _clearingBrowsingData;
+    private CoreWebView2Environment? _browserEnvironment;
+    private bool _runtimeUpdateAvailable;
     private bool _syncingBookmarkScrollBar;
     private bool _suppressSphereResultsRefresh;
 
@@ -124,7 +127,7 @@ public partial class MainWindow : Window
 
         try
         {
-            await tab.Browser.EnsureCoreWebView2Async(Browser.CoreWebView2?.Environment);
+            await tab.Browser.EnsureCoreWebView2Async(_browserEnvironment);
 
             if (_isClosing || !_tabs.Contains(tab))
             {
@@ -184,6 +187,8 @@ public partial class MainWindow : Window
         try
         {
             await Browser.EnsureCoreWebView2Async();
+            _browserEnvironment = Browser.CoreWebView2.Environment;
+            _browserEnvironment.NewBrowserVersionAvailable += BrowserVersionAvailable;
 
             if (_isClosing)
             {
@@ -194,6 +199,7 @@ public partial class MainWindow : Window
             if (_isClosing) return;
             Browser.CoreWebView2.NewWindowRequested += Browser_OnNewWindowRequested;
             Browser.CoreWebView2.HistoryChanged += Browser_OnHistoryChanged;
+            _tabs.First(tab => tab.Browser == Browser).CoreEventsAttached = true;
             if (_activeTab is not null)
             {
                 _activeTab.IsReady = true;
@@ -215,31 +221,20 @@ public partial class MainWindow : Window
     private void MainWindow_OnClosed(object? sender, EventArgs e)
     {
         _isClosing = true;
+        if (_browserEnvironment is not null)
+            _browserEnvironment.NewBrowserVersionAvailable -= BrowserVersionAvailable;
         _accessTimer.Stop();
         _accessTimer.Tick -= AccessTimer_OnTick;
         _bookmarkScrollBarHideTimer.Stop();
         _bookmarkScrollBarHideTimer.Tick -= BookmarkScrollBarHideTimer_OnTick;
 
-        Browser.NavigationStarting -= Browser_OnNavigationStarting;
-        Browser.NavigationCompleted -= Browser_OnNavigationCompleted;
-
-        if (Browser.CoreWebView2 is not null)
-        {
-            Browser.CoreWebView2.NewWindowRequested -= Browser_OnNewWindowRequested;
-            Browser.CoreWebView2.HistoryChanged -= Browser_OnHistoryChanged;
-        }
-
-        _tabs.FirstOrDefault(tab => tab.Browser == Browser)?.CapabilityGuard?.Dispose();
-        _tabs.FirstOrDefault(tab => tab.Browser == Browser)?.ResourceGuard?.Dispose();
-        _tabs.FirstOrDefault(tab => tab.Browser == Browser)?.DocumentGuard?.Dispose();
-        _tabs.FirstOrDefault(tab => tab.Browser == Browser)?.CosmeticGuard?.Dispose();
-        Browser.Dispose();
-
-        foreach (var tab in _tabs.Where(tab => tab.Browser != Browser))
+        // The original controller may already have been closed by the user or cleanup.
+        foreach (var tab in _tabs.ToArray())
         {
             DetachTabEvents(tab);
             tab.Browser.Dispose();
         }
+        _tabs.Clear();
     }
 
     private async Task AttachCapabilityGuardAsync(TabState tab)
@@ -260,6 +255,8 @@ public partial class MainWindow : Window
             {
                 if (!_isClosing && tab == _activeTab) ShowNotice(message);
             });
+        await tab.CapabilityGuard.InitializeAsync(_adblock is not null);
+        if (_isClosing || !_tabs.Contains(tab)) return;
         if (_adblock is not null)
         {
             tab.CosmeticGuard = new Zenith.App.Filtering.CosmeticFilterGuard(tab.Browser.CoreWebView2, _adblock.Cosmetics);
@@ -513,7 +510,8 @@ public partial class MainWindow : Window
                 target => RequestNavigation(target.AbsoluteUri, NavigationOrigin.AddressBar),
                 _accessService, OpenTemporaryAccess, _vaultService, GetSphereSites, RefreshPolicyViews,
                 () => (_blacklist as Zenith.App.Filtering.BlacklistUpdater)?.Status ?? "No synchronized source is available in this test window.",
-                () => _adblock?.Status ?? "No resource-filter engine is available in this test window.") { Owner = this };
+                () => _adblock?.Status ?? "No resource-filter engine is available in this test window.",
+                ClearBrowsingDataAndCloseAsync, GetRuntimeStatus) { Owner = this };
             _settingsWindow.Closed += (_, _) => _settingsWindow = null;
             _settingsWindow.Show();
         }
@@ -613,10 +611,25 @@ public partial class MainWindow : Window
     {
         if (_vaultService is null) return DevelopmentStarterPolicy.Sites.Where(site => IsTargetInSphere(site.Target)).ToArray();
         if (!_vaultService.TryGetActivePolicy(out var policy)) return [];
-        return policy.Entries.Where(entry => entry.AccessClass == AccessClass.Whitelist && policy.Classify(entry.Identity) == AccessClass.Whitelist)
-            .Select(entry => new StarterWhitelistSite(
-                DevelopmentStarterPolicy.Sites.FirstOrDefault(site => site.Host == entry.Identity.Host)?.Name ?? entry.Identity.Host,
-                entry.Identity.Host, new UriBuilder("https", entry.Identity.Host).Uri.AbsoluteUri, entry.IncludeSubdomains)).ToArray();
+        var visibleEntries = policy.Entries
+            .Where(entry => entry.AccessClass == AccessClass.Whitelist &&
+                policy.Classify(entry.Identity) == AccessClass.Whitelist)
+            .Where(entry => !policy.Entries.Any(parent =>
+                parent.AccessClass == AccessClass.Whitelist &&
+                parent != entry &&
+                parent.IncludeSubdomains &&
+                entry.Identity.IsSameOrSubdomainOf(parent.Identity)))
+            .ToArray();
+        return visibleEntries.Select(entry =>
+        {
+            var starter = DevelopmentStarterPolicy.Sites.FirstOrDefault(site => site.Host == entry.Identity.Host);
+            return new StarterWhitelistSite(
+                entry.DisplayName ?? starter?.Name ?? entry.Identity.Host,
+                entry.Identity.Host,
+                starter is not null && entry.Matches(SiteIdentity.TryCreate(starter.Target.IdnHost, out var launchIdentity) ? launchIdentity : entry.Identity)
+                    ? starter.Target.AbsoluteUri : new UriBuilder("https", entry.Identity.Host).Uri.AbsoluteUri,
+                entry.IncludeSubdomains);
+        }).ToArray();
     }
 
     private void BookmarksMenuItem_OnClick(object sender, RoutedEventArgs e)
@@ -639,9 +652,6 @@ public partial class MainWindow : Window
     {
         FocusSphereSearch();
     }
-
-    private void CurrentSiteButton_OnClick(object sender, RoutedEventArgs e) =>
-        FocusAddressEditing();
 
     private void BookmarkShortcutButton_OnClick(object sender, RoutedEventArgs e)
     {
@@ -872,6 +882,8 @@ public partial class MainWindow : Window
             if (tab == _activeTab)
             {
                 UpdateCurrentSiteIdentity();
+                if (WebsiteIdentity.FromAddress(browser.CoreWebView2?.Source) is { UsesHttps: false })
+                    ShowNotice("This page uses unencrypted HTTP. Do not enter passwords or private information.");
             }
         }
 
@@ -1022,6 +1034,7 @@ public partial class MainWindow : Window
 
     private void RequestNavigation(string target, NavigationOrigin origin)
     {
+        if (_clearingBrowsingData) return;
         var decision = origin switch
         {
             NavigationOrigin.AddressBar => _navigationCoordinator.EvaluateAddressBarRequest(target),
@@ -1034,7 +1047,7 @@ public partial class MainWindow : Window
 
     private async Task CreateTabAsync(Uri? target = null)
     {
-        if (_isClosing)
+        if (_isClosing || _clearingBrowsingData)
         {
             return;
         }
@@ -1362,25 +1375,18 @@ public partial class MainWindow : Window
 
     private void UpdateCurrentSiteIdentity()
     {
-        if (_activeTab is not { IsStartSurface: false, CurrentUri: { } target } tab ||
-            tab.Browser.Visibility != Visibility.Visible ||
-            BoundarySurface.Visibility == Visibility.Visible)
+        foreach (var row in OpenTabsPanel.Children.OfType<Grid>())
         {
-            CurrentSiteButton.Visibility = Visibility.Collapsed;
-            return;
+            if (row.Children.OfType<Button>().FirstOrDefault() is { Tag: TabState tab } button)
+            {
+                button.ToolTip = TabDescription(tab);
+                AutomationProperties.SetHelpText(button, TabDescription(tab));
+            }
         }
-
-        var host = SiteIdentity.TryCreate(target.Host, out var identity)
-            ? identity.Host
-            : target.IdnHost;
-        CurrentSiteText.Text = host;
-        CurrentSiteButton.ToolTip = target.AbsoluteUri;
-        CurrentSiteButton.Visibility = Visibility.Visible;
-        AutomationProperties.SetName(
-            CurrentSiteButton,
-            $"Current site {host}. Show and edit the full address.");
-        AutomationProperties.SetHelpText(CurrentSiteButton, target.AbsoluteUri);
     }
+
+    private static string TabDescription(TabState tab) =>
+        tab.CurrentUri is { } target && !tab.IsStartSurface ? $"{tab.Title}\n{target.AbsoluteUri}" : tab.Title;
 
     private void ShowNotice(string message)
     {
@@ -1785,10 +1791,11 @@ public partial class MainWindow : Window
                 Background = tab == _activeTab
                     ? (Brush)FindResource("ZenithRaisedSurfaceBrush")
                     : Brushes.Transparent,
-                ToolTip = tab.Title,
+                ToolTip = TabDescription(tab),
                 Content = CreateTabButtonContent(tab, expanded)
             };
             AutomationProperties.SetName(tabButton, $"Switch to {tab.Title}");
+            AutomationProperties.SetHelpText(tabButton, TabDescription(tab));
             tabButton.Click += TabButton_OnClick;
             row.Children.Add(tabButton);
 
@@ -1966,12 +1973,6 @@ public partial class MainWindow : Window
         TabsSectionLabel.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
         NewTabText.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
         SettingsButtonText.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
-        CurrentSiteText.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
-        CurrentSiteIcon.Margin = expanded ? new Thickness(0, 0, 9, 0) : new Thickness(0);
-        CurrentSiteButton.Padding = expanded ? new Thickness(10, 0, 10, 0) : new Thickness(0);
-        CurrentSiteButton.HorizontalContentAlignment = expanded
-            ? HorizontalAlignment.Left
-            : HorizontalAlignment.Center;
         TabsRow.MinHeight = expanded ? 0 : 110;
         TabsRow.Margin = expanded
             ? new Thickness(4, 0, 4, 8)

@@ -108,6 +108,23 @@ public sealed class GreylistAccessService : IAccessGrantSource
         }
     }
 
+    public IReadOnlyList<AccessGrant> GetActiveGrants()
+    {
+        lock (_gate)
+        {
+            if (!TryReadState(out _, out var now, out _)) return [];
+            try
+            {
+                if (!_policy.TryGetActivePolicy(out var policy) || policy is null) return [];
+                return _grants.Values
+                    .Where(grant => grant.Covers(grant.Site, now) && policy.Classify(grant.Site) == AccessClass.Greylist)
+                    .OrderBy(grant => grant.Site.Host, StringComparer.Ordinal)
+                    .ToArray();
+            }
+            catch (Exception) { return []; }
+        }
+    }
+
     public AccessSubmission SubmitPassword(string target, string password)
     {
         lock (_gate)

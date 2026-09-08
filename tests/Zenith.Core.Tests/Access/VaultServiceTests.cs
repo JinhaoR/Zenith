@@ -65,6 +65,149 @@ public sealed class VaultServiceTests
     }
 
     [Fact]
+    public void ExactEntryCanBeExpandedToSubdomainsThroughTheProtectedFlow()
+    {
+        var f = new Fixture();
+        f.Store.Vault = f.Store.Vault with
+        {
+            Sites = [new("example.net", AccessClass.Whitelist, false)]
+        };
+
+        var review = f.Service.Review(new(AddHost: "example.net", IncludeSubdomains: true));
+        Assert.True(review.Edit.IncludeSubdomains);
+        Assert.Equal(VaultResult.Staged, f.Service.Stage(review.Edit, Password).Result);
+        f.Clock.Advance(5);
+        Assert.Equal(VaultResult.Applied,
+            f.Service.Confirm(f.Store.Vault.Pending!.Id, Password).Result);
+
+        var entry = Assert.Single(f.Store.Vault.Sites);
+        Assert.Equal("example.net", entry.Host);
+        Assert.True(entry.IncludeSubdomains);
+        Assert.Equal(AccessClass.Whitelist, Classify(f.Service, "future.example.net"));
+    }
+
+    [Fact]
+    public void ParentScopeMakesChildAdditionsRedundant()
+    {
+        var f = new Fixture();
+        f.Store.Vault = f.Store.Vault with
+        {
+            Sites = [new("example.net", AccessClass.Whitelist, true)]
+        };
+
+        var error = Assert.Throws<ArgumentException>(() =>
+            f.Service.Review(new(AddHost: "docs.example.net", IncludeSubdomains: true)));
+        Assert.Contains("broader Sphere entry", error.Message);
+        Assert.Equal(VaultResult.Invalid,
+            f.Service.Stage(new(AddHost: "docs.example.net", IncludeSubdomains: true), Password).Result);
+        Assert.Null(f.Store.Vault.Pending);
+    }
+
+    [Fact]
+    public void AddingBroadParentScopeRemovesOnlyRedundantWhitelistChildren()
+    {
+        var f = new Fixture();
+        f.Store.Vault = f.Store.Vault with
+        {
+            Sites =
+            [
+                new("docs.example.net", AccessClass.Whitelist, false),
+                new("deep.example.net", AccessClass.Whitelist, true),
+                new("blocked.example.net", AccessClass.Blacklist, false)
+            ]
+        };
+
+        Assert.Equal(VaultResult.Staged,
+            f.Service.Stage(new(AddHost: "example.net", IncludeSubdomains: true), Password).Result);
+        f.Clock.Advance(5);
+        Assert.Equal(VaultResult.Applied,
+            f.Service.Confirm(f.Store.Vault.Pending!.Id, Password).Result);
+
+        Assert.Contains(f.Store.Vault.Sites, site =>
+            site.Host == "example.net" && site.AccessClass == AccessClass.Whitelist && site.IncludeSubdomains);
+        Assert.DoesNotContain(f.Store.Vault.Sites, site => site.Host == "docs.example.net");
+        Assert.DoesNotContain(f.Store.Vault.Sites, site => site.Host == "deep.example.net");
+        Assert.Contains(f.Store.Vault.Sites, site =>
+            site.Host == "blocked.example.net" && site.AccessClass == AccessClass.Blacklist);
+        Assert.Equal(AccessClass.Blacklist, Classify(f.Service, "blocked.example.net"));
+        Assert.Equal(AccessClass.Whitelist, Classify(f.Service, "other.example.net"));
+    }
+
+    [Fact]
+    public void RemovingParentScopeIsStagedAndRemovesCoveredWhitelistChildrenOnly()
+    {
+        var f = new Fixture();
+        f.Store.Vault = f.Store.Vault with
+        {
+            Sites =
+            [
+                new("example.net", AccessClass.Whitelist, true),
+                new("docs.example.net", AccessClass.Whitelist, false),
+                new("blocked.example.net", AccessClass.Blacklist, false),
+                new("unrelated.net", AccessClass.Whitelist, false)
+            ]
+        };
+
+        var review = f.Service.Review(new(RemoveHost: "EXAMPLE.NET."));
+        Assert.Equal("example.net", review.Edit.RemoveHost);
+        Assert.Equal(VaultResult.Staged, f.Service.Stage(review.Edit, Password).Result);
+        Assert.Equal(AccessClass.Whitelist, Classify(f.Service, "example.net"));
+        Assert.Equal(AccessClass.Whitelist, Classify(f.Service, "docs.example.net"));
+
+        f.Clock.Advance(5);
+        Assert.Equal(VaultResult.Applied,
+            f.Service.Confirm(f.Store.Vault.Pending!.Id, Password).Result);
+
+        Assert.DoesNotContain(f.Store.Vault.Sites, site => site.Host == "example.net");
+        Assert.DoesNotContain(f.Store.Vault.Sites, site => site.Host == "docs.example.net");
+        Assert.Contains(f.Store.Vault.Sites, site => site.Host == "blocked.example.net" &&
+            site.AccessClass == AccessClass.Blacklist);
+        Assert.Contains(f.Store.Vault.Sites, site => site.Host == "unrelated.net");
+        Assert.Equal(AccessClass.Greylist, Classify(f.Service, "example.net"));
+        Assert.Equal(AccessClass.Greylist, Classify(f.Service, "docs.example.net"));
+        Assert.Equal(AccessClass.Blacklist, Classify(f.Service, "blocked.example.net"));
+        Assert.Equal(AccessClass.Whitelist, Classify(f.Service, "unrelated.net"));
+    }
+
+    [Fact]
+    public void RemovalMustNameAnIndependentStoredWhitelistScope()
+    {
+        var f = new Fixture();
+        f.Store.Vault = f.Store.Vault with
+        {
+            Sites =
+            [
+                new("example.net", AccessClass.Whitelist, true),
+                new("docs.example.net", AccessClass.Whitelist, false)
+            ]
+        };
+
+        Assert.Throws<ArgumentException>(() => f.Service.Review(new(RemoveHost: "missing.net")));
+        Assert.Throws<ArgumentException>(() => f.Service.Review(new(RemoveHost: "docs.example.net")));
+        Assert.Throws<ArgumentException>(() => f.Service.Review(new(
+            AddHost: "new.example", RemoveHost: "example.net")));
+        Assert.Equal(VaultResult.Invalid,
+            f.Service.Stage(new(RemoveHost: "docs.example.net"), Password).Result);
+        Assert.Null(f.Store.Vault.Pending);
+    }
+
+    [Fact]
+    public void IndependentWhitelistScopesCollapseCoveredChildren()
+    {
+        var now = new DateTimeOffset(2026, 9, 8, 12, 0, 0, TimeSpan.Zero);
+        var state = new VaultState(0, new(),
+        [
+            new("example.net", AccessClass.Whitelist, true),
+            new("docs.example.net", AccessClass.Whitelist, false),
+            new("other.net", AccessClass.Whitelist, false),
+            new("blocked.example.net", AccessClass.Blacklist, false)
+        ], now, DateTimeOffset.MinValue);
+
+        Assert.Equal(["example.net", "other.net"],
+            state.GetIndependentWhitelistScopes().Select(site => site.Host));
+    }
+
+    [Fact]
     public void StaleReviewCannotReplacePendingProposalOrAuthenticate()
     {
         var f = new Fixture();
@@ -306,6 +449,121 @@ public sealed class VaultServiceTests
         Assert.True(service.TryGetActivePolicy(out var policy));
         Assert.True(SiteIdentity.TryCreate(host, out var site));
         return policy.Classify(site);
+    }
+
+    [Fact]
+    public void BatchReplacesBroadGoogleWithSelectedServicesAtomically()
+    {
+        var f = new Fixture();
+        f.Store.Vault = f.Store.Vault with { Sites =
+        [
+            new("google.com", AccessClass.Whitelist, true),
+            new("scholar.google.com", AccessClass.Whitelist, true),
+            new("blocked.google.com", AccessClass.Blacklist, false)
+        ] };
+        var edit = new VaultEdit(AddSites:
+        [
+            new("scholar.google.com", DisplayName: "Google Scholar"),
+            new("drive.google.com", DisplayName: "Google Drive"),
+            new("mail.google.com", DisplayName: "Gmail")
+        ], RemoveSites: ["google.com"]);
+        Assert.Equal(VaultResult.Staged, f.Service.Stage(edit, Password).Result);
+        var id = f.Store.Vault.Pending!.Id;
+        Assert.Equal(AccessClass.Whitelist, Classify(f.Service, "www.google.com"));
+        Assert.Equal(VaultResult.TooEarly, f.Service.Confirm(id, Password).Result);
+        f.Clock.Advance(5);
+        f.Store.FailWrites = true;
+        Assert.Equal(VaultResult.Unavailable, f.Service.Confirm(id, Password).Result);
+        Assert.Equal(AccessClass.Whitelist, Classify(f.Service, "www.google.com"));
+        f.Store.FailWrites = false;
+        Assert.Equal(VaultResult.Applied, new VaultService(f.Store, f.Clock).Confirm(id, Password).Result);
+        foreach (var host in new[] { "scholar.google.com", "drive.google.com", "mail.google.com" })
+            Assert.Equal(AccessClass.Whitelist, Classify(f.Service, host));
+        foreach (var host in new[] { "google.com", "www.google.com", "accounts.google.com", "maps.google.com", "sub.scholar.google.com" })
+            Assert.Equal(AccessClass.Greylist, Classify(f.Service, host));
+        Assert.Equal(AccessClass.Blacklist, Classify(f.Service, "blocked.google.com"));
+        Assert.Equal("Gmail", f.Store.Vault.Sites.Single(site => site.Host == "mail.google.com").DisplayName);
+        Assert.Equal(1, f.Store.Vault.Revision);
+    }
+
+    [Fact]
+    public void ServiceSubdomainsNeverAuthorizeParentsOrSiblings()
+    {
+        var f = new Fixture();
+        f.Store.Vault = f.Store.Vault with { Sites = [] };
+        Assert.Equal(VaultResult.Staged, f.Service.Stage(new(AddSites:
+            [new("scholar.google.com", true)], RemoveSites: []), Password).Result);
+        f.Clock.Advance(5);
+        Assert.Equal(VaultResult.Applied, f.Service.Confirm(f.Store.Vault.Pending!.Id, Password).Result);
+        Assert.Equal(AccessClass.Whitelist, Classify(f.Service, "sub.scholar.google.com"));
+        foreach (var host in new[] { "google.com", "www.google.com", "mail.google.com", "notscholar.google.com", "scholar.google.com.evil.test" })
+            Assert.Equal(AccessClass.Greylist, Classify(f.Service, host));
+    }
+
+    [Fact]
+    public void BatchCanNarrowExistingScopeAndRemoveSeveralSites()
+    {
+        var f = new Fixture();
+        f.Store.Vault = f.Store.Vault with { Sites =
+            [new("service.example", AccessClass.Whitelist, true), new("one.example", AccessClass.Whitelist, false), new("two.example", AccessClass.Whitelist, false)] };
+        Assert.Equal(VaultResult.Staged, f.Service.Stage(new(AddSites: [new("service.example")],
+            RemoveSites: ["one.example", "two.example"]), Password).Result);
+        f.Clock.Advance(5);
+        Assert.Equal(VaultResult.Applied, f.Service.Confirm(f.Store.Vault.Pending!.Id, Password).Result);
+        Assert.Equal(AccessClass.Whitelist, Classify(f.Service, "service.example"));
+        foreach (var host in new[] { "child.service.example", "one.example", "two.example" })
+            Assert.Equal(AccessClass.Greylist, Classify(f.Service, host));
+    }
+
+    [Fact]
+    public void BatchRejectsMalformedConflictingAndBlockedSelectionsWithoutPartialChanges()
+    {
+        var f = new Fixture();
+        var original = f.Store.Vault;
+        var invalid = new VaultEdit[]
+        {
+            new(AddSites: [new("new.example")]),
+            new(AddSites: [new("new.example"), new("NEW.EXAMPLE.")], RemoveSites: []),
+            new(AddSites: [new("127.0.0.1", true)], RemoveSites: []),
+            new(AddSites: [new("https://example.com")], RemoveSites: []),
+            new(AddSites: [null!], RemoveSites: []),
+            new(AddSites: [], RemoveSites: ["github.com", "GITHUB.COM."]),
+            new(AddSites: [], RemoveSites: ["unknown.example"]),
+            new(AddHost: "new.example", AddSites: [], RemoveSites: [])
+        };
+        foreach (var edit in invalid)
+        {
+            Assert.Equal(VaultResult.Invalid, f.Service.Stage(edit, Password).Result);
+            Assert.Same(original, f.Store.Vault);
+        }
+        var source = new BlacklistSource { Current = Zenith.Core.Filtering.HostsBlacklist.Parse("0.0.0.0 blocked.example") };
+        var service = new VaultService(f.Store, f.Clock, source);
+        Assert.Equal(VaultResult.Invalid, service.Stage(new(AddSites: [new("good.example"), new("blocked.example")],
+            RemoveSites: ["github.com"]), Password).Result);
+        Assert.Same(original, f.Store.Vault);
+        Assert.Equal(VaultResult.Staged, service.Stage(new(AddSites: [new("new.example")], RemoveSites: ["github.com"]), Password).Result);
+        var pending = f.Store.Vault.Pending!;
+        source.Current = Zenith.Core.Filtering.HostsBlacklist.Parse("0.0.0.0 new.example");
+        f.Clock.Advance(5);
+        Assert.NotEqual(VaultResult.Applied, service.Confirm(pending.Id, Password).Result);
+        Assert.Equal(0, f.Store.Vault.Revision);
+        Assert.Contains(f.Store.Vault.Sites, site => site.Host == "github.com");
+    }
+
+    [Fact]
+    public void ReviewedBatchOwnsItsSelectionsAndCancellationDoesNotApplyThem()
+    {
+        var f = new Fixture();
+        var additions = new List<VaultSiteAddition> { new("new.example") };
+        var removals = new List<string> { "github.com" };
+        var review = f.Service.Review(new(AddSites: additions, RemoveSites: removals));
+        additions.Clear(); removals.Clear();
+        Assert.Single(review.Edit.Additions());
+        Assert.Single(review.Edit.Removals());
+        Assert.Equal(VaultResult.Staged, f.Service.Stage(review.Edit, Password).Result);
+        Assert.Equal(VaultResult.Cancelled, f.Service.Cancel(f.Store.Vault.Pending!.Id).Result);
+        Assert.Equal(AccessClass.Whitelist, Classify(f.Service, "github.com"));
+        Assert.Equal(AccessClass.Greylist, Classify(f.Service, "new.example"));
     }
 
     private sealed class Fixture

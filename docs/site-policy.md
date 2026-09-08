@@ -10,9 +10,11 @@ Before initial password setup, the development application exposes a starter Sit
 
 The general evaluator directly permits HTTP(S) targets whose normalized hostname matches an active Whitelist entry under its explicit subdomain scope. Other valid sites resolve to Greylist and require the Access Grant procedure below. Unsupported targets fail closed. Lookalike hosts do not inherit another site's classification.
 
+Starter catalog launch URLs must match their configured entry using the same host-scope matcher as navigation. A `www.` or other subdomain launch URL is valid only when that entry includes subdomains; accepting it does not change the entry's identity or scope.
+
 Navigation reads the active immutable snapshot through `ISitePolicySource` for every decision. The Vault service supplies a validated, revisioned snapshot from protected storage. If initialized policy cannot be read or validated, all navigation is denied as policy unavailable; the starter snapshot is not a recovery fallback. Confirming a Policy Change atomically advances the revision.
 
-Phase 3 version-1 data migrates once to version 2, retaining the existing password and pending Greylist requests. As explicitly requested for development testing, fresh setup and this migration initialize all three timing values below to five seconds. Later launches preserve configured timings and never reset them to testing defaults.
+Version-1 data migrates to the current version-4 envelope, retaining the existing password and pending Greylist requests. As explicitly requested for development testing, fresh setup and version-1 migration initialize all three timing values below to five seconds. Version-2 and version-3 migrations preserve existing Vault scopes, settings and pending proposal identities and deadlines. Data is validated before migration is written. Later launches never reset configured timings or replace saved policy with the starter catalog.
 
 ## 2. Classification
 
@@ -35,6 +37,7 @@ Site matching must use normalized URIs and structured host comparison. Substring
 The unit that receives an Access Class is a normalized hostname.
 
 - Only absolute HTTP and HTTPS navigation targets are eligible for Site Policy evaluation.
+- Explicitly typed website addresses may omit the scheme: Core input preparation supplies HTTPS before ordinary policy evaluation. It never adds or strips `www.`, changes site identity, or retries another hostname. Engine links and redirects retain strict absolute-URL validation; explicit HTTP stays HTTP and there is no automatic HTTP downgrade.
 - DNS hostnames are represented in lowercase ASCII IDN form with any trailing dot removed.
 - IP addresses are canonicalized and match only exactly.
 - URL credentials are rejected rather than normalized.
@@ -65,6 +68,8 @@ Direct navigation, top-level redirects, popups and new tabs continue to evaluate
 This compatibility choice applies to Whitelisted top-level pages; it does not authorize broadening a Greylisted page's temporary grant. For intercepted network documents, Core rechecks the top-level page and destination: otherwise-Greylisted frames are permitted under a currently Whitelisted top-level page, but a temporary Greylist page requires independent authorization for the embedded destination. An expired or unavailable top-level authorization denies further intercepted frame documents. This does not automatically terminate every previously opened connection.
 
 ### Network-document enforcement checkpoint
+
+The account-security checkpoint also disables HTTP cache use and bypasses service-worker responses for each tab before document gating is ready. This mitigation does not prevent all worker execution. Certificate errors are cancelled with no exception route. Login redirects receive the same independent hostname decisions as other redirects; signing into a service never authorizes its parent, sibling or identity-provider hosts automatically. Explicit HTTP retains its documented support, with native identity information warning against entering credentials there.
 
 Each tab installs a request-stage document gate before becoming ready, in addition to the native navigation checks. It uses host-side CDP frame IDs to distinguish main requests from frames and re-evaluates intercepted redirect hops through Core. Initialization failure leaves browsing unavailable; a runtime protection-channel failure closes the browser window and disposes its controllers. There is no unrestricted fallback.
 
@@ -103,6 +108,8 @@ Cooldown state must not be bypassed by reopening the URL or restarting Zenith. T
 
 Core checks grants with an inclusive start and exclusive expiry. Each navigation rechecks classification, the exact hostname, protected access-state health and time. Blacklist and unsupported-target decisions take precedence; a grant-source failure denies navigation. A grant never changes the site's Access Class or adds it to Sphere discovery/bookmarks.
 
+Temporary access settings obtain a read-only snapshot of active session grants from Core. Only unexpired grants for currently Greylisted hosts are listed; unavailable policy or access state yields no active entries. Listing grants does not extend, persist or issue access.
+
 App rechecks retained documents once per second and before activating a tab. Expired or unavailable authorization causes the external document to be hidden and unloaded. An already active document is cleared on the next host timer tick; tab activation must not briefly redisplay expired content.
 
 ### Time and failure behavior
@@ -127,12 +134,14 @@ Changing a pending proposal restarts its waiting period. An unconfirmed, expired
 ### Current Vault rules
 
 - The development Vault wait defaults to **5 seconds**, adjustable between 5 seconds and 30 days. These short values are explicitly for testing, not an authentication bypass. All changes, including stricter ones, follow the full process; there is no immediate-apply exception.
-- One pending proposal can combine a password replacement, timing edits and one hostname addition. Staging authenticates with the current shared password and records a unique proposal ID, the current policy revision and an eligibility deadline computed using the **old, active Vault wait**.
+- One pending proposal can combine a password replacement, timing edits and multiple hostname additions, scope updates and removals (at most 1,000 site operations). Removals are evaluated first, then additions, and the resulting policy applies atomically. This permits replacing a broad parent scope with selected services in one proposal. Duplicate or invalid selections reject the whole proposal. Staging authenticates with the current shared password and records a unique proposal ID, the current policy revision and an eligibility deadline computed using the **old, active Vault wait**.
 - Reducing the Vault wait cannot shorten its own proposal. Replacing a proposal starts the full currently active wait again, with a new ID. Cancellation immediately discards only the pending proposal; it never modifies active policy or credentials.
 - Confirmation must name the unchanged pending proposal and authenticate with the current password after eligibility. A stale, conflicting, cancelled or already-consumed proposal cannot apply. Eligible proposals remain pending until explicit confirmation, replacement or cancellation; they do not auto-apply.
 - Password replacements require 15–128 characters and repeated entry. Only a salted verifier is staged. The old password remains active until confirmation atomically replaces the credential, policy revision and pending state. A failed write cannot partially change credentials or policy. This procedure requires knowledge of the current password and is not recovery.
-- Host additions default to exact-host scope. Including subdomains must be explicitly selected and shown in review. Invalid hosts, credentials, paths and wildcard strings are rejected. Blacklist entries cannot be removed or overridden; adding a parent Whitelist entry does not defeat a more specific Blacklist rule.
-- Confirmed additions immediately appear in the Whitelist-backed Sphere directory and become eligible for bookmarks. A pending proposal never affects discovery or navigation.
+- New Vault additions default to the exact selected hostname. Including subdomains is an explicit per-service option. The hostname is always the boundary: `scholar.google.com`, even with subdomains included, never permits `google.com`, `www.google.com` or `mail.google.com`. A broad `google.com` entry does permit those children, so it must be removed when replacing it with selected services. Zenith never infers a registrable parent, a `www.` alias, unrelated domains or permission for login redirects. Embedded-content compatibility remains separate. Review provides expandable normalized addresses and scopes; friendly display names are metadata only.
+- Existing Whitelist scopes may be expanded or narrowed only through the full staged Policy Change. A hostname already covered by a broader Whitelist entry is rejected as redundant unless the broader scope is removed in the same batch. Confirming a new broader parent entry consolidates redundant Whitelist children; overlapping Blacklist entries remain intact and continue to win. Narrowing an existing entry does not delete separately stored child entries. Invalid hosts, credentials, paths and wildcard strings are rejected. Existing saved scopes are never narrowed automatically by this UI change.
+- A removal must name an independent stored Whitelist scope. It remains active throughout review and waiting. Confirming removal of a host-and-subdomains scope atomically removes that Whitelist entry and its covered redundant Whitelist children. It never removes or weakens overlapping Blacklist entries. A child still covered by a broader parent cannot be removed independently because that would be an ineffective policy change; the broader scope must be removed instead.
+- Confirmed additions immediately appear in the Whitelist-backed Sphere directory and become eligible for bookmarks. Confirmed removals disappear immediately; their existing bookmarks no longer appear as accessible shortcuts, and retained pages are denied on the next policy validation. A pending proposal never affects discovery or navigation.
 - The store permits one supported writer at a time and validates initialized state. It retains a protected previous envelope for future controlled recovery but never silently restores an older policy or password after corruption. Current local-user/offline-time limitations remain documented in the threat model and ADR 0008.
 
 ## 6. Required Guarantees

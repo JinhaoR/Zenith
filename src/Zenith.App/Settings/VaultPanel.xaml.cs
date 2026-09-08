@@ -1,7 +1,9 @@
 using System.Globalization;
+using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Controls;
 using Zenith.Core.Vault;
+using Zenith.Core.Navigation;
 
 namespace Zenith.App.Settings;
 
@@ -17,11 +19,17 @@ public partial class VaultPanel : UserControl
     private bool _editingPending;
     private bool _suppressDraftChanges;
     private bool _detached;
+    private readonly ObservableCollection<SiteChoice> _additions = [];
 
     public VaultPanel()
     {
         InitializeComponent();
-        foreach (var input in new[] { GreySeconds, GrantSeconds, VaultSeconds, SiteHost })
+        DraftAdditions.ItemsSource = _additions;
+        KnownSite.ItemsSource = DevelopmentStarterPolicy.Sites
+            .Select(site => new SiteChoice(site.Host, site.Name, false))
+            .Concat([new SiteChoice("mail.google.com", "Gmail", false)])
+            .DistinctBy(site => site.Host).OrderBy(site => site.Name).ToArray();
+        foreach (var input in new[] { GreySeconds, GrantSeconds, VaultSeconds, SiteHost, SiteName })
         {
             input.TextChanged += DraftInput_OnChanged;
         }
@@ -34,6 +42,7 @@ public partial class VaultPanel : UserControl
             option.Checked += DraftInput_OnChanged;
             option.Unchecked += DraftInput_OnChanged;
         }
+        RemoveSite.SelectionChanged += DraftInput_OnChanged;
         NewPassword.PasswordChanged += DraftInput_OnChanged;
         RepeatPassword.PasswordChanged += DraftInput_OnChanged;
         Loaded += (_, _) => _detached = false;
@@ -82,6 +91,8 @@ public partial class VaultPanel : UserControl
         if (_displayedRevision != state.Revision)
         {
             _displayedRevision = state.Revision;
+            RemoveSite.ItemsSource = state.GetIndependentWhitelistScopes()
+                .Select(site => new SiteChoice(site.Host, NameFor(site.Host, site.DisplayName), site.IncludeSubdomains)).ToArray();
             FillEditor(state.Settings, null);
             _editingPending = false;
             InvalidateReview();
@@ -91,6 +102,7 @@ public partial class VaultPanel : UserControl
         if (state.Pending is { } pending)
         {
             PendingSummary.Text = Describe(state.Settings, pending.Edit);
+            PendingDetails.Text = DescribeDetails(pending.Edit);
             var remaining = pending.EligibleAt - (_status!.Now ?? pending.ProposedAt);
             Countdown.Text = remaining > TimeSpan.Zero
                 ? $"Ready in {Math.Ceiling(remaining.TotalSeconds):N0} seconds · {pending.EligibleAt.ToLocalTime():G}"
@@ -107,8 +119,16 @@ public partial class VaultPanel : UserControl
             SetDuration(GreySeconds, GreyUnit, edit?.GreylistSeconds ?? settings.GreylistSeconds);
             SetDuration(GrantSeconds, GrantUnit, edit?.GrantSeconds ?? settings.GrantSeconds);
             SetDuration(VaultSeconds, VaultUnit, edit?.VaultSeconds ?? settings.VaultSeconds);
-            SiteHost.Text = edit?.AddHost ?? string.Empty;
-            IncludeSubdomains.IsChecked = edit?.IncludeSubdomains == true;
+            KnownSite.SelectedIndex = -1;
+            SiteHost.Clear();
+            SiteName.Clear();
+            IncludeSubdomains.IsChecked = false;
+            _additions.Clear();
+            foreach (var addition in edit?.Additions() ?? [])
+                _additions.Add(new(addition.Host, NameFor(addition.Host, addition.DisplayName), addition.IncludeSubdomains));
+            RemoveSite.UnselectAll();
+            foreach (var item in RemoveSite.Items.Cast<SiteChoice>())
+                if (edit?.Removals().Contains(item.Host) == true) RemoveSite.SelectedItems.Add(item);
             ChangePassword.IsChecked = edit?.ChangePassword == true;
             ClearPasswords();
         }
@@ -123,8 +143,11 @@ public partial class VaultPanel : UserControl
         { ShowValidationError("Enter a positive whole number and choose a unit for each duration."); return; }
         try
         {
-            var review = _service.Review(new(grey, grant, vault, SiteHost.Text.Trim(),
-                IncludeSubdomains.IsChecked == true, ChangePassword.IsChecked == true));
+            var additions = _additions.Select(site => new VaultSiteAddition(site.Host, site.IncludeSubdomains, site.Name)).ToList();
+            if (!string.IsNullOrWhiteSpace(SiteHost.Text))
+                additions.Add(ReadSiteInput());
+            var review = _service.Review(new(grey, grant, vault, ChangePassword: ChangePassword.IsChecked == true,
+                AddSites: additions, RemoveSites: RemoveSite.SelectedItems.Cast<SiteChoice>().Select(site => site.Host).ToArray()));
             if (review.Edit.ChangePassword && (NewPassword.Password.Length is < 15 or > 128 || NewPassword.Password != RepeatPassword.Password))
             {
                 ShowValidationError("Enter matching new passwords of 15–128 characters before reviewing.");
@@ -135,6 +158,7 @@ public partial class VaultPanel : UserControl
         catch (ArgumentException exception) { ShowValidationError(exception.Message); return; }
         catch (Exception) { ShowValidationError("The active rules could not be read safely. Try again when the Vault is available."); return; }
         ReviewSummary.Text = Describe(_review.ActiveSettings, _review.Edit) + $"\nThis proposal must wait {DurationText.Format(_review.ActiveSettings.VaultSeconds)} before confirmation.";
+        ReviewDetails.Text = DescribeDetails(_review.Edit);
         ReviewCard.Visibility = Visibility.Visible;
         StageButton.IsEnabled = true;
         ReviewCard.BringIntoView();
@@ -218,13 +242,26 @@ public partial class VaultPanel : UserControl
         }
     }
 
-    private static string Describe(VaultSettings current, VaultEdit edit)
+    private string Describe(VaultSettings current, VaultEdit edit)
     {
         var lines = new List<string>();
         if (edit.GreylistSeconds is { } grey && grey != current.GreylistSeconds) lines.Add($"Greylist wait: {DurationText.Format(current.GreylistSeconds)} → {DurationText.Format(grey)}");
         if (edit.GrantSeconds is { } grant && grant != current.GrantSeconds) lines.Add($"Visit duration: {DurationText.Format(current.GrantSeconds)} → {DurationText.Format(grant)}");
         if (edit.VaultSeconds is { } vault && vault != current.VaultSeconds) lines.Add($"Vault wait: {DurationText.Format(current.VaultSeconds)} → {DurationText.Format(vault)}");
-        if (!string.IsNullOrWhiteSpace(edit.AddHost)) lines.Add($"Add {edit.AddHost} to your Sphere ({(edit.IncludeSubdomains ? "including subdomains; Blacklist still wins" : "exact hostname only")}).");
+        foreach (var addition in edit.Additions())
+        {
+            var verb = !edit.Removals().Contains(addition.Host) && _status?.State?.Sites.Any(site =>
+                site.Host == addition.Host && site.AccessClass == AccessClass.Whitelist) == true ? "Update" : "Add";
+            lines.Add($"{verb} {NameFor(addition.Host, addition.DisplayName)} — {(addition.IncludeSubdomains ? "including subdomains" : "this service only")}.");
+        }
+        foreach (var host in edit.Removals())
+        {
+            var scope = _status?.State?.Sites.FirstOrDefault(site =>
+                site.Host == host && site.AccessClass == AccessClass.Whitelist);
+            lines.Add(scope?.IncludeSubdomains == true
+                ? $"Remove {NameFor(host, scope.DisplayName)} and its covered services. Selected additions will be kept."
+                : $"Remove {NameFor(host, scope?.DisplayName)}.");
+        }
         if (edit.ChangePassword) lines.Add("Replace the shared Vault and temporary-access password. Confirm using the old password.");
         return lines.Count == 0 ? "No changes selected." : string.Join("\n", lines);
     }
@@ -239,7 +276,71 @@ public partial class VaultPanel : UserControl
 
     private void DraftInput_OnChanged(object sender, RoutedEventArgs e)
     {
+        if (ScopeHint is not null)
+            ScopeHint.Text = IncludeSubdomains.IsChecked == true
+                ? $"Includes addresses beneath {SiteHost.Text.Trim()}. Parent and sibling services remain separate."
+                : "Only the selected service. Its parent and sibling services are not included.";
         if (!_suppressDraftChanges && !_busy) InvalidateReview();
+    }
+
+    private void ClearRemoval_OnClick(object sender, RoutedEventArgs e)
+    {
+        RemoveSite.UnselectAll();
+        RemoveSite.Focus();
+    }
+
+    private string NameFor(string host, string? name = null) => name ??
+        _status?.State?.Sites.FirstOrDefault(site => site.Host == host)?.DisplayName ??
+        (host == "mail.google.com" ? "Gmail" : DevelopmentStarterPolicy.Sites.FirstOrDefault(site => site.Host == host)?.Name) ?? host;
+
+    private string DescribeDetails(VaultEdit edit) => string.Join("\n",
+        edit.Removals().Select(host => $"Remove: {host}" +
+            (_status?.State?.Sites.FirstOrDefault(site => site.Host == host && site.AccessClass == AccessClass.Whitelist)?.IncludeSubdomains == true
+                ? " and covered subdomains" : " (exact address)"))
+        .Concat(edit.Additions().Select(site => $"Allow: {site.Host} ({(site.IncludeSubdomains ? "including subdomains" : "exact address only")})")));
+
+    private void KnownSite_OnChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (KnownSite.SelectedItem is not SiteChoice site) return;
+        SiteHost.Text = site.Host;
+        SiteName.Text = site.Name;
+        IncludeSubdomains.IsChecked = false;
+    }
+
+    private VaultSiteAddition ReadSiteInput()
+    {
+        if (!SiteIdentity.TryCreate(SiteHost.Text.Trim(), out var identity))
+            throw new ArgumentException("Enter a website host such as scholar.google.com, without a path or password.");
+        return new(identity.Host, IncludeSubdomains.IsChecked == true,
+            string.IsNullOrWhiteSpace(SiteName.Text) ? NameFor(identity.Host) : SiteName.Text.Trim());
+    }
+
+    private void AddSite_OnClick(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var addition = ReadSiteInput();
+            var existing = _additions.FirstOrDefault(site => site.Host == addition.Host);
+            if (existing is not null) _additions.Remove(existing);
+            _additions.Add(new(addition.Host, addition.DisplayName!, addition.IncludeSubdomains));
+            KnownSite.SelectedIndex = -1;
+            SiteHost.Clear();
+            SiteName.Clear();
+            IncludeSubdomains.IsChecked = false;
+            InvalidateReview();
+            OutcomeText.Text = string.Empty;
+        }
+        catch (ArgumentException exception) { ShowValidationError(exception.Message); }
+    }
+
+    private void UndoAddition_OnClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: SiteChoice site }) { _additions.Remove(site); InvalidateReview(); }
+    }
+
+    private sealed record SiteChoice(string Host, string Name, bool IncludeSubdomains)
+    {
+        public string Scope => IncludeSubdomains ? "Includes subdomains" : "This service only";
     }
 
     private void InvalidateReview()

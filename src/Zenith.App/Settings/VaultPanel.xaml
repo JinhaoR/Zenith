@@ -26,6 +26,9 @@
             <Border x:Name="PendingCard" Style="{StaticResource Card}" Visibility="Collapsed"><StackPanel>
                 <TextBlock Text="Pending change" FontSize="18" FontWeight="SemiBold" />
                 <TextBlock x:Name="PendingSummary" Style="{StaticResource Description}" Margin="0,12,0,0" />
+                <Expander Header="Addresses and scope" Foreground="{DynamicResource ZenithMutedTextBrush}" Margin="0,12,0,0">
+                    <TextBlock x:Name="PendingDetails" Style="{StaticResource Description}" Margin="0,8,0,0" />
+                </Expander>
                 <TextBlock x:Name="Countdown" Foreground="{DynamicResource ZenithAccentBrush}" Margin="0,16,0,0" FontWeight="SemiBold" AutomationProperties.LiveSetting="Polite" />
                 <TextBlock Text="Nothing changes automatically. Return and confirm this exact proposal with your current password." Style="{StaticResource Description}" Margin="0,8,0,12" />
                 <Label Content="Current password" Target="{Binding ElementName=ConfirmPassword}" Foreground="{DynamicResource ZenithTextBrush}" Padding="0,0,0,8" />
@@ -62,9 +65,43 @@
                 </StackPanel></Border>
                 <Border Style="{StaticResource Card}"><StackPanel>
                     <TextBlock Text="Add to your Sphere" FontSize="18" FontWeight="SemiBold" />
-                    <TextBlock Text="Optional: enter one hostname, such as example.com. Paths and credentials are not accepted. Blacklist restrictions always remain active." Style="{StaticResource Description}" Margin="0,10,0,14" />
-                    <TextBox x:Name="SiteHost" MaxLength="253" AutomationProperties.Name="Hostname to add to your Sphere" />
-                    <CheckBox x:Name="IncludeSubdomains" Content="Also include subdomains" Foreground="{DynamicResource ZenithTextBrush}" Margin="0,14,0,0" />
+                    <TextBlock Text="Choose the services you want. Each choice allows only that service by default. You can add several before reviewing." Style="{StaticResource Description}" Margin="0,10,0,14" />
+                    <ComboBox x:Name="KnownSite" DisplayMemberPath="Name" IsTextSearchEnabled="True" AutomationProperties.Name="Choose a service" SelectionChanged="KnownSite_OnChanged" />
+                    <Expander x:Name="CustomSiteExpander" Header="Add another website" Foreground="{DynamicResource ZenithMutedTextBrush}" Margin="0,12,0,0">
+                        <StackPanel Margin="0,10,0,0">
+                            <Label Content="Site name" Target="{Binding ElementName=SiteName}" Foreground="{DynamicResource ZenithTextBrush}" />
+                            <TextBox x:Name="SiteName" MaxLength="80" AutomationProperties.Name="Site name" />
+                            <Label Content="Website address" Target="{Binding ElementName=SiteHost}" Foreground="{DynamicResource ZenithTextBrush}" />
+                            <TextBox x:Name="SiteHost" MaxLength="253" AutomationProperties.Name="Hostname to add to your Sphere" />
+                        </StackPanel>
+                    </Expander>
+                    <CheckBox x:Name="IncludeSubdomains" IsChecked="False" Content="Also allow subdomains of this service" Foreground="{DynamicResource ZenithTextBrush}" Margin="0,14,0,0" />
+                    <TextBlock x:Name="ScopeHint" Text="Only the selected service. Its parent and sibling services are not included." Style="{StaticResource Description}" Margin="24,8,0,0" />
+                    <Button x:Name="AddSiteButton" Content="Add to changes" HorizontalAlignment="Left" Click="AddSite_OnClick" Margin="0,14,0,12" />
+                    <ItemsControl x:Name="DraftAdditions">
+                        <ItemsControl.ItemTemplate><DataTemplate>
+                            <DockPanel Margin="0,6">
+                                <Button Content="Undo" DockPanel.Dock="Right" Tag="{Binding}" Click="UndoAddition_OnClick" Margin="12,0,0,0" />
+                                <StackPanel><TextBlock Text="{Binding Name}" /><TextBlock Text="{Binding Scope}" Style="{StaticResource Description}" /></StackPanel>
+                            </DockPanel>
+                        </DataTemplate></ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel></Border>
+                <Border Style="{StaticResource Card}"><StackPanel>
+                    <TextBlock Text="Remove from your Sphere" FontSize="18" FontWeight="SemiBold" />
+                    <TextBlock Text="Select any services to remove. A broad entry also removes its covered services; add back the ones you want to keep above. All changes apply together after confirmation." Style="{StaticResource Description}" Margin="0,10,0,14" />
+                    <ListBox x:Name="RemoveSite" SelectionMode="Multiple" SelectedValuePath="Host" MaxHeight="220"
+                             Background="{DynamicResource ZenithRaisedSurfaceBrush}" Foreground="{DynamicResource ZenithTextBrush}"
+                             BorderBrush="{DynamicResource ZenithInteractiveBorderBrush}" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                             AutomationProperties.Name="Services to remove from your Sphere">
+                        <ListBox.ItemTemplate><DataTemplate>
+                            <CheckBox IsChecked="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}, Mode=TwoWay}"
+                                      Foreground="{DynamicResource ZenithTextBrush}" Padding="4">
+                                <StackPanel><TextBlock Text="{Binding Name}" /><TextBlock Text="{Binding Scope}" FontSize="11" /></StackPanel>
+                            </CheckBox>
+                        </DataTemplate></ListBox.ItemTemplate>
+                    </ListBox>
+                    <Button x:Name="ClearRemovalButton" Content="Clear removal selection" HorizontalAlignment="Left" Margin="0,12,0,0" Click="ClearRemoval_OnClick" />
                 </StackPanel></Border>
                 <Border Style="{StaticResource Card}"><StackPanel>
                     <CheckBox x:Name="ChangePassword" Content="Change my password" Foreground="{DynamicResource ZenithTextBrush}" FontSize="18" />
@@ -78,6 +115,9 @@
                 <Border x:Name="ReviewCard" Style="{StaticResource Card}" Visibility="Collapsed"><StackPanel>
                     <TextBlock Text="Review before you begin" FontSize="18" FontWeight="SemiBold" />
                     <TextBlock x:Name="ReviewSummary" Style="{StaticResource Description}" Margin="0,12,0,14" />
+                    <Expander Header="Addresses and scope" Foreground="{DynamicResource ZenithMutedTextBrush}" Margin="0,0,0,14">
+                        <TextBlock x:Name="ReviewDetails" Style="{StaticResource Description}" Margin="0,8,0,0" />
+                    </Expander>
                     <TextBlock Text="Staging replaces any pending proposal and starts the full current Vault wait again. Existing Greylist waits keep their recorded deadlines." Style="{StaticResource Description}" Margin="0,0,0,14" />
                     <Label Content="Current password" Target="{Binding ElementName=StagePassword}" Foreground="{DynamicResource ZenithTextBrush}" Padding="0,0,0,8" />
                     <PasswordBox x:Name="StagePassword" AutomationProperties.Name="Current password to stage proposal" />

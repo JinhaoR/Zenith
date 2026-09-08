@@ -5,7 +5,7 @@ public sealed record SitePolicyEntry
     public SitePolicyEntry(
         string host,
         AccessClass accessClass,
-        bool includeSubdomains = false)
+        bool includeSubdomains = false, string? displayName = null)
     {
         if (!SiteIdentity.TryCreate(host, out var identity))
         {
@@ -27,6 +27,7 @@ public sealed record SitePolicyEntry
         Identity = identity;
         AccessClass = accessClass;
         IncludeSubdomains = includeSubdomains;
+        DisplayName = displayName;
     }
 
     public SiteIdentity Identity { get; }
@@ -34,6 +35,7 @@ public sealed record SitePolicyEntry
     public AccessClass AccessClass { get; }
 
     public bool IncludeSubdomains { get; }
+    public string? DisplayName { get; }
 
     public bool Matches(SiteIdentity candidate)
     {

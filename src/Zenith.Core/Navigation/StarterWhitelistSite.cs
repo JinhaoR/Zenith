@@ -15,11 +15,12 @@ public sealed record StarterWhitelistSite
             throw new ArgumentException("The starter site host is not valid.", nameof(host));
         }
 
+        var entry = new SitePolicyEntry(identity.Host, AccessClass.Whitelist, includeSubdomains);
         if (!NavigationUriNormalizer.TryNormalize(target, out var normalizedTarget) ||
-            normalizedTarget.Site != identity)
+            !entry.Matches(normalizedTarget.Site))
         {
             throw new ArgumentException(
-                "The starter site target must be an HTTP(S) address for its configured host.",
+                "The starter site target must be an HTTP(S) address within its configured host scope.",
                 nameof(target));
         }
 

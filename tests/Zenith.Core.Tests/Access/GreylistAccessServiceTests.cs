@@ -217,6 +217,45 @@ public sealed class GreylistAccessServiceTests
         return site;
     }
 
+    [Fact]
+    public void ActiveVisitsOnlyIncludeCurrentAuthorizedSessionGrants()
+    {
+        var fixture = new Fixture();
+        fixture.Service.SubmitPassword(Target, Password);
+        Assert.Empty(fixture.Service.GetActiveGrants());
+        fixture.Clock.Advance(TimeSpan.FromMinutes(30));
+        fixture.Service.SubmitPassword(Target, Password);
+        Assert.Equal(Host(), Assert.Single(fixture.Service.GetActiveGrants()).Site);
+        Assert.Empty(fixture.Restart().GetActiveGrants());
+        fixture.Policy.Snapshot = new([new SitePolicyEntry("outside.example", AccessClass.Blacklist)]);
+        Assert.Empty(fixture.Service.GetActiveGrants());
+        fixture.Policy.Snapshot = new([]);
+        fixture.Clock.Advance(TimeSpan.FromHours(1));
+        Assert.Empty(fixture.Service.GetActiveGrants());
+    }
+
+    [Fact]
+    public void UnreadableStateHidesActiveVisits()
+    {
+        var fixture = new Fixture();
+        fixture.Service.SubmitPassword(Target, Password);
+        fixture.Clock.Advance(TimeSpan.FromMinutes(30));
+        fixture.Service.SubmitPassword(Target, Password);
+        fixture.State.FailReads = true;
+        Assert.Empty(fixture.Service.GetActiveGrants());
+    }
+
+    [Fact]
+    public void ClockFailureHidesActiveVisits()
+    {
+        var fixture = new Fixture();
+        fixture.Service.SubmitPassword(Target, Password);
+        fixture.Clock.Advance(TimeSpan.FromMinutes(30));
+        fixture.Service.SubmitPassword(Target, Password);
+        fixture.Clock.Now -= TimeSpan.FromMinutes(1);
+        Assert.Empty(fixture.Service.GetActiveGrants());
+    }
+
     private sealed class Fixture
     {
         public ManualClock Clock { get; } = new();

@@ -33,6 +33,9 @@ internal sealed class DocumentRequestGuard : IDisposable
     internal async Task InitializeAsync()
     {
         await CallAsync("Page.enable", "{}");
+        await CallAsync("Network.enable", "{}");
+        await CallAsync("Network.setBypassServiceWorker", "{\"bypass\":true}");
+        await CallAsync("Network.setCacheDisabled", "{\"cacheDisabled\":true}");
         using var tree = JsonDocument.Parse(await CallAsync("Page.getFrameTree", "{}"));
         SetMainFrame(tree.RootElement.GetProperty("frameTree").GetProperty("frame"));
         if (string.IsNullOrEmpty(_mainFrame)) throw new InvalidOperationException("Missing main frame identity.");

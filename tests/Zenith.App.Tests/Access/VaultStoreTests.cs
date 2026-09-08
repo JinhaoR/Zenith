@@ -79,6 +79,77 @@ public sealed class VaultStoreTests
         finally { folder.Delete(true); }
     }
 
+    [Fact]
+    public void ExistingVersionTwoPendingProposalWithoutRemovalFieldRemainsReadable()
+    {
+        var folder = Directory.CreateTempSubdirectory("Zenith-VaultRemovalCompatibility-");
+        try
+        {
+            using var store = new ProtectedAccessStore(folder.FullName);
+            var now = DateTimeOffset.UtcNow;
+            store.Initialize(Password, now);
+            var vault = new VaultService(store, new FixedClock(now));
+            Assert.Equal(VaultResult.Staged,
+                vault.Stage(new(AddHost: "legacy-pending.example"), Password).Result);
+
+            var path = Path.Combine(folder.FullName, "access.bin");
+            var plaintext = ProtectedData.Unprotect(File.ReadAllBytes(path), null, DataProtectionScope.CurrentUser);
+            try
+            {
+                var data = JsonNode.Parse(plaintext)!;
+                data["Version"] = 2;
+                data["Vault"]!["Pending"]!["Edit"]!.AsObject().Remove("RemoveHost");
+                File.WriteAllBytes(path, ProtectedData.Protect(
+                    JsonSerializer.SerializeToUtf8Bytes(data), null, DataProtectionScope.CurrentUser));
+            }
+            finally { CryptographicOperations.ZeroMemory(plaintext); }
+
+            Assert.Equal(AccessConfigurationState.Ready, store.ConfigurationState);
+            Assert.Null(store.LoadVault().Pending!.Edit.RemoveHost);
+            Assert.Equal("legacy-pending.example", store.LoadVault().Pending!.Edit.AddHost);
+            var migratedPlaintext = ProtectedData.Unprotect(
+                File.ReadAllBytes(path), null, DataProtectionScope.CurrentUser);
+            try
+            {
+                var migrated = JsonNode.Parse(migratedPlaintext)!;
+                Assert.Equal(4, migrated["Version"]!.GetValue<int>());
+                Assert.True(migrated["Vault"]!["Pending"]!["Edit"]!.AsObject().ContainsKey("RemoveHost"));
+            }
+            finally { CryptographicOperations.ZeroMemory(migratedPlaintext); }
+        }
+        finally { folder.Delete(true); }
+    }
+
+    [Fact]
+    public void MissingRemovalFieldInCurrentPendingSchemaFailsClosed()
+    {
+        var folder = Directory.CreateTempSubdirectory("Zenith-VaultRemovalSchema-");
+        try
+        {
+            using var store = new ProtectedAccessStore(folder.FullName);
+            var now = DateTimeOffset.UtcNow;
+            store.Initialize(Password, now);
+            var vault = new VaultService(store, new FixedClock(now));
+            Assert.Equal(VaultResult.Staged,
+                vault.Stage(new(RemoveHost: "github.com"), Password).Result);
+
+            var path = Path.Combine(folder.FullName, "access.bin");
+            var plaintext = ProtectedData.Unprotect(File.ReadAllBytes(path), null, DataProtectionScope.CurrentUser);
+            try
+            {
+                var data = JsonNode.Parse(plaintext)!;
+                data["Vault"]!["Pending"]!["Edit"]!.AsObject().Remove("RemoveHost");
+                File.WriteAllBytes(path, ProtectedData.Protect(
+                    JsonSerializer.SerializeToUtf8Bytes(data), null, DataProtectionScope.CurrentUser));
+            }
+            finally { CryptographicOperations.ZeroMemory(plaintext); }
+
+            Assert.Equal(AccessConfigurationState.Unavailable, store.ConfigurationState);
+            Assert.False(new VaultService(store).TryGetActivePolicy(out _));
+        }
+        finally { folder.Delete(true); }
+    }
+
     [Theory]
     [InlineData("Vault")]
     [InlineData("VaultSeconds")]
@@ -102,6 +173,100 @@ public sealed class VaultStoreTests
         finally { folder.Delete(true); }
     }
 
+    [Fact]
+    public void BatchSurvivesRestartAndAppliesNamesAndScopesTogether()
+    {
+        var folder = Directory.CreateTempSubdirectory("Zenith-VaultBatch-");
+        var clock = new Clock();
+        try
+        {
+            Guid id;
+            using (var store = new ProtectedAccessStore(folder.FullName))
+            {
+                store.Initialize(Password, clock.Now);
+                var edit = new VaultEdit(AddSites:
+                    [new("scholar.google.com", false, "Google Scholar"), new("mail.google.com", false, "Gmail")],
+                    RemoveSites: ["google.com"]);
+                Assert.Equal(VaultResult.Staged, new VaultService(store, clock).Stage(edit, Password).Result);
+                id = store.LoadVault().Pending!.Id;
+            }
+            clock.Advance(5);
+            using var reopened = new ProtectedAccessStore(folder.FullName);
+            Assert.Equal(2, reopened.LoadVault().Pending!.Edit.Additions().Count());
+            Assert.Equal(VaultResult.Applied, new VaultService(reopened, clock).Confirm(id, Password).Result);
+            var sites = reopened.LoadVault().Sites;
+            Assert.DoesNotContain(sites, site => site.Host == "google.com");
+            var scholar = Assert.Single(sites, site => site.Host == "scholar.google.com");
+            Assert.Equal("Google Scholar", scholar.DisplayName);
+            Assert.False(scholar.IncludeSubdomains);
+        }
+        finally { folder.Delete(true); }
+    }
+
+    [Fact]
+    public void VersionThreeProposalPreservesIdentityDeadlineAndScopeOnMigration()
+    {
+        var folder = Directory.CreateTempSubdirectory("Zenith-VaultV3-");
+        var clock = new Clock();
+        try
+        {
+            using var store = new ProtectedAccessStore(folder.FullName);
+            store.Initialize(Password, clock.Now);
+            Assert.Equal(VaultResult.Staged, new VaultService(store, clock)
+                .Stage(new(AddHost: "legacy.example", IncludeSubdomains: true), Password).Result);
+            var pending = store.LoadVault().Pending!;
+            var path = Path.Combine(folder.FullName, "access.bin");
+            var plaintext = ProtectedData.Unprotect(File.ReadAllBytes(path), null, DataProtectionScope.CurrentUser);
+            try
+            {
+                var data = JsonNode.Parse(plaintext)!;
+                data["Version"] = 3;
+                var edit = data["Vault"]!["Pending"]!["Edit"]!.AsObject();
+                edit.Remove("AddSites");
+                edit.Remove("RemoveSites");
+                File.WriteAllBytes(path, ProtectedData.Protect(JsonSerializer.SerializeToUtf8Bytes(data), null, DataProtectionScope.CurrentUser));
+            }
+            finally { CryptographicOperations.ZeroMemory(plaintext); }
+            Assert.Equal(pending, store.LoadVault().Pending);
+            Assert.True(store.Verify(Password));
+            clock.Advance(5);
+            Assert.Equal(VaultResult.Applied, new VaultService(store, clock).Confirm(pending.Id, Password).Result);
+            Assert.True(Assert.Single(store.LoadVault().Sites, site => site.Host == "legacy.example").IncludeSubdomains);
+        }
+        finally { folder.Delete(true); }
+    }
+
+    [Theory]
+    [InlineData("AddSites")]
+    [InlineData("RemoveSites")]
+    [InlineData("IncludeSubdomains")]
+    public void MissingBatchScopeFieldsFailClosed(string missing)
+    {
+        var folder = Directory.CreateTempSubdirectory("Zenith-VaultBatchSchema-");
+        try
+        {
+            using var store = new ProtectedAccessStore(folder.FullName);
+            var clock = new Clock();
+            store.Initialize(Password, clock.Now);
+            Assert.Equal(VaultResult.Staged, new VaultService(store, clock).Stage(
+                new(AddSites: [new("new.example")], RemoveSites: []), Password).Result);
+            var path = Path.Combine(folder.FullName, "access.bin");
+            var plaintext = ProtectedData.Unprotect(File.ReadAllBytes(path), null, DataProtectionScope.CurrentUser);
+            try
+            {
+                var data = JsonNode.Parse(plaintext)!;
+                var edit = data["Vault"]!["Pending"]!["Edit"]!.AsObject();
+                if (missing == "IncludeSubdomains") edit["AddSites"]![0]!.AsObject().Remove(missing);
+                else edit.Remove(missing);
+                File.WriteAllBytes(path, ProtectedData.Protect(JsonSerializer.SerializeToUtf8Bytes(data), null, DataProtectionScope.CurrentUser));
+            }
+            finally { CryptographicOperations.ZeroMemory(plaintext); }
+            Assert.Equal(AccessConfigurationState.Unavailable, store.ConfigurationState);
+            Assert.False(new VaultService(store).TryGetActivePolicy(out _));
+        }
+        finally { folder.Delete(true); }
+    }
+
     private sealed class Clock : TimeProvider
     {
         public DateTimeOffset Now { get; private set; } = DateTimeOffset.UtcNow;
@@ -110,5 +275,10 @@ public sealed class VaultStoreTests
         public override DateTimeOffset GetUtcNow() => Now;
         public override long GetTimestamp() => _ticks;
         public void Advance(int seconds) { Now = Now.AddSeconds(seconds); _ticks += TimeSpan.FromSeconds(seconds).Ticks; }
+    }
+
+    private sealed class FixedClock(DateTimeOffset now) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => now;
     }
 }

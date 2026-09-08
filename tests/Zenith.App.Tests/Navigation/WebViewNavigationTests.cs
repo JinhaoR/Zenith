@@ -40,6 +40,7 @@ public sealed class WebViewNavigationTests
                 {
                     await ExerciseWindowAsync();
                     await NetworkEnforcementScenario.RunAsync();
+                    await SecurityHardeningScenario.RunAsync();
                     finished.TrySetResult();
                 }
                 catch (Exception exception)
@@ -55,7 +56,7 @@ public sealed class WebViewNavigationTests
         }) { IsBackground = true };
         thread.SetApartmentState(ApartmentState.STA);
         thread.Start();
-        await finished.Task.WaitAsync(TimeSpan.FromSeconds(90));
+        await finished.Task.WaitAsync(TimeSpan.FromSeconds(150));
     }
 
     private static async Task ExerciseWindowAsync()
@@ -176,10 +177,11 @@ public sealed class WebViewNavigationTests
                 // Same-document address changes must still update the real shell.
                 await core.ExecuteScriptAsync("history.pushState({}, '', '/navigation-test#section')");
                 await Dispatcher.CurrentDispatcher.InvokeAsync(() => { }, DispatcherPriority.ContextIdle);
-                var identity = (TextBlock)window.FindName("CurrentSiteText");
-                Assert.Contains("github.com", identity.Text);
-                var siteButton = (Button)window.FindName("CurrentSiteButton");
-                Assert.Equal("https://github.com/navigation-test#section", siteButton.ToolTip);
+                Assert.Null(window.FindName("CurrentSiteButton"));
+                string TabTooltip() => ((StackPanel)window.FindName("OpenTabsPanel")).Children
+                    .OfType<Grid>().SelectMany(row => row.Children.OfType<Button>())
+                    .Select(button => button.ToolTip?.ToString()).First(text => text?.Contains("https://github.com/") == true)!;
+                Assert.Contains("https://github.com/navigation-test#section", TabTooltip());
 
                 var secondPage = WaitForPageAsync(core, "https://github.com/second");
                 Request(window, "https://github.com/second");
@@ -189,13 +191,13 @@ public sealed class WebViewNavigationTests
                 var back = WaitForPageAsync(core, "https://github.com/navigation-test#section");
                 backButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 await back;
-                Assert.Equal("https://github.com/navigation-test#section", siteButton.ToolTip);
+                Assert.Contains("https://github.com/navigation-test#section", TabTooltip());
                 var forwardButton = (Button)window.FindName("ForwardButton");
                 Assert.True(forwardButton.IsEnabled);
                 var forward = WaitForPageAsync(core, "https://github.com/second");
                 forwardButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 await forward;
-                Assert.Equal("https://github.com/second", siteButton.ToolTip);
+                Assert.Contains("https://github.com/second", TabTooltip());
 
                 // Reopen after native cleanup, including a request while clear is issued.
                 for (var attempt = 0; attempt < 4; attempt++)
@@ -654,7 +656,12 @@ public sealed class WebViewNavigationTests
 
             settings.SelectSection("Sphere");
             ((TextBox)settings.FindName("SiteFilter")).Text = "git";
-            Assert.Equal(2, ((ItemsControl)settings.FindName("SiteList")).Items.Count);
+            var matchingSites = ((ItemsControl)settings.FindName("SiteList")).Items.Cast<StarterWhitelistSite>().ToArray();
+            Assert.Contains(matchingSites, site => site.Host == "github.com");
+            Assert.Contains(matchingSites, site => site.Host == "gitlab.com");
+            Assert.All(matchingSites, site => Assert.True(
+                site.Name.Contains("git", StringComparison.OrdinalIgnoreCase) ||
+                site.Host.Contains("git", StringComparison.OrdinalIgnoreCase)));
             ((TextBox)settings.FindName("SiteFilter")).Text = "outside.example";
             Assert.Empty(((ItemsControl)settings.FindName("SiteList")).Items);
             Assert.Null(selectedSite);
@@ -745,7 +752,7 @@ public sealed class WebViewNavigationTests
                 Assert.True(settings.IsVisible);
                 Assert.NotEmpty(((TextBlock)settings.FindName("AccessAddressFeedback")).Text);
             }
-            address.Text = "https://NEW-GREY.example/path";
+            address.Text = "NEW-GREY.example/path";
             Assert.Empty(((TextBlock)settings.FindName("AccessAddressFeedback")).Text);
             begin.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             Assert.Equal(new Uri("https://new-grey.example/path"), requestedVisit);
@@ -773,6 +780,17 @@ public sealed class WebViewNavigationTests
         finally { confirmation.Close(); }
         Assert.Equal(Visibility.Visible, browser.Visibility);
         Assert.Equal(AccessPhase.Granted, service.GetStatus(target.AbsoluteUri).Phase);
+        var activeSettings = new SettingsWindow(new BrowserPreferencesStore(Path.Combine(profilePath, "active-settings.json")),
+            new BrowserPreferences(), _ => { }, DevelopmentStarterPolicy.Sites, _ => { }, service)
+        { Owner = window, Opacity = 0, ShowActivated = false };
+        try
+        {
+            activeSettings.Show();
+            activeSettings.SelectSection("Access");
+            Assert.Single(((ItemsControl)activeSettings.FindName("ActiveVisits")).Items);
+            Assert.Empty(((ItemsControl)activeSettings.FindName("PendingRequests")).Items);
+        }
+        finally { activeSettings.Close(); }
         // Temporary access must not promote a destination into ordinary discovery.
         var inSphere = typeof(MainWindow).GetMethod("IsTargetInSphere", BindingFlags.Instance | BindingFlags.NonPublic)!;
         Assert.False((bool)inSphere.Invoke(window, [target])!);
@@ -851,6 +869,9 @@ public sealed class WebViewNavigationTests
         const string newPassword = "a different and deliberate UI password";
         IReadOnlyList<StarterWhitelistSite> Sites() => (IReadOnlyList<StarterWhitelistSite>)typeof(MainWindow)
             .GetMethod("GetSphereSites", BindingFlags.NonPublic | BindingFlags.Instance)!.Invoke(window, null)!;
+        Assert.Contains(Sites(), site => site.Host == "stackexchange.com");
+        Assert.DoesNotContain(Sites(), site => site.Host == "math.stackexchange.com");
+        Assert.DoesNotContain(Sites(), site => site.Host == "physics.stackexchange.com");
         var settings = new SettingsWindow(new BrowserPreferencesStore(Path.Combine(profile, "vault-settings.json")),
             new(), _ => { }, Sites(), uri => Request(window, uri.AbsoluteUri), access, _ => { }, vault, Sites,
             () => Invoke(window, "RefreshPolicyViews")) { Owner = window, Opacity = 0, ShowActivated = false };
@@ -859,6 +880,8 @@ public sealed class WebViewNavigationTests
             settings.Show();
             settings.SelectSection("Vault");
             var panel = (VaultPanel)settings.FindName("VaultEditor");
+            Assert.False(((CheckBox)panel.FindName("IncludeSubdomains")).IsChecked);
+            ((CheckBox)panel.FindName("IncludeSubdomains")).IsChecked = true;
             ((TextBox)panel.FindName("GreySeconds")).Text = "10";
             ((TextBox)panel.FindName("GrantSeconds")).Text = "30";
             ((TextBox)panel.FindName("VaultSeconds")).Text = "10";
@@ -924,12 +947,61 @@ public sealed class WebViewNavigationTests
             Request(window, "https://vault-added.example/");
             await load;
             Assert.True(((Button)window.FindName("BookmarkButton")).IsEnabled);
+            var subdomainLoad = WaitForPageAsync(browser.CoreWebView2, "https://sub.vault-added.example/");
             Request(window, "https://sub.vault-added.example/");
-            Assert.Equal(Visibility.Visible, ((FrameworkElement)window.FindName("BoundarySurface")).Visibility);
+            await subdomainLoad;
+            Assert.Equal(Visibility.Visible, browser.Visibility);
             var request = access.SubmitPassword("https://new-greylist.example/", newPassword);
             Assert.Equal(clock.GetUtcNow().AddSeconds(10), request.Status.EligibleAt);
 
             settings.SelectSection("Vault");
+            var removeSite = (ListBox)panel.FindName("RemoveSite");
+            static string ChoiceHost(object item) => (string)item.GetType().GetProperty("Host")!.GetValue(item)!;
+            removeSite.SelectedItems.Add(removeSite.Items.Cast<object>().Single(site => ChoiceHost(site) == "vault-added.example"));
+            removeSite.SelectedItems.Add(removeSite.Items.Cast<object>().Single(site => ChoiceHost(site) == "google.com"));
+            var knownSite = (ComboBox)panel.FindName("KnownSite");
+            foreach (var host in new[] { "scholar.google.com", "drive.google.com", "mail.google.com" })
+            {
+                knownSite.SelectedItem = knownSite.Items.Cast<object>().Single(site => ChoiceHost(site) == host);
+                Assert.False(((CheckBox)panel.FindName("IncludeSubdomains")).IsChecked);
+                ((Button)panel.FindName("AddSiteButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            }
+            ((Button)panel.FindName("ReviewButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Assert.Contains("Remove vault-added.example and its covered services",
+                ((TextBlock)panel.FindName("ReviewSummary")).Text);
+            Assert.Contains("Google Scholar", ((TextBlock)panel.FindName("ReviewSummary")).Text);
+            Assert.DoesNotContain("scholar.google.com", ((TextBlock)panel.FindName("ReviewSummary")).Text);
+            Assert.Contains("scholar.google.com", ((TextBlock)panel.FindName("ReviewDetails")).Text);
+            ((PasswordBox)panel.FindName("StagePassword")).Password = newPassword;
+            ((Button)panel.FindName("StageButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            await WaitUntilAsync(() => store.LoadVault().Pending?.Edit.Removals().Contains("vault-added.example") == true &&
+                ((FrameworkElement)panel.FindName("WorkArea")).IsEnabled);
+            Assert.Contains(Sites(), site => site.Host == "vault-added.example");
+            clock.Advance(TimeSpan.FromSeconds(10));
+            panel.Refresh();
+            ((PasswordBox)panel.FindName("ConfirmPassword")).Password = newPassword;
+            ((Button)panel.FindName("ConfirmButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            await WaitUntilAsync(() => store.LoadVault().Revision == 2 &&
+                ((FrameworkElement)panel.FindName("WorkArea")).IsEnabled);
+            Assert.DoesNotContain(Sites(), site => site.Host == "vault-added.example");
+            window.ValidateRetainedTabs();
+            Assert.Equal(Visibility.Visible, ((FrameworkElement)window.FindName("BoundarySurface")).Visibility);
+
+            Assert.DoesNotContain(Sites(), site => site.Host == "google.com");
+            foreach (var host in new[] { "scholar.google.com", "drive.google.com", "mail.google.com" })
+            {
+                Assert.Contains(Sites(), site => site.Host == host);
+                var serviceLoad = WaitForPageAsync(browser.CoreWebView2, $"https://{host}/");
+                Request(window, $"https://{host}/");
+                await serviceLoad;
+                Assert.Equal(Visibility.Visible, browser.Visibility);
+            }
+            foreach (var host in new[] { "google.com", "www.google.com", "maps.google.com", "child.scholar.google.com" })
+            {
+                Request(window, $"https://{host}/");
+                Assert.Equal(Visibility.Visible, ((FrameworkElement)window.FindName("BoundarySurface")).Visibility);
+            }
+
             ((TextBox)panel.FindName("SiteHost")).Text = "closed-settings.example";
             ((Button)panel.FindName("ReviewButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             ((PasswordBox)panel.FindName("StagePassword")).Password = newPassword;
@@ -938,7 +1010,7 @@ public sealed class WebViewNavigationTests
             var closingMessage = ((TextBlock)panel.FindName("OutcomeText")).Text;
             await WaitUntilAsync(() => !(bool)typeof(VaultPanel)
                 .GetField("_busy", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(panel)!);
-            Assert.Equal("closed-settings.example", store.LoadVault().Pending!.Edit.AddHost);
+            Assert.Equal("closed-settings.example", Assert.Single(store.LoadVault().Pending!.Edit.Additions()).Host);
             Assert.Equal(closingMessage, ((TextBlock)panel.FindName("OutcomeText")).Text);
             Assert.Empty(((PasswordBox)panel.FindName("StagePassword")).Password);
         }

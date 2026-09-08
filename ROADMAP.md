@@ -79,6 +79,8 @@ Locked
 
 ## Phase 5: Policy Hardening (In Progress)
 
+Account-security checkpoint (ADR 0014): explicit certificate rejection, restricted browser defaults, old permission reset, native website identity, runtime-update notification and confirmed renderer-profile cleanup. Document requests bypass worker responses and cache use. These controls do not finish worker/background enforcement, file-picker restrictions, account-provider compatibility or independent security review; primary personal-account readiness is not yet established.
+
 First checkpoint: a Core-owned default-deny capability policy is wired to WebView2 permission requests, download starts and external-application launches for initial and subsequent tabs. Real renderer tests verify permission denial without profile persistence and download cancellation on both tab paths. This does not complete frame, redirect/popup or recovery hardening.
 
 Follow-up coverage exercises allowed HTTP redirects, denied multi-hop redirects (including deceptive hostnames), script redirects, Greylist popups and unsupported blank popups. Denied navigations are cancelled and unloaded; denied popups create no unmanaged window or extra tab. Testing exposed that navigation cancellation alone does not guarantee zero network contact. That initial checkpoint did not include request-level gating or independent network verification; the next checkpoint below addresses the reproduced HTTP paths (see `docs/research-notes.md`).

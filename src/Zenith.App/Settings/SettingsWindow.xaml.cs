@@ -22,14 +22,18 @@ public partial class SettingsWindow : Window
     private readonly Action<Uri?>? _openAccess;
     private readonly DispatcherTimer _accessTimer = new() { Interval = TimeSpan.FromSeconds(1) };
     private PendingRequestItem[] _pendingItems = [];
+    private ActiveVisitItem[] _activeVisitItems = [];
     private readonly Func<string>? _blacklistStatus;
     private readonly Func<string>? _adblockStatus;
+    private readonly Func<Task>? _clearBrowsingData;
+    private readonly Func<string>? _runtimeStatus;
 
     internal SettingsWindow(BrowserPreferencesStore store, BrowserPreferences preferences,
         Action<BrowserPreferences> applyPreferences, IReadOnlyList<StarterWhitelistSite> sites, Action<Uri> openSite,
         GreylistAccessService? accessService = null, Action<Uri?>? openAccess = null,
         VaultService? vaultService = null, Func<IReadOnlyList<StarterWhitelistSite>>? siteSource = null, Action? policyChanged = null,
-        Func<string>? blacklistStatus = null, Func<string>? adblockStatus = null)
+        Func<string>? blacklistStatus = null, Func<string>? adblockStatus = null,
+        Func<Task>? clearBrowsingData = null, Func<string>? runtimeStatus = null)
     {
         _store = store;
         _preferences = preferences;
@@ -38,10 +42,14 @@ public partial class SettingsWindow : Window
         _siteSource = siteSource;
         _blacklistStatus = blacklistStatus;
         _adblockStatus = adblockStatus;
+        _clearBrowsingData = clearBrowsingData;
+        _runtimeStatus = runtimeStatus;
         _openSite = openSite;
         _accessService = accessService;
         _openAccess = openAccess;
         InitializeComponent();
+        ClearBrowsingDataButton.IsEnabled = _clearBrowsingData is not null;
+        RuntimeStatusText.Text = _runtimeStatus?.Invoke() ?? "Browser engine status is unavailable.";
         BlacklistStatusText.Text = _blacklistStatus?.Invoke() ?? "Blacklist status is unavailable in this window.";
         AdblockStatusText.Text = _adblockStatus?.Invoke() ?? "Resource-filter status is unavailable in this window.";
         VaultEditor.Configure(vaultService, () => { Close(); _openAccess?.Invoke(null); },
@@ -92,6 +100,7 @@ public partial class SettingsWindow : Window
         PageTitle.Text = title;
         PageDescription.Text = description;
         PageScrollViewer.ScrollToTop();
+        RuntimeStatusText.Text = _runtimeStatus?.Invoke() ?? "Browser engine status is unavailable.";
         if (section == "Vault") VaultEditor.Refresh();
         if (section == "Sphere") RefreshSites();
     }
@@ -101,6 +110,20 @@ public partial class SettingsWindow : Window
         if (!_loading)
         {
             Save(_preferences with { StartSidebarExpanded = ExpandedOption.IsChecked == true });
+        }
+    }
+
+    private async void ClearBrowsingData_OnClick(object sender, RoutedEventArgs e)
+    {
+        if (_clearBrowsingData is null || MessageBox.Show(this,
+            "This closes all tabs and Zenith, signs you out of websites, and removes cookies, site storage, browser history, cache and saved autofill data. Unsaved website work will be lost. Vault rules, waits, password and Zenith bookmarks are kept.\n\nClear browsing data?",
+            "Clear browsing data — Zenith", MessageBoxButton.OKCancel, MessageBoxImage.Warning, MessageBoxResult.Cancel) != MessageBoxResult.OK) return;
+        ClearBrowsingDataButton.IsEnabled = false;
+        try { await _clearBrowsingData(); }
+        catch (Exception)
+        {
+            MessageBox.Show("Browsing data could not be fully cleared. Zenith was stopped. Reopen it and retry; do not assume you have been signed out.",
+                "Zenith", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
 
@@ -217,6 +240,15 @@ public partial class SettingsWindow : Window
         }
         NoPendingRequests.Visibility = pending.Length == 0 && availability?.Phase is not (AccessPhase.ClockInvalid or AccessPhase.Unavailable)
             ? Visibility.Visible : Visibility.Collapsed;
+        var visits = _accessService?.GetActiveGrants()
+            .Select(grant => new ActiveVisitItem(grant.Site.Host, $"Available until {grant.ExpiresAt.ToLocalTime():T} · Ends when Zenith closes"))
+            .ToArray() ?? [];
+        if (!_activeVisitItems.SequenceEqual(visits))
+        {
+            _activeVisitItems = visits;
+            ActiveVisits.ItemsSource = visits;
+        }
+        NoActiveVisits.Visibility = visits.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void AccessAddress_OnTextChanged(object sender, TextChangedEventArgs e)
@@ -281,6 +313,8 @@ public partial class SettingsWindow : Window
             _openAccess?.Invoke(request.Target);
         }
     }
+
+    private sealed record ActiveVisitItem(string Host, string Status);
 
     private sealed record PendingRequestItem(Uri Target, string Status)
     {

@@ -305,31 +305,6 @@
                             Click="BookmarkButton_OnClick" />
                 </StackPanel>
 
-                <Button x:Name="CurrentSiteButton"
-                        Grid.Row="2"
-                        Style="{StaticResource SidebarTextButtonStyle}"
-                        Margin="0,0,0,10"
-                        ToolTipService.ShowDuration="30000"
-                        Visibility="Collapsed"
-                        Click="CurrentSiteButton_OnClick">
-                    <DockPanel LastChildFill="True">
-                        <TextBlock x:Name="CurrentSiteIcon"
-                                   DockPanel.Dock="Left"
-                                   Width="22"
-                                   Margin="0,0,9,0"
-                                   HorizontalAlignment="Center"
-                                   VerticalAlignment="Center"
-                                   FontFamily="Segoe MDL2 Assets"
-                                   FontSize="13"
-                                   Foreground="{DynamicResource ZenithAccentBrush}"
-                                   Text="&#xE774;" />
-                        <TextBlock x:Name="CurrentSiteText"
-                                   VerticalAlignment="Center"
-                                   Foreground="{DynamicResource ZenithTextBrush}"
-                                   TextTrimming="CharacterEllipsis" />
-                    </DockPanel>
-                </Button>
-
                 <Grid Grid.Row="3" Margin="0,0,0,18">
                     <Border x:Name="SphereSearchContainer"
                             Height="40"
@@ -516,6 +491,7 @@
                     <Button.ContextMenu>
                         <ContextMenu>
                             <MenuItem Header="Settings" Click="SettingsMenuItem_OnClick" />
+                            <MenuItem Header="Website identity" Click="PageIdentity_OnClick" />
                             <MenuItem Header="Bookmarks" Click="BookmarksMenuItem_OnClick" />
                             <MenuItem Header="Vault" Click="VaultMenuItem_OnClick" />
                             <Separator />

@@ -59,6 +59,12 @@ Stronger tamper resistance may be considered later and must be documented as a s
 
 ## 6. Current Development Boundary
 
+The account-security checkpoint rejects server-certificate exceptions without a bypass, clears cached certificate decisions and resets old renderer permissions before browsing. New password saving and general autofill are disabled; old saved passwords require confirmed browser-data cleanup to remove. A native identity command displays the normalized engine origin and distinguishes HTTP from HTTPS, not trustworthy from malicious sites. Cookies and website sessions may persist in WebView2's profile; Vault credential protection must not be mistaken for encryption of all browser data. SmartScreen is requested and remains subject to Windows settings. Runtime-update notifications request a restart; they do not establish update-policy health or update Zenith itself.
+
+Confirmed browsing-data cleanup disposes live tabs, clears the renderer profile through WebView2's supported API and closes Zenith. It never deletes Vault state, saved waits or Zenith bookmarks, does not revoke server-side sessions and is not secure erasure. Failure closes browsing without claiming complete deletion. The application adapters do not log request bodies, authentication headers or raw runtime exceptions. See ADR 0014 for implementation and verification scope.
+
+Document interception now bypasses service-worker responses and disables cache use per tab. Workers can still register or perform background tasks; this does not complete worker/network isolation or the existing-connection threat model. Sensitive-account readiness still requires broader integration testing and independent security review.
+
 Ad-resource filtering uses a bundled maintained engine in a host-side JavaScript
 context, with no exposed CLR objects. It is not an OS process sandbox. Fixed
 subscription downloads are bounded and compiled before protected atomic
