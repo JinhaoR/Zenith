@@ -4,26 +4,36 @@ using System.Windows.Automation.Peers;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
-using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.Wpf;
-using System.Runtime.InteropServices;
 using Zenith.App.Bookmarks;
 using Zenith.App.Navigation;
+using Zenith.App.Settings;
+using Zenith.App.Access;
+using Zenith.Core.Access;
+using Zenith.Core.Vault;
 using Zenith.Core.Navigation;
 
 namespace Zenith.App;
 
 public partial class MainWindow : Window
 {
-    private const int DwmwaUseImmersiveDarkMode = 20;
-    private const int DwmwaCaptionColor = 35;
-    private const int DwmwaTextColor = 36;
-
     private readonly NavigationCoordinator _navigationCoordinator;
+    private readonly BrowserPreferencesStore _preferencesStore = new();
+    private BrowserPreferences _preferences;
+    private SettingsWindow? _settingsWindow;
+    private readonly GreylistAccessService? _accessService;
+    private readonly VaultService? _vaultService;
+    private readonly Zenith.Core.Filtering.IBlacklistSource? _blacklist;
+    private readonly Zenith.App.Filtering.AdblockService? _adblock;
+    private long _displayedPolicyRevision = -1;
+    private readonly DispatcherTimer _accessTimer = new() { Interval = TimeSpan.FromSeconds(1) };
+    private AccessWindow? _accessWindow;
+    private Uri? _accessWindowTarget;
+    private Uri? _temporaryAccessTarget;
     private readonly BookmarkStore _bookmarkStore = new();
     private readonly List<Bookmark> _bookmarks = [];
     private readonly List<TabState> _tabs = [];
@@ -55,10 +65,12 @@ public partial class MainWindow : Window
         public bool IsReady { get; set; }
 
         public bool CoreEventsAttached { get; set; }
+        public BrowserCapabilityGuard? CapabilityGuard { get; set; }
+        public Zenith.App.Filtering.ResourceRequestGuard? ResourceGuard { get; set; }
+        public DocumentRequestGuard? DocumentGuard { get; set; }
+        public Zenith.App.Filtering.CosmeticFilterGuard? CosmeticGuard { get; set; }
 
-        public bool IsInternalClearPending { get; set; }
-
-        public ulong? InternalClearNavigationId { get; set; }
+        public NavigationOperationTracker NavigationOperations { get; } = new();
 
         public int LifecycleVersion { get; set; }
     }
@@ -76,18 +88,30 @@ public partial class MainWindow : Window
 
     private WebView2 ActiveBrowser => _activeTab?.Browser ?? Browser;
 
-    internal MainWindow(NavigationCoordinator navigationCoordinator)
+    internal MainWindow(NavigationCoordinator navigationCoordinator, GreylistAccessService? accessService = null, VaultService? vaultService = null,
+        Zenith.Core.Filtering.IBlacklistSource? blacklist = null, Zenith.App.Filtering.AdblockService? adblock = null)
     {
         ArgumentNullException.ThrowIfNull(navigationCoordinator);
 
         _navigationCoordinator = navigationCoordinator;
+        _accessService = accessService;
+        _vaultService = vaultService;
+        _blacklist = blacklist;
+        _adblock = adblock;
+        _preferences = _preferencesStore.Load();
         InitializeComponent();
         _bookmarkScrollBarHideTimer.Tick += BookmarkScrollBarHideTimer_OnTick;
         _bookmarks.AddRange(_bookmarkStore.Load());
         _activeTab = new TabState(Browser, "New tab");
         _tabs.Add(_activeTab);
-        SetSidebarExpanded(true);
+        Browser.ZoomFactor = _preferences.DefaultZoomPercent / 100d;
+        SetSidebarExpanded(_preferences.StartSidebarExpanded);
         UpdateBrowserHostBackground();
+        if (_accessService is not null)
+        {
+            _accessTimer.Tick += AccessTimer_OnTick;
+            _accessTimer.Start();
+        }
     }
 
     private void MainWindow_OnSourceInitialized(object? sender, EventArgs e) =>
@@ -100,13 +124,15 @@ public partial class MainWindow : Window
 
         try
         {
-            await tab.Browser.EnsureCoreWebView2Async();
+            await tab.Browser.EnsureCoreWebView2Async(Browser.CoreWebView2?.Environment);
 
-            if (_isClosing)
+            if (_isClosing || !_tabs.Contains(tab))
             {
                 return;
             }
 
+            await AttachCapabilityGuardAsync(tab);
+            if (_isClosing || !_tabs.Contains(tab)) return;
             tab.Browser.CoreWebView2.NewWindowRequested += Browser_OnNewWindowRequested;
             tab.Browser.CoreWebView2.HistoryChanged += Browser_OnHistoryChanged;
             tab.CoreEventsAttached = true;
@@ -126,6 +152,14 @@ public partial class MainWindow : Window
 
     private void DetachTabEvents(TabState tab)
     {
+        tab.DocumentGuard?.Dispose();
+        tab.DocumentGuard = null;
+        tab.CosmeticGuard?.Dispose();
+        tab.CosmeticGuard = null;
+        tab.ResourceGuard?.Dispose();
+        tab.ResourceGuard = null;
+        tab.CapabilityGuard?.Dispose();
+        tab.CapabilityGuard = null;
         tab.Browser.NavigationStarting -= Browser_OnNavigationStarting;
         tab.Browser.NavigationCompleted -= Browser_OnNavigationCompleted;
 
@@ -156,6 +190,8 @@ public partial class MainWindow : Window
                 return;
             }
 
+            await AttachCapabilityGuardAsync(_tabs.First(tab => tab.Browser == Browser));
+            if (_isClosing) return;
             Browser.CoreWebView2.NewWindowRequested += Browser_OnNewWindowRequested;
             Browser.CoreWebView2.HistoryChanged += Browser_OnHistoryChanged;
             if (_activeTab is not null)
@@ -179,6 +215,8 @@ public partial class MainWindow : Window
     private void MainWindow_OnClosed(object? sender, EventArgs e)
     {
         _isClosing = true;
+        _accessTimer.Stop();
+        _accessTimer.Tick -= AccessTimer_OnTick;
         _bookmarkScrollBarHideTimer.Stop();
         _bookmarkScrollBarHideTimer.Tick -= BookmarkScrollBarHideTimer_OnTick;
 
@@ -191,12 +229,41 @@ public partial class MainWindow : Window
             Browser.CoreWebView2.HistoryChanged -= Browser_OnHistoryChanged;
         }
 
+        _tabs.FirstOrDefault(tab => tab.Browser == Browser)?.CapabilityGuard?.Dispose();
+        _tabs.FirstOrDefault(tab => tab.Browser == Browser)?.ResourceGuard?.Dispose();
+        _tabs.FirstOrDefault(tab => tab.Browser == Browser)?.DocumentGuard?.Dispose();
+        _tabs.FirstOrDefault(tab => tab.Browser == Browser)?.CosmeticGuard?.Dispose();
         Browser.Dispose();
 
         foreach (var tab in _tabs.Where(tab => tab.Browser != Browser))
         {
             DetachTabEvents(tab);
             tab.Browser.Dispose();
+        }
+    }
+
+    private async Task AttachCapabilityGuardAsync(TabState tab)
+    {
+        tab.DocumentGuard = new DocumentRequestGuard(tab.Browser.CoreWebView2, _navigationCoordinator, () =>
+        {
+            tab.IsReady = false;
+            // A failed interception channel cannot safely retain live controllers.
+            // Close on the dispatcher after the native callback unwinds.
+            if (!_isClosing) Dispatcher.BeginInvoke(Close);
+        });
+        await tab.DocumentGuard.InitializeAsync();
+        if (_isClosing || !_tabs.Contains(tab)) return;
+        if (_blacklist is not null)
+            tab.ResourceGuard = new Zenith.App.Filtering.ResourceRequestGuard(tab.Browser.CoreWebView2, _blacklist, _adblock);
+        tab.CapabilityGuard = new BrowserCapabilityGuard(tab.Browser.CoreWebView2,
+            new Zenith.Core.Permissions.BrowserCapabilityPolicy(), message =>
+            {
+                if (!_isClosing && tab == _activeTab) ShowNotice(message);
+            });
+        if (_adblock is not null)
+        {
+            tab.CosmeticGuard = new Zenith.App.Filtering.CosmeticFilterGuard(tab.Browser.CoreWebView2, _adblock.Cosmetics);
+            await tab.CosmeticGuard.InitializeAsync();
         }
     }
 
@@ -424,20 +491,133 @@ public partial class MainWindow : Window
 
     private void OpenSettingsMenu_OnClick(object sender, RoutedEventArgs e)
     {
-        if (SettingsButton.ContextMenu is { } menu)
-        {
-            menu.IsOpen = true;
-        }
+        OpenSettings("General");
     }
 
     private void SettingsMenuItem_OnClick(object sender, RoutedEventArgs e) =>
-        ShowNotice("Settings aren't available yet.");
+        OpenSettings("General");
 
     private void VaultMenuItem_OnClick(object sender, RoutedEventArgs e) =>
-        ShowNotice("The Vault isn't available yet.");
+        OpenSettings("Vault");
 
     private void AboutMenuItem_OnClick(object sender, RoutedEventArgs e) =>
-        ShowNotice("Zenith is a browser where Internet access is granted, not presumed.");
+        OpenSettings("About");
+
+    private void OpenSettings(string section)
+    {
+        SphereResultsPopup.IsOpen = false;
+        if (_settingsWindow is null)
+        {
+            _settingsWindow = new SettingsWindow(_preferencesStore, _preferences, ApplyPreferences,
+                GetSphereSites(),
+                target => RequestNavigation(target.AbsoluteUri, NavigationOrigin.AddressBar),
+                _accessService, OpenTemporaryAccess, _vaultService, GetSphereSites, RefreshPolicyViews,
+                () => (_blacklist as Zenith.App.Filtering.BlacklistUpdater)?.Status ?? "No synchronized source is available in this test window.",
+                () => _adblock?.Status ?? "No resource-filter engine is available in this test window.") { Owner = this };
+            _settingsWindow.Closed += (_, _) => _settingsWindow = null;
+            _settingsWindow.Show();
+        }
+        _settingsWindow.SelectSection(section);
+        _settingsWindow.Activate();
+    }
+
+    private void ApplyPreferences(BrowserPreferences preferences)
+    {
+        if (_preferences.DefaultZoomPercent != preferences.DefaultZoomPercent)
+        {
+            foreach (var tab in _tabs)
+            {
+                tab.Browser.ZoomFactor = preferences.DefaultZoomPercent / 100d;
+            }
+        }
+        _preferences = preferences;
+    }
+
+    private void RequestAccess_OnClick(object sender, RoutedEventArgs e)
+    {
+        if (_temporaryAccessTarget is not null) { OpenTemporaryAccess(_temporaryAccessTarget); }
+    }
+
+    private void OpenTemporaryAccess(Uri? target)
+    {
+        if (_accessService is null) { return; }
+        if (_accessWindow is not null && _accessWindowTarget != target) { _accessWindow.Close(); }
+        if (_accessWindow is null)
+        {
+            _accessWindowTarget = target;
+            _accessWindow = new AccessWindow(_accessService, target,
+                destination => RequestNavigation(destination.AbsoluteUri, NavigationOrigin.AddressBar)) { Owner = this };
+            _accessWindow.Closed += (_, _) => _accessWindow = null;
+            _accessWindow.Show();
+        }
+        _accessWindow.Activate();
+    }
+
+    private void AccessTimer_OnTick(object? sender, EventArgs e) => ValidateRetainedTabs();
+
+    internal void ValidateRetainedTabs()
+    {
+        if (_isClosing || _accessService is null) { return; }
+        var revision = _vaultService?.GetAccessTimingSafely()?.Revision ?? -1;
+        if (revision != _displayedPolicyRevision)
+        {
+            _displayedPolicyRevision = revision;
+            RefreshPolicyViews();
+        }
+        _ = _accessService.GetPendingRequests();
+        var changed = false;
+        foreach (var tab in _tabs.ToArray())
+        {
+            if (tab.IsStartSurface || tab.CurrentUri is not { } target) { continue; }
+            var decision = _navigationCoordinator.EvaluateWebViewRequest(target.AbsoluteUri);
+            if (decision is NavigationDecision.Allowed) { continue; }
+            changed = true;
+            if (tab == _activeTab)
+            {
+                ApplyNavigationDecision(decision, target.AbsoluteUri);
+            }
+            else
+            {
+                ClearTabWebContent(tab);
+                HideAndSuspendTab(tab);
+            }
+        }
+        if (changed) { RefreshTabStrip(); }
+    }
+
+    private void RefreshPolicyViews()
+    {
+        RefreshBookmarkGrid();
+        RefreshSphereResults();
+        UpdateBookmarkButton();
+    }
+
+    internal void ApplyBlacklistUpdate()
+    {
+        if (_isClosing) return;
+        // Unload retained frame trees as well as top-level pages. Newly Blacklisted
+        // content may already be embedded in any tab; a URL-only scan misses it.
+        var hadPages = _tabs.Any(tab => !tab.IsStartSurface);
+        foreach (var tab in _tabs.Where(tab => !tab.IsStartSurface).ToArray())
+        {
+            HideAndSuspendTab(tab);
+            ClearTabWebContent(tab);
+        }
+        if (hadPages) ShowStartSurface();
+        RefreshTabStrip();
+        RefreshPolicyViews();
+        if (hadPages) ShowNotice("Blacklist updated. Open your destinations again to load them with the latest protection.");
+    }
+
+    private IReadOnlyList<StarterWhitelistSite> GetSphereSites()
+    {
+        if (_vaultService is null) return DevelopmentStarterPolicy.Sites.Where(site => IsTargetInSphere(site.Target)).ToArray();
+        if (!_vaultService.TryGetActivePolicy(out var policy)) return [];
+        return policy.Entries.Where(entry => entry.AccessClass == AccessClass.Whitelist && policy.Classify(entry.Identity) == AccessClass.Whitelist)
+            .Select(entry => new StarterWhitelistSite(
+                DevelopmentStarterPolicy.Sites.FirstOrDefault(site => site.Host == entry.Identity.Host)?.Name ?? entry.Identity.Host,
+                entry.Identity.Host, new UriBuilder("https", entry.Identity.Host).Uri.AbsoluteUri, entry.IncludeSubdomains)).ToArray();
+    }
 
     private void BookmarksMenuItem_OnClick(object sender, RoutedEventArgs e)
     {
@@ -580,24 +760,32 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (tab.IsInternalClearPending)
+        if (tab.NavigationOperations.TryRecordInternalClearStarting(e.Uri, e.NavigationId))
         {
-            // This exact host-initiated target unloads replaced content; it is not a
-            // policy bypass for website-initiated or external navigation.
-            if (string.Equals(e.Uri, "about:blank", StringComparison.OrdinalIgnoreCase))
-            {
-                tab.InternalClearNavigationId = e.NavigationId;
-                return;
-            }
+            return;
+        }
 
-            tab.IsInternalClearPending = false;
-            tab.InternalClearNavigationId = null;
+        if (tab.NavigationOperations.IsInternalClearPending)
+        {
+            // A native surface is replacing this page. Cancel any late page-driven
+            // navigation while the host-issued clear is being serialized.
+            e.Cancel = true;
+            return;
+        }
+
+        if (NavigationOperationTracker.IsBlankTarget(e.Uri))
+        {
+            // Only a tracked host clear may navigate to the internal blank page.
+            // Cancel unmatched blank requests without replacing the current surface.
+            e.Cancel = true;
+            return;
         }
 
         var decision = _navigationCoordinator.EvaluateWebViewRequest(e.Uri);
 
         if (decision is NavigationDecision.Allowed allowed)
         {
+            tab.NavigationOperations.RecordExternal(e.NavigationId, allowed.Target);
             tab.CurrentUri = allowed.Target;
             tab.IsStartSurface = false;
             tab.Title = tab.CurrentUri.Host;
@@ -648,11 +836,24 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (tab.InternalClearNavigationId == e.NavigationId)
+        var completion = tab.NavigationOperations.MatchCompletion(e.NavigationId);
+        if (completion.Kind == NavigationCompletionKind.Stale)
         {
-            tab.IsInternalClearPending = false;
-            tab.InternalClearNavigationId = null;
-            HideAndSuspendTab(tab);
+            return;
+        }
+
+        if (completion.Kind == NavigationCompletionKind.InternalClear)
+        {
+            if (completion.DeferredTarget is { } deferredTarget)
+            {
+                StartNavigation(tab, deferredTarget);
+                return;
+            }
+
+            if (tab.IsStartSurface || browser.Visibility != Visibility.Visible)
+            {
+                HideAndSuspendTab(tab);
+            }
             return;
         }
 
@@ -676,7 +877,7 @@ public partial class MainWindow : Window
 
         if (!e.IsSuccess && tab == _activeTab && browser.Visibility == Visibility.Visible)
         {
-            var target = browser.Source?.AbsoluteUri ?? "Unknown destination";
+            var target = completion.RequestedTarget?.AbsoluteUri ?? "Unknown destination";
             ShowBoundarySurface(
                 "This destination couldn’t open",
                 target,
@@ -700,7 +901,17 @@ public partial class MainWindow : Window
             return;
         }
 
-        var decision = _navigationCoordinator.EvaluateWebViewRequest(coreWebView.Source);
+        var source = coreWebView.Source;
+        if (NavigationOperationTracker.IsBlankTarget(source))
+        {
+            // History notifications can still describe the initial/cleared document
+            // after StartNavigation has selected an external destination. This is an
+            // observation, not a request to navigate to about:blank.
+            UpdateNavigationControls();
+            return;
+        }
+
+        var decision = _navigationCoordinator.EvaluateWebViewRequest(source);
         if (decision is NavigationDecision.Allowed allowed)
         {
             tab.CurrentUri = allowed.Target;
@@ -712,7 +923,7 @@ public partial class MainWindow : Window
         }
         else if (tab == _activeTab)
         {
-            ApplyNavigationDecision(decision, coreWebView.Source);
+            ApplyNavigationDecision(decision, source);
         }
         else
         {
@@ -740,7 +951,7 @@ public partial class MainWindow : Window
                          "Zenith can open only complete HTTP or HTTPS addresses without embedded credentials. No page was opened."),
                     NavigationDenialReason.Greylisted =>
                         ("This destination isn’t in your Sphere",
-                         "This destination is Greylisted. Temporary access will become available in a later phase; no page was opened."),
+                         "This destination is outside your Sphere. You can request a temporary visit after a waiting period and two password challenges."),
                     NavigationDenialReason.Blacklisted =>
                         ("This destination is unavailable",
                          "This destination is Blacklisted and cannot be opened while that policy remains active."),
@@ -752,6 +963,12 @@ public partial class MainWindow : Window
                     heading,
                     requestedTarget,
                     explanation);
+                if (denied.Reason == NavigationDenialReason.Greylisted && _accessService is not null &&
+                    NavigationUriNormalizer.TryNormalize(requestedTarget, out var accessTarget))
+                {
+                    _temporaryAccessTarget = accessTarget.Target;
+                    RequestAccessButton.Visibility = Visibility.Visible;
+                }
                 break;
             default:
                 HideNotice();
@@ -775,15 +992,32 @@ public partial class MainWindow : Window
             return;
         }
 
-        tab.IsInternalClearPending = false;
-        tab.InternalClearNavigationId = null;
+        QueueNavigation(tab, target);
+    }
+
+    private void QueueNavigation(TabState tab, Uri target)
+    {
+        var disposition = tab.NavigationOperations.PrepareExternal(target);
+        if (disposition == ExternalNavigationDisposition.DeferUntilInternalClearCompletes)
+        {
+            return;
+        }
+
+        StartNavigation(tab, target);
+    }
+
+    private void StartNavigation(TabState tab, Uri target)
+    {
         tab.IsStartSurface = false;
         tab.CurrentUri = target;
         tab.Title = target.Host;
-        HideNotice();
-        ShowBrowserSurface();
+        if (tab == _activeTab)
+        {
+            HideNotice();
+            ShowBrowserSurface();
+        }
         RefreshTabStrip();
-        ActiveBrowser.Source = target;
+        tab.Browser.Source = target;
     }
 
     private void RequestNavigation(string target, NavigationOrigin origin)
@@ -808,6 +1042,7 @@ public partial class MainWindow : Window
         var browser = new WebView2
         {
             Visibility = Visibility.Collapsed,
+            ZoomFactor = _preferences.DefaultZoomPercent / 100d,
             DefaultBackgroundColor = System.Drawing.Color.FromArgb(255, 8, 19, 33)
         };
         BrowserHost.Children.Add(browser);
@@ -817,9 +1052,19 @@ public partial class MainWindow : Window
         ActivateTab(tab);
         await InitializeTabAsync(tab);
 
-        if (target is not null && tab.IsReady)
+        if (target is not null && tab.IsReady && !_isClosing && _tabs.Contains(tab))
         {
-            NavigateTo(target);
+            // Initialization yields to the dispatcher. The user may have switched
+            // tabs while waiting; navigate the new controller, never the active one.
+            var decision = _navigationCoordinator.EvaluateNewWindowRequest(target.AbsoluteUri);
+            if (decision is NavigationDecision.Allowed allowed)
+            {
+                QueueNavigation(tab, allowed.Target);
+            }
+            else if (tab == _activeTab)
+            {
+                ApplyNavigationDecision(decision, target.AbsoluteUri);
+            }
         }
     }
 
@@ -845,7 +1090,11 @@ public partial class MainWindow : Window
         }
         else
         {
-            ShowBrowserSurface();
+            // A retained document must be reauthorized before it becomes visible,
+            // including when its grant expired between host timer ticks.
+            var decision = _navigationCoordinator.EvaluateWebViewRequest(tab.CurrentUri?.AbsoluteUri ?? string.Empty);
+            if (decision is NavigationDecision.Allowed) { ShowBrowserSurface(); }
+            else { ApplyNavigationDecision(decision, tab.CurrentUri?.AbsoluteUri ?? string.Empty); }
         }
 
         RefreshTabStrip();
@@ -917,12 +1166,11 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (Uri.TryCreate(query, UriKind.Absolute, out var directTarget) &&
-            (directTarget.Scheme == Uri.UriSchemeHttps || directTarget.Scheme == Uri.UriSchemeHttp))
+        if (TypedAddressParser.TryParse(query, out var directTarget))
         {
             SphereResultsPopup.IsOpen = false;
             SetSphereSearchText(string.Empty);
-            RequestNavigation(directTarget.AbsoluteUri, NavigationOrigin.AddressBar);
+            RequestNavigation(directTarget.Target.AbsoluteUri, NavigationOrigin.AddressBar);
             return;
         }
 
@@ -976,6 +1224,8 @@ public partial class MainWindow : Window
 
     private void ShowBoundarySurface(string heading, string target, string explanation)
     {
+        _temporaryAccessTarget = null;
+        RequestAccessButton.Visibility = Visibility.Collapsed;
         SphereResultsPopup.IsOpen = false;
         if (_activeTab is { } tab)
         {
@@ -1009,14 +1259,17 @@ public partial class MainWindow : Window
         tab.Title = "New tab";
 
         if (!tab.IsReady ||
-            tab.Browser.CoreWebView2 is null ||
-            tab.IsInternalClearPending)
+            tab.Browser.CoreWebView2 is null)
+        {
+            tab.NavigationOperations.AbandonExternal();
+            return;
+        }
+
+        if (!tab.NavigationOperations.ScheduleInternalClear())
         {
             return;
         }
 
-        tab.IsInternalClearPending = true;
-        tab.InternalClearNavigationId = null;
         var browser = tab.Browser;
         _ = Dispatcher.BeginInvoke(
             DispatcherPriority.Background,
@@ -1024,8 +1277,8 @@ public partial class MainWindow : Window
             {
                 if (_isClosing ||
                     !_tabs.Contains(tab) ||
-                    !tab.IsInternalClearPending ||
-                    browser.CoreWebView2 is null)
+                    browser.CoreWebView2 is null ||
+                    !tab.NavigationOperations.TryIssueInternalClear())
                 {
                     return;
                 }
@@ -1036,8 +1289,13 @@ public partial class MainWindow : Window
                 }
                 catch (Exception)
                 {
-                    tab.IsInternalClearPending = false;
-                    tab.InternalClearNavigationId = null;
+                    var deferredTarget = tab.NavigationOperations.FailInternalClear();
+                    if (deferredTarget is not null)
+                    {
+                        StartNavigation(tab, deferredTarget);
+                        return;
+                    }
+
                     HideAndSuspendTab(tab);
                 }
             });
@@ -1049,7 +1307,7 @@ public partial class MainWindow : Window
         var lifecycleVersion = ++tab.LifecycleVersion;
 
         if (!tab.IsReady ||
-            tab.IsInternalClearPending ||
+            tab.NavigationOperations.IsInternalClearPending ||
             tab.Browser.CoreWebView2 is not { } coreWebView)
         {
             return;
@@ -1172,43 +1430,7 @@ public partial class MainWindow : Window
         }
     }
 
-    internal void UpdateWindowFrameAppearance()
-    {
-        var handle = new WindowInteropHelper(this).Handle;
-        if (handle == IntPtr.Zero ||
-            TryFindResource("ZenithChromeBrush") is not SolidColorBrush chromeBrush ||
-            TryFindResource("ZenithTextBrush") is not SolidColorBrush textBrush)
-        {
-            return;
-        }
-
-        try
-        {
-            var darkMode = 1;
-            var captionColor = ToColorRef(chromeBrush.Color);
-            var textColor = ToColorRef(textBrush.Color);
-            DwmSetWindowAttribute(handle, DwmwaUseImmersiveDarkMode, ref darkMode, sizeof(int));
-            DwmSetWindowAttribute(handle, DwmwaCaptionColor, ref captionColor, sizeof(int));
-            DwmSetWindowAttribute(handle, DwmwaTextColor, ref textColor, sizeof(int));
-        }
-        catch (DllNotFoundException)
-        {
-            // The native frame remains available on Windows versions without DWM theming support.
-        }
-        catch (EntryPointNotFoundException)
-        {
-            // The native frame remains available on Windows versions without DWM theming support.
-        }
-    }
-
-    private static int ToColorRef(Color color) => color.R | (color.G << 8) | (color.B << 16);
-
-    [DllImport("dwmapi.dll")]
-    private static extern int DwmSetWindowAttribute(
-        IntPtr hwnd,
-        int attribute,
-        ref int value,
-        int valueSize);
+    internal void UpdateWindowFrameAppearance() => WindowFrameAppearance.Apply(this);
 
     private void UpdateNavigationControls()
     {
@@ -1232,7 +1454,8 @@ public partial class MainWindow : Window
                 bookmark.Target,
                 SphereResultSource.Bookmark))
             .ToList();
-        var siteResults = DevelopmentStarterPolicy.Sites
+        var siteResults = GetSphereSites()
+            .Where(site => IsTargetInSphere(site.Target))
             .Where(site => MatchesSphereQuery(site.Name, site.Host, query))
             .OrderBy(site => site.Name, StringComparer.OrdinalIgnoreCase)
             .Select(site => new SphereResult(
@@ -1246,7 +1469,7 @@ public partial class MainWindow : Window
         _visibleSphereResults.AddRange(siteResults);
         SphereResultsPanel.Children.Clear();
         SphereResultsHeadingTextBlock.Text = query.Length == 0
-            ? $"{DevelopmentStarterPolicy.Sites.Count} sites · {bookmarkResults.Count} bookmarks"
+            ? $"{siteResults.Count} sites · {bookmarkResults.Count} bookmarks"
             : $"Results for “{query}”";
 
         if (bookmarkResults.Count > 0)
@@ -1452,7 +1675,7 @@ public partial class MainWindow : Window
     private bool IsTargetInSphere(Uri target)
     {
         return _navigationCoordinator.EvaluateAddressBarRequest(target.AbsoluteUri)
-            is NavigationDecision.Allowed;
+            is NavigationDecision.Allowed { AccessClass: AccessClass.Whitelist };
     }
 
     private void OpenSphereResult(SphereResult result)
@@ -1525,7 +1748,7 @@ public partial class MainWindow : Window
         }
 
         var isBookmarked = IsBookmarked(target);
-        BookmarkButton.IsEnabled = _activeTab.IsReady;
+        BookmarkButton.IsEnabled = _activeTab.IsReady && (isBookmarked || IsTargetInSphere(target));
         BookmarkButton.Content = isBookmarked ? "\uE735" : "\uE734";
         BookmarkButton.Foreground = (Brush)FindResource(
             isBookmarked ? "ZenithAccentBrush" : "ZenithMutedTextBrush");

@@ -1,0 +1,17 @@
+{
+  "name": "zenith-adblock-bundle",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "esbuild entry.js --bundle --format=iife --global-name=ZenithAdblock --platform=browser --target=es2022 --outfile=../../src/Zenith.App/Filtering/Assets/engine.js --legal-comments=eof"
+  },
+  "dependencies": {
+    "@ghostery/adblocker": "2.18.2",
+    "fast-text-encoding": "1.0.6",
+    "url-search-params-polyfill": "8.2.5"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.12"
+  }
+}

@@ -4,6 +4,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageVersion Include="Microsoft.ClearScript.V8" Version="7.5.1.1" />
+    <PackageVersion Include="Microsoft.ClearScript.V8.Native.win-x64" Version="7.5.1.1" />
+    <PackageVersion Include="Microsoft.ClearScript.V8.Native.win-x86" Version="7.5.1.1" />
+    <PackageVersion Include="Microsoft.ClearScript.V8.Native.win-arm64" Version="7.5.1.1" />
     <PackageVersion Include="coverlet.collector" Version="6.0.4" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageVersion Include="Microsoft.Web.WebView2" Version="1.0.4129.50" />

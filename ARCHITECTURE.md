@@ -1,10 +1,12 @@
 # Zenith Architecture
 
-> **Status:** Phase 1 browser shell and Phase 2 Site Policy complete; Phase 3 Greylist access is next.
+> **Status:** Phases 1–4 complete as development checkpoints; Phase 5 policy hardening is in progress.
 >
-> The project boundaries, Sphere-first WPF shell, WebView2 host and navigation coordinator are in place. Core classifies normalized hostnames from a revisioned policy source as Whitelist, Blacklist or default Greylist, while App presents distinct native boundaries for unavailable destinations. Native surfaces unload replaced web content, inactive tabs are suspended where WebView2 permits it, and the sidebar exposes inspectable current-site identity with progressive address editing. The current source remains seeded with a temporary starter Whitelist until Vault-backed persistence exists.
+> The project boundaries, Sphere-first WPF shell, WebView2 host and navigation coordinator are in place. Core classifies normalized hostnames from a revisioned Vault policy source as Whitelist, Blacklist or default Greylist, while App presents distinct native boundaries for unavailable destinations. Native surfaces unload replaced web content, inactive tabs are suspended where WebView2 permits it, and the sidebar exposes inspectable current-site identity with progressive address editing. The starter Whitelist seeds initial policy; confirmed Vault proposals extend it durably.
 
 ## 1. Scope
+
+Phase 3 adds Core-owned Greylist challenges, persisted cooldowns and session-only Access Grants, with Windows-protected authentication/state adapters and native access/settings windows. Phase 4 adds the Core Vault service, atomic credential/policy changes and native proposal editor. Broader browser-capability hardening remains future work.
 
 This document describes:
 
@@ -64,6 +66,8 @@ It must not decide site classification, Access Grant validity or Policy Change s
 
 `Sphere` is presentation vocabulary for the ordinary environment backed by current Whitelist membership. It belongs in App copy and view naming where useful; Core models, policy evaluation and persistence continue to use Whitelist.
 
+App's `SettingsWindow` is a separate native owned window rather than a browser document. `BrowserPreferencesStore` atomically persists presentation preferences independently of policy and authentication data. MainWindow applies page zoom and consumes the saved startup sidebar preference. `AccessWindow` requests transitions from Core and never derives eligibility itself. Both windows share themed controls and native-frame coloring with the shell.
+
 ### Zenith.Core
 
 The platform-independent domain and policy layer.
@@ -98,9 +102,9 @@ Additional integration-test projects should be added only when there is concrete
 
 ### Zenith.App.Tests
 
-Tests application-layer coordination that depends on the App-to-Core boundary but does not require launching the graphical interface.
+Tests application-layer coordination that depends on the App-to-Core boundary. The default suite does not launch the graphical interface.
 
-It currently verifies that direct-address, WebView and new-window navigation requests all reach the same Core policy evaluator.
+It verifies that direct-address, WebView and new-window navigation requests all reach the same Core policy evaluator, along with bookmark/preferences persistence, protected access storage and navigation-operation tracking. An opt-in WebView2 regression also exercises actual WPF windows with an isolated shared browser profile and local page responses: first-open blank-history notifications, native-surface cleanup and reopening, same-document identity, Back/Forward, settings, both challenges, cross-tab access, expiry and Sphere-discovery isolation. See README for the runtime test command.
 
 ## 4. Dependency Direction
 
@@ -148,11 +152,29 @@ The following names describe responsibilities; they do not require one class per
 
 ## 6. State Ownership
 
+### Access Grant implementation
+
+`GreylistAccessService` implements `IAccessGrantSource` and owns both authentication transitions, cooldown/retry eligibility, state validation, clock checks and in-memory grants. It depends on `IAccessAuthenticator`, `IAccessStateStore`, `ISitePolicySource` and an injectable `TimeProvider`. State writes must succeed before transitions or grant issuance become observable.
+
+The App composition root supplies `ProtectedAccessStore` for authentication, temporal persistence and `IVaultStore`. Version 2 of the Windows DPAPI envelope holds the password verifier, cooldown snapshot, active Vault policy and pending proposal. Atomic file replacement retains a protected previous envelope; a lifetime exclusive file lease serializes supported application instances. An initialization marker distinguishes missing initialized state from fresh setup. Version 1 migrates once, preserving credentials and existing waits. Missing mandatory version-2 fields fail closed rather than acquiring development defaults. See ADRs 0007 and 0008.
+
+`SitePolicyNavigationEvaluator` checks classification before consulting the grant source and independently checks the returned `AccessGrant` against exact site identity and time. Allowed decisions retain the Core-resolved `AccessClass`, so App can distinguish Whitelist discovery from temporary Greylist authorization without duplicating classification logic. The optional source preserves fail-closed behavior for callers without temporary access.
+
+MainWindow re-evaluates retained tab targets on a one-second dispatcher tick and before tab activation. Denials hide and unload the document through the existing native-surface lifecycle. All WebView2 tabs share the initial environment; no separate renderer instance becomes an authorization authority.
+
 ### Active Vault policy
 
 The active Vault policy is durable, versioned state. It contains the current classifications and access-affecting configuration.
 
 Only the Vault service may replace it, and only through a confirmed Policy Change. UI and persistence adapters must not interpret or mutate policy independently.
+
+`VaultService` implements `ISitePolicySource` and `IAccessRulesSource`. It derives validated immutable navigation snapshots and current timing rules from the protected envelope. Before initial credential setup it exposes only the starter policy; initialized storage failure denies policy rather than selecting that seed again. `GreylistAccessService` captures current timing values in each request and invalidates session grants when the Vault revision changes.
+
+Both domain services lock the store's explicit `SyncRoot` across read, authentication and commit. This serializes their full transactions and prevents an interleaving credential rotation or temporal-state write from losing another operation. The Windows adapter preserves unrelated fields when updating one part of the envelope. This is an in-process transaction boundary backed by the existing single-instance file lease, not a cross-process database.
+
+`VaultPanel` presents active settings, builds a draft, requests staging, displays a saved pending proposal and submits its ID for confirmation or cancellation. It never writes policy or decides eligibility. MainWindow refreshes Sphere directory/bookmark eligibility from confirmed snapshots; settings receives a live directory provider rather than retaining the original starter list.
+
+`BrowserCapabilityPolicy` owns the current default-deny capability decisions. Each initialized tab owns a disposable `BrowserCapabilityGuard`, which adapts WebView2 permission, download and external-scheme events to those decisions and presents active-tab notices. The adapter installs fail-closed event values before invoking presentation. This is independent of site classification and does not introduce capability grants into the Vault.
 
 ### Pending Policy Changes
 
@@ -171,11 +193,13 @@ An active cooldown is domain state rather than a UI timer. Closing a dialog or r
 
 ### Access Grants
 
-An Access Grant is scoped, expiring state separate from durable classification. Whether it survives restart remains a site-policy decision; the architecture must support an explicit choice rather than accidental persistence.
+An Access Grant is scoped, expiring state separate from durable classification. Grants are memory-only and end when the application exits; pending cooldowns are durable. Exact scope and duration belong in `docs/site-policy.md`.
 
 ### External lists
 
 External Blacklist data and ad-blocking filter data are stored separately. Each source retains its identity, version, update status and last-known-good content.
+
+The mandatory `BlacklistUpdater` downloads a fixed source on a background task and atomically publishes a validated `HostsBlacklist` through `IBlacklistSource` after durable DPAPI storage. Core parses and indexes exact canonical hosts with a frozen set; navigation snapshots reference this immutable index rather than copying hundreds of thousands of entries. `VaultService` applies the overlay to navigation and checks it during hostname proposal review/staging/confirmation. `BlacklistRequestPolicy` is the first check in `ResourceFilteringPolicy`; the disposable per-tab `ResourceRequestGuard` supplies local blocked responses before intercepted network requests proceed. Updates notify the UI dispatcher to unload retained documents and refresh discovery. There is no source-selection or disable UI.
 
 Authentication secrets are never stored as ordinary policy data.
 
@@ -223,6 +247,32 @@ Views and ViewModels never write Vault policy directly.
 4. Invalid or unavailable data leaves the last-known-good version active.
 5. Core consumes the validated data through an interface; it performs no network access.
 
+### Resource and cosmetic filtering
+
+`DocumentRequestGuard` is a separate per-tab request-stage CDP adapter, installed
+before the tab is ready. Main/embedded document identity comes from CDP frame IDs,
+not the ad-filter metadata heuristic. `NavigationCoordinator` delegates network
+document authorization to Core's `DocumentRequestPolicy`, reusing the ordinary
+site evaluator and the agreed embedded-content scope. Native navigation events
+still drive policy boundaries. Protocol failure has no allow fallback; runtime
+failure closes the window and disposes controllers. ADR 0012 records the
+independent loopback-server evidence and remaining transport-coverage limits.
+
+`ResourceFilteringPolicy` in Core composes mandatory host protection before the
+replaceable `IResourceFilterEngine`. `ResourceDocumentContext` normalizes native
+main-target metadata without changing navigation classification. App's
+`ResourceRequestGuard` translates WebView2 contexts and applies the returned
+resource decision for every tab.
+
+`AdblockService` owns the atomic EasyList/EasyPrivacy snapshot, background update
+loop, protected cache, aggregate diagnostics and serialized engine lifetime.
+`AdblockEngine` adapts the bundled Ghostery implementation through a host-side
+ClearScript V8 context with no CLR objects exposed. The fixed cosmetic script and
+`CosmeticFilterGuard` exchange bounded read-only DOM hints and CSS for individual
+main/nested documents. Neither component receives Vault or Access Grant services.
+`tools/adblock` contains the locked, reproducible bundle build and attribution
+generator. Details and limits are in ADR 0011 and `docs/adblocking.md`.
+
 ## 8. Startup and Failure Behavior
 
 Startup order is:
@@ -263,4 +313,4 @@ Add focused end-to-end tests for security-sensitive paths after the browser shel
 - Record consequential technical choices in **docs/decisions/**.
 - Update this document when implemented dependencies, components or state ownership change.
 
-Current unresolved architectural inputs include Access Grant lifetime, authentication mechanism, persistence format and precise time-tamper handling. These must be settled before their corresponding implementation is considered complete.
+Current unresolved architectural inputs include controlled recovery, future schema migrations, trusted external-list updates and stronger offline time/snapshot tamper resistance. The implemented development Access Grant and Vault designs are recorded in ADRs 0007 and 0008.

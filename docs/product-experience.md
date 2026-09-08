@@ -210,6 +210,18 @@ A theme picker, light palette, persistence and normal system light/dark synchron
 
 ---
 
+### Settings checkpoint
+
+The sidebar settings control opens a dedicated, owned native settings window. It uses the shared midnight palette and Windows High Contrast resources, with General, Your Sphere, Temporary access, Vault and About sections. Closing settings returns to the existing browsing surface without unloading or navigating its page.
+
+General settings persist the startup sidebar layout and default page zoom. The page zoom applies to existing and newly created tabs. These presentation preferences are ordinary local data, separate from durable access policy. The Sphere directory is filterable and opens destinations through the normal coordinator. Full theme selection remains deferred.
+
+Temporary access provides initial password setup and a list of pending requests with eligibility and resume actions. The native gate identifies the exact hostname, explains each challenge using current timing rules and preserves the saved wait when closed. It is reached as a secondary action on an intentional Greylist boundary, with returning to the Sphere still primary.
+
+The Vault page separates active rules, a proposed change and its pending confirmation. Users can edit durations with seconds/minutes/hours/days, add a hostname with explicit subdomain scope, and propose a password replacement. Review describes the exact changes and the current wait before authentication. Pending changes show their saved deadline, countdown, confirmation, edit and cancel actions. Editing explains that it starts the wait again; nothing applies automatically. Five-second development values are visibly identified as testing values. Forgotten-password recovery is not offered.
+
+Settings → Temporary access includes a quiet, explicitly labelled website-address field. It accepts complete HTTP(S) URLs, not search queries, and continues to the existing access challenge without loading the site or starting a wait. Core decides eligibility; invalid or ineligible addresses receive inline feedback. Pending requests remain resumable below it. This portal does not change Sphere search, add suggestions, or promote temporary destinations into ordinary discovery.
+
 ## 12. Experience Invariants
 
 An interface change is consistent with Zenith only if all of the following remain true:
@@ -242,4 +254,6 @@ The completed Phase 1 shell establishes the first concrete expression of this ex
 - A fixed midnight visual system is expressed through semantic resources and yields to Windows High Contrast.
 - The WebView2 host and every implemented navigation origin remain behind the centralized fail-closed coordinator.
 
-Phase 2 extends this baseline with a filterable directory beneath "Find in your Sphere." Focusing the field reveals all currently accessible starter sites and permitted bookmarks; typing narrows the list, and bookmark stars manage ordinary saved destinations without changing Site Policy. Saved bookmarks immediately become sidebar shortcuts. Removing a bookmark is consistently expressed by de-starring it from the current page or Sphere directory rather than by a separate shortcut-close action. Distinct native boundaries explain Greylist, Blacklist, unsupported-address and policy-unavailable decisions. Native Sphere and boundary surfaces unload the external document they replace, while ordinary inactive tabs are suspended where WebView2 permits it. Durable policy persistence, collections, history ranking, the Greylist procedure and the Vault remain later work. Their interfaces must extend this baseline without changing its hierarchy or moving policy decisions into App.
+Phase 2 extends this baseline with a filterable directory beneath "Find in your Sphere." Focusing the field reveals all currently Whitelisted starter sites and bookmarks; typing narrows the list, and bookmark stars manage ordinary saved destinations without changing Site Policy. Saved bookmarks immediately become sidebar shortcuts. Removing a bookmark is consistently expressed by de-starring it from the current page or Sphere directory rather than by a separate shortcut-close action. Distinct native boundaries explain Greylist, Blacklist, unsupported-address and policy-unavailable decisions. Native Sphere and boundary surfaces unload the external document they replace, while ordinary inactive tabs are suspended where WebView2 permits it.
+
+Phase 3 adds the deliberate Greylist procedure and settings described above. Temporarily permitted destinations do not enter ordinary discovery or become eligible for bookmarking. Phase 4 adds the protected Vault and live, durable Sphere additions. Collections and history ranking remain later work; their interfaces must extend this baseline without changing its hierarchy or moving policy decisions into App.

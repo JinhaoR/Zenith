@@ -27,6 +27,7 @@ public sealed class SitePolicyNavigationEvaluatorTests
             NavigationOrigin.AddressBar));
 
         var allowed = Assert.IsType<NavigationDecision.Allowed>(decision);
+        Assert.Equal(AccessClass.Whitelist, allowed.AccessClass);
         Assert.Equal("https://docs.allowed.example/guide", allowed.Target.AbsoluteUri);
     }
 

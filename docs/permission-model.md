@@ -43,3 +43,9 @@ Whether Zenith will support temporary, session-scoped permission grants is unres
 ## 5. Failure Behavior
 
 Unknown capability requests, unsupported states and permission-service failures are denied. Website content cannot directly read or modify Vault policy.
+
+## 6. Current Hardening Checkpoint
+
+No explicit capability grants are implemented yet. Core denies WebView2 permission requests (including unknown permission kinds), downloads and external-application launches independently of navigation access. App cancels downloads before saving and suppresses the default download UI; permission denials are handled without saving a renderer-owned permission choice to the profile. Denied requests from the active tab receive a native notice. All initialized tabs attach these guards before being marked ready and detach them on disposal.
+
+These hooks are a first hardening checkpoint, not complete enforcement of every category above. File-picker access, previously stored renderer permissions, frame-specific coverage, fullscreen, background activity and other paths still require investigation. Configurable permission grants remain Phase 6 work.

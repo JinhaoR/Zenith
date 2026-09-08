@@ -4,7 +4,7 @@ public sealed class SitePolicySnapshot
 {
     public SitePolicySnapshot(
         IEnumerable<SitePolicyEntry> entries,
-        long revision = 0)
+        long revision = 0, Zenith.Core.Filtering.HostsBlacklist? mandatoryBlacklist = null)
     {
         ArgumentNullException.ThrowIfNull(entries);
 
@@ -21,15 +21,18 @@ public sealed class SitePolicySnapshot
 
         Entries = Array.AsReadOnly(entryCopy);
         Revision = revision;
+        _mandatoryBlacklist = mandatoryBlacklist;
     }
 
     public IReadOnlyList<SitePolicyEntry> Entries { get; }
 
     public long Revision { get; }
+    private readonly Zenith.Core.Filtering.HostsBlacklist? _mandatoryBlacklist;
 
     public AccessClass Classify(SiteIdentity site)
     {
         ArgumentNullException.ThrowIfNull(site);
+        if (_mandatoryBlacklist?.Contains(site) == true) return AccessClass.Blacklist;
 
         var hasWhitelistMatch = false;
         foreach (var entry in Entries.Where(entry => entry.Matches(site)))

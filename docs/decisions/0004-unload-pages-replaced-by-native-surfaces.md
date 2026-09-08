@@ -13,6 +13,10 @@ WebView2 provides sleeping-tab suspension, but that operation is best-effort. It
 
 - When the user returns a tab to the Sphere, or a policy boundary replaces its page, Zenith clears the external document by navigating that WebView to an internal `about:blank` document.
 - The internal navigation is accepted only while that specific tab has a pending host-initiated clear operation, and its navigation identifier is tracked through completion.
+- A new user-requested destination cancels a scheduled clear that has not started. If the clear is already in flight, the destination is held briefly and started as soon as that clear completes. This prevents the internal clear and destination navigation from racing.
+- Unmatched WebView `about:blank` navigation requests are canceled without presenting a site-policy boundary.
+- History notifications that still describe the initial or cleared `about:blank` document update navigation controls only. They must not replace the selected external destination or produce a policy boundary. Observed external addresses still use Core evaluation; an explicitly entered unsupported address still receives the normal denial.
+- External navigation identifiers are tracked separately. Completions from superseded navigations are ignored so an aborted clear or page load cannot be presented as a failure of the current destination.
 - Every external navigation before or after the clear continues through the normal Core policy evaluator.
 - Ordinary inactive tabs are collapsed and passed to `TrySuspendAsync`; reactivating a tab resumes it before display.
 - If an inactive-tab suspension is unsuccessful, the tab remains an ordinary retained browser tab. Native replacement still unloads the external document rather than relying on suspension.

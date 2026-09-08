@@ -411,6 +411,20 @@
                                               MaxHeight="380"
                                               HorizontalScrollBarVisibility="Disabled"
                                               VerticalScrollBarVisibility="Auto">
+                                    <ScrollViewer.Resources>
+                                        <Style TargetType="{x:Type ScrollBar}"
+                                               BasedOn="{StaticResource SlimVerticalScrollBarStyle}">
+                                            <Setter Property="Opacity" Value="0.4" />
+                                            <Style.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter Property="Opacity" Value="0.9" />
+                                                </Trigger>
+                                                <Trigger Property="IsMouseCaptureWithin" Value="True">
+                                                    <Setter Property="Opacity" Value="0.9" />
+                                                </Trigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </ScrollViewer.Resources>
                                     <StackPanel x:Name="SphereResultsPanel" />
                                 </ScrollViewer>
                                 <TextBlock Grid.Row="2"
@@ -492,8 +506,8 @@
                 <Button x:Name="SettingsButton"
                         Grid.Row="6"
                         Style="{StaticResource SidebarTextButtonStyle}"
-                        AutomationProperties.Name="Settings and application menu"
-                        ToolTip="Settings and application menu"
+                        AutomationProperties.Name="Open settings"
+                        ToolTip="Settings"
                         Click="OpenSettingsMenu_OnClick">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock x:Name="SettingsButtonIcon" Width="22" Margin="0,0,9,0" HorizontalAlignment="Center" FontFamily="Segoe MDL2 Assets" FontSize="14" Text="&#xE713;" />
@@ -503,7 +517,7 @@
                         <ContextMenu>
                             <MenuItem Header="Settings" Click="SettingsMenuItem_OnClick" />
                             <MenuItem Header="Bookmarks" Click="BookmarksMenuItem_OnClick" />
-                            <MenuItem Header="Vault" ToolTip="The Vault is not available yet" Click="VaultMenuItem_OnClick" />
+                            <MenuItem Header="Vault" Click="VaultMenuItem_OnClick" />
                             <Separator />
                             <MenuItem Header="About Zenith" Click="AboutMenuItem_OnClick" />
                         </ContextMenu>
@@ -558,6 +572,7 @@
                             </Border>
                             <WrapPanel Margin="0,28,0,0" Orientation="Horizontal">
                                 <Button x:Name="ReturnToSphereButton" Style="{StaticResource PrimaryButtonStyle}" Content="Return to your Sphere" AutomationProperties.Name="Return to your Sphere" Click="ReturnToSphereButton_OnClick" />
+                                <Button x:Name="RequestAccessButton" Style="{StaticResource SidebarTextButtonStyle}" Content="Request temporary access" AutomationProperties.Name="Request temporary access" Margin="12,0,0,0" Visibility="Collapsed" Click="RequestAccess_OnClick" />
                             </WrapPanel>
                         </StackPanel>
                     </Border>

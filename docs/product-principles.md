@@ -38,7 +38,7 @@ The user should not be able to remove sites from the Blacklist.
 
 The Greylist is the remainder of the Internet: every site that is neither Whitelisted nor Blacklisted.
 
-Greylisted sites are not part of ordinary browsing, but neither are they permanently prohibited. They may be accessed only through a deliberate exception procedure.
+Greylisted sites are not part of ordinary browsing, but neither are they permanently prohibited. Top-level visits require a deliberate exception procedure. The user-authorized embedded-content compatibility scope is defined separately in `site-policy.md` and does not reclassify embedded destinations.
 
 This makes the Greylist the default state for an unknown site.
 
@@ -66,10 +66,10 @@ Completing this procedure does not add the site to the Whitelist. It grants only
 
 The Vault is the protected heart of Zenith's durable policy.
 
-It defines the browser’s durable access policy, including:
+It defines the browser’s user-configurable durable access policy, including:
 
 * Whitelisted sites.
-* Blacklisted sites and external list sources.
+* Any future user-configurable restrictions. The mandatory external Blacklist is fixed application policy outside the editable Vault and cannot be weakened there.
 * Greylist cooldowns.
 * Authentication settings.
 * The scope of exceptional access.

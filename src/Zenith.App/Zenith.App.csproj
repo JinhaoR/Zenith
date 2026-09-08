@@ -7,8 +7,17 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.ClearScript.V8" />
+    <PackageReference Include="Microsoft.ClearScript.V8.Native.win-x64" />
+    <PackageReference Include="Microsoft.ClearScript.V8.Native.win-x86" />
+    <PackageReference Include="Microsoft.ClearScript.V8.Native.win-arm64" />
     <PackageReference Include="Microsoft.Web.WebView2" />
     <ProjectReference Include="..\Zenith.Core\Zenith.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Filtering\Assets\*" />
+    <Content Include="Filtering\Assets\*-NOTICES.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

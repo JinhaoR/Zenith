@@ -4,15 +4,21 @@
 
 This document defines how Zenith classifies sites, evaluates navigation, issues Access Grants and applies Policy Changes.
 
-## 1.1 Development Starter Policy
+## 1.1 Development Policy and Migration
 
-Until the durable Vault-backed policy is implemented, the development application uses an immutable Site Policy snapshot for browser-mechanics testing. Its Whitelist entries are GitHub, ChatGPT, OpenAI, YouTube, Wikipedia, Reddit, Microsoft Learn, Google, Stack Overflow, GitLab, MDN Web Docs and Internet Archive. It currently has no Blacklist entries.
+Before initial password setup, the development application exposes a starter Site Policy snapshot for browser-mechanics testing. Its Whitelist entries are GitHub, ChatGPT, OpenAI, YouTube, Wikipedia, Reddit, Microsoft Learn, Google, Stack Overflow, GitLab, MDN Web Docs and Internet Archive. It has no Blacklist entries. Password setup persists these entries as the initial Vault policy. Later changes come only from confirmed Vault proposals.
 
-The general evaluator permits only HTTP(S) targets whose normalized hostname matches one of those Whitelist entries under its explicit subdomain scope. Other valid sites resolve to Greylist and remain unavailable because Access Grants are not implemented yet. Unsupported targets fail closed. Lookalike hosts do not inherit another site's classification. The immutable development snapshot does not define the final persisted policy and must be replaced by a validated Vault-backed policy source before release.
+The general evaluator directly permits HTTP(S) targets whose normalized hostname matches an active Whitelist entry under its explicit subdomain scope. Other valid sites resolve to Greylist and require the Access Grant procedure below. Unsupported targets fail closed. Lookalike hosts do not inherit another site's classification.
 
-Navigation reads the active immutable snapshot through `ISitePolicySource` for every decision. Snapshots carry a non-negative revision and validate their entries at construction. If the source cannot provide a trustworthy snapshot, or fails while doing so, navigation is denied as policy unavailable. The development source is fixed; a future Vault-backed App adapter may atomically replace the snapshot without changing Core classification behavior.
+Navigation reads the active immutable snapshot through `ISitePolicySource` for every decision. The Vault service supplies a validated, revisioned snapshot from protected storage. If initialized policy cannot be read or validated, all navigation is denied as policy unavailable; the starter snapshot is not a recovery fallback. Confirming a Policy Change atomically advances the revision.
+
+Phase 3 version-1 data migrates once to version 2, retaining the existing password and pending Greylist requests. As explicitly requested for development testing, fresh setup and this migration initialize all three timing values below to five seconds. Later launches preserve configured timings and never reset them to testing defaults.
 
 ## 2. Classification
+
+The mandatory synchronized Blacklist is an immutable overlay separate from Vault entries. Its fixed variant includes StevenBlack unified hosts, fake-news, gambling and porn, but not social media. Source selection and protection cannot be disabled or edited through the Vault. A canonical exact-host match wins over any Whitelist entry or Access Grant, including embedded content. See `adblocking.md` for synchronization and resource enforcement.
+
+Vault review, staging and confirmation reject additions currently on the mandatory list. A later list update may override an existing Whitelist entry without deleting it. Upstream corrections/removals arrive through validated updates: permanent protection means a fixed, always-enabled source, not a union of every hostname ever listed. Without a valid mandatory list, active browsing policy is unavailable rather than reverting to starter-only access.
 
 Every site resolves to exactly one effective class:
 
@@ -50,6 +56,20 @@ All top-level navigation paths use the same Core policy evaluator, including:
 
 Policy is evaluated before navigation is permitted. Failure to load or evaluate policy does not produce unrestricted browsing.
 
+### Embedded content compatibility decision
+
+For the current development design, the user explicitly permits embedded frames as functionality of a top-level Whitelisted page. Such frames do not need their own Whitelist membership or Greylist challenge merely because their HTTP(S) hostname differs. This is embedded-content permission, not a change to the embedded site's Access Class or an Access Grant.
+
+Direct navigation, top-level redirects, popups and new tabs continue to evaluate the destination independently. Embedded content does not enter Sphere discovery or become eligible for bookmarks through this exception. Website capability restrictions remain independent. Existing Blacklist precedence is not relaxed by this decision.
+
+This compatibility choice applies to Whitelisted top-level pages; it does not authorize broadening a Greylisted page's temporary grant. For intercepted network documents, Core rechecks the top-level page and destination: otherwise-Greylisted frames are permitted under a currently Whitelisted top-level page, but a temporary Greylist page requires independent authorization for the embedded destination. An expired or unavailable top-level authorization denies further intercepted frame documents. This does not automatically terminate every previously opened connection.
+
+### Network-document enforcement checkpoint
+
+Each tab installs a request-stage document gate before becoming ready, in addition to the native navigation checks. It uses host-side CDP frame IDs to distinguish main requests from frames and re-evaluates intercepted redirect hops through Core. Initialization failure leaves browsing unavailable; a runtime protection-channel failure closes the browser window and disposes its controllers. There is no unrestricted fallback.
+
+Loopback-server regressions verify absence of denied HTTP redirect/script requests, including in new tabs, while allowed redirects and nested widgets still load. Inherited documents, cache/worker paths, out-of-process target coverage and connection lifetime remain Phase 5 work. See ADR 0012 for the evidence, failure behavior and limits; this is not a guarantee of zero DNS or connection activity.
+
 ## 4. Access Grants
 
 A Greylisted site may receive an Access Grant only after this sequence:
@@ -68,7 +88,28 @@ An Access Grant:
 - Does not reclassify the site.
 - Cannot override the Blacklist.
 
-Cooldown state must not be bypassed by reopening the URL or restarting Zenith. Exact grant scope, duration and restart behavior remain explicit policy decisions and must be recorded before implementation.
+Cooldown state must not be bypassed by reopening the URL or restarting Zenith. The following rules include the user-authorized short development timings; these are not release-ready minimums.
+
+### Current grant and authentication rules
+
+- One password is configured during initial setup and used for both challenges. Setup requires confirmation and 15–128 characters; setup itself does not start a cooldown or issue access.
+- A successful first challenge captures the current Greylist wait and visit duration for the normalized hostname. The development defaults are **5 seconds of waiting** and **5 seconds of access**. Both are Vault-editable between 5 seconds and 24 hours. Reopening another URL on that hostname reuses the same pending request and cannot skip or restart its wait.
+- After eligibility, a successful second challenge issues the captured visit duration. Access never starts automatically when the wait ends. Existing requests keep their captured deadline and duration when settings change; migration preserves the earlier 30-minute wait and 60-minute visit values for legacy requests.
+- The grant covers the **exact normalized hostname across tabs**. Scheme, port and path follow the existing site-identity rules; parent domains and subdomains are not included implicitly. Redirects to another hostname receive their own policy decision.
+- Cooldowns persist across restarts, including time spent with Zenith closed. Grants are held only in memory and end at expiry or Zenith exit. The second challenge consumes its pending request before issuing access, so reopening Zenith cannot reuse a completed wait to recreate that grant.
+- Failed password attempts introduce a persisted five-second retry delay. Neither failed authentication nor failed persistence can advance the access procedure.
+- Password and timing changes require the protected Vault procedure below. Forgotten-password recovery is not implemented and has no immediate reset route. Missing or corrupt initialized protected data does not offer fresh setup.
+- A confirmed Vault revision invalidates existing session grants on the next authorization check. Pending Greylist requests remain saved, and any later challenge uses the then-current password.
+
+Core checks grants with an inclusive start and exclusive expiry. Each navigation rechecks classification, the exact hostname, protected access-state health and time. Blacklist and unsupported-target decisions take precedence; a grant-source failure denies navigation. A grant never changes the site's Access Class or adds it to Sphere discovery/bookmarks.
+
+App rechecks retained documents once per second and before activating a tab. Expired or unavailable authorization causes the external document to be hidden and unloaded. An already active document is cleared on the next host timer tick; tab activation must not briefly redisplay expired content.
+
+### Time and failure behavior
+
+During a session, Core compares UTC with monotonic elapsed time and checkpoints a persisted UTC high-water mark. A discrepancy exceeding five seconds, or rollback more than five seconds below the saved mark, disables temporal authorization for that session. Correct the system clock and restart to revalidate saved waits. Clock anomalies do not reclassify sites; readable Whitelist policy remains usable. Unreadable durable Vault policy denies all navigation, while an access-only failure cannot create a grant.
+
+Offline progress uses UTC deadlines. Without trusted external time, changes made while Zenith is closed and complete local-state rollback cannot be reliably detected. This development limitation is explicit in `docs/threat-model.md`; the storage and clock design is recorded in ADR 0007.
 
 ## 5. Policy Changes
 
@@ -83,7 +124,16 @@ An access-affecting Vault edit is a Policy Change, not an immediate mutation.
 
 Changing a pending proposal restarts its waiting period. An unconfirmed, expired or conflicting proposal does not take effect. Cancellation may remove a pending proposal without weakening the active policy.
 
-The default duration and any exception for strictly restriction-increasing changes must be decided and documented before the Vault is implemented.
+### Current Vault rules
+
+- The development Vault wait defaults to **5 seconds**, adjustable between 5 seconds and 30 days. These short values are explicitly for testing, not an authentication bypass. All changes, including stricter ones, follow the full process; there is no immediate-apply exception.
+- One pending proposal can combine a password replacement, timing edits and one hostname addition. Staging authenticates with the current shared password and records a unique proposal ID, the current policy revision and an eligibility deadline computed using the **old, active Vault wait**.
+- Reducing the Vault wait cannot shorten its own proposal. Replacing a proposal starts the full currently active wait again, with a new ID. Cancellation immediately discards only the pending proposal; it never modifies active policy or credentials.
+- Confirmation must name the unchanged pending proposal and authenticate with the current password after eligibility. A stale, conflicting, cancelled or already-consumed proposal cannot apply. Eligible proposals remain pending until explicit confirmation, replacement or cancellation; they do not auto-apply.
+- Password replacements require 15–128 characters and repeated entry. Only a salted verifier is staged. The old password remains active until confirmation atomically replaces the credential, policy revision and pending state. A failed write cannot partially change credentials or policy. This procedure requires knowledge of the current password and is not recovery.
+- Host additions default to exact-host scope. Including subdomains must be explicitly selected and shown in review. Invalid hosts, credentials, paths and wildcard strings are rejected. Blacklist entries cannot be removed or overridden; adding a parent Whitelist entry does not defeat a more specific Blacklist rule.
+- Confirmed additions immediately appear in the Whitelist-backed Sphere directory and become eligible for bookmarks. A pending proposal never affects discovery or navigation.
+- The store permits one supported writer at a time and validates initialized state. It retains a protected previous envelope for future controlled recovery but never silently restores an older policy or password after corruption. Current local-user/offline-time limitations remain documented in the threat model and ADR 0008.
 
 ## 6. Required Guarantees
 
