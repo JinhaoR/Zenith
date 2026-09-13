@@ -210,7 +210,31 @@ A theme picker, light palette, persistence and normal system light/dark synchron
 
 ---
 
-### Settings checkpoint
+### Mouse and settings interaction checkpoint
+
+Settings use shared rounded text/password fields, larger themed checkbox targets,
+and consistent focus, hover and disabled states. Vault review, staging and final
+confirmation use accent buttons to distinguish the next action from secondary
+commands without bypassing any step. The settings content column is capped at
+900 device-independent pixels on wide windows. Text editing retains native
+selection and horizontal scrolling for long addresses; password masking and
+the existing length limit are unchanged.
+
+Settings pages, dropdowns and site-selection lists use the same slim scrollbar with a reserved gutter. Dropdowns have a bounded scrollable menu. The mouse wheel scrolls settings rather than changing a closed dropdown's value; nested lists hand scrolling to the page at their boundaries. Returning to a settings section restores its position for that window session.
+
+The Vault provides a service-name filter, inline queued-addition feedback and a removal-selection count. Filtering never silently changes a selected service's scope; filtering it out clears that unqueued selection. Password-replacement fields appear only when requested. These are draft conveniences: review, both authentication steps and the active waiting period remain mandatory. The footer distinguishes Vault confirmation from automatically saved ordinary preferences.
+
+Tab buttons remain stable while titles and icons update, preserving hover/click and keyboard focus. Middle-click closes a tab; right-click offers New tab and Close tab. Middle-click or Ctrl-click on a bookmark or Sphere result opens a background tab; adding Shift activates it. Ctrl+Tab and Ctrl+Shift+Tab switch tabs, bringing the chosen row into view. Mouse side buttons invoke Back/Forward in the native shell. A new empty tab focuses Sphere search when ready without stealing focus after the user has switched away. Closing the last tab returns to the Sphere as before. All tab-opening paths recheck Core policy after asynchronous initialization; background opening never grants access.
+
+### Security and settings presentation
+
+If launched with administrator/SYSTEM privileges, Zenith does not start browsing.
+A native message asks the user to reopen normally. There is no automatic relaunch,
+elevation prompt or setting that weakens this host boundary.
+
+General settings explains that public websites require HTTPS and service-worker offline/background features are unavailable. Old service workers are removed before browsing without clearing cookies or local storage. An intentional public HTTP visit receives a native HTTPS explanation with no temporary-access bypass; typing a bare website address still supplies HTTPS automatically. These controls do not become permanent sidebar badges.
+
+The native window caption displays the current website's normalized origin without path/query tokens. The site-provided title remains in its tab; it cannot impersonate the caption's identity. This uses the existing Windows frame, not a reintroduced sidebar address row. Known sites retain themed icons; other icons come from WebView2 image bytes, with a globe fallback for missing or rejected images. HTML file-upload attempts receive a calm explanation when an interception event is emitted; no native picker or file access is granted.
 
 General settings includes a privacy/security card with the running WebView2 version, restart advice for engine updates and confirmed browsing-data cleanup. Cleanup explains sign-out, unsaved-work loss and app closure before proceeding; Vault rules, waits and Zenith bookmarks remain intact. The application menu's Website identity command shows the actual normalized origin without exposing URL tokens, distinguishes HTTP from HTTPS and points to Ctrl+L for the complete address. It does not add a permanent policy badge or claim that HTTPS proves site trustworthiness.
 

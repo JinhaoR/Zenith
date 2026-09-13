@@ -8,12 +8,15 @@ internal sealed class BrowserCapabilityGuard : IDisposable
     private readonly CoreWebView2 _core;
     private readonly BrowserCapabilityPolicy _policy;
     private readonly Action<string> _notify;
+    private readonly CoreWebView2DevToolsProtocolEventReceiver _fileChooser;
 
     internal BrowserCapabilityGuard(CoreWebView2 core, BrowserCapabilityPolicy policy, Action<string> notify)
     {
         _core = core;
         _policy = policy;
         _notify = notify;
+        _fileChooser = core.GetDevToolsProtocolEventReceiver("Page.fileChooserOpened");
+        _fileChooser.DevToolsProtocolEventReceived += FileChooserOpened;
         core.PermissionRequested += PermissionRequested;
         core.DownloadStarting += DownloadStarting;
         core.LaunchingExternalUriScheme += LaunchingExternalUriScheme;
@@ -33,6 +36,9 @@ internal sealed class BrowserCapabilityGuard : IDisposable
         settings.AreDefaultContextMenusEnabled = false;
         settings.AreDefaultScriptDialogsEnabled = false;
         settings.IsReputationCheckingRequired = true;
+        // Native interception, not a page-overridable JavaScript replacement.
+        await _core.CallDevToolsProtocolMethodAsync("Page.setInterceptFileChooserDialog",
+            "{\"enabled\":true,\"cancel\":true}").WaitAsync(TimeSpan.FromSeconds(10));
         await _core.ClearServerCertificateErrorActionsAsync();
         // Old renderer grants must not bypass PermissionRequested in an existing profile.
         foreach (var permission in await _core.Profile.GetNonDefaultPermissionSettingsAsync())
@@ -45,6 +51,9 @@ internal sealed class BrowserCapabilityGuard : IDisposable
         e.Action = CoreWebView2ServerCertificateErrorAction.Cancel;
         _notify(_policy.Evaluate(BrowserCapability.InvalidServerCertificate).Explanation);
     }
+
+    private void FileChooserOpened(object? sender, CoreWebView2DevToolsProtocolEventReceivedEventArgs e) =>
+        _notify(_policy.Evaluate(BrowserCapability.FileSelection).Explanation);
 
     private void ClientCertificateRequested(object? sender, CoreWebView2ClientCertificateRequestedEventArgs e)
     {
@@ -90,6 +99,7 @@ internal sealed class BrowserCapabilityGuard : IDisposable
 
     public void Dispose()
     {
+        _fileChooser.DevToolsProtocolEventReceived -= FileChooserOpened;
         _core.PermissionRequested -= PermissionRequested;
         _core.DownloadStarting -= DownloadStarting;
         _core.LaunchingExternalUriScheme -= LaunchingExternalUriScheme;

@@ -292,6 +292,7 @@ public sealed class GreylistAccessService : IAccessGrantSource
         try
         {
             return NavigationUriNormalizer.TryNormalize(target, out normalized) &&
+                TransportSecurityPolicy.Allows(normalized.Target.AbsoluteUri) &&
                 _policy.TryGetActivePolicy(out var policy) && policy is not null &&
                 policy.Classify(normalized.Site) == AccessClass.Greylist;
         }

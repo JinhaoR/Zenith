@@ -164,6 +164,8 @@ MainWindow re-evaluates retained tab targets on a one-second dispatcher tick and
 
 ### Active Vault policy
 
+The follow-up account-security checkpoint (ADR 0015) adds native HTML file-input cancellation to `BrowserCapabilityGuard` and explicit exception denial to the Core resource policy and its WebView2 adapter. `FaviconDecoder` accepts only bounded PNG streams obtained from WebView2; no icon URL is resolved by WPF. The shell stores decoded images per tab and rejects stale async results.
+
 Account security remains separate from the Vault (ADR 0014). `BrowserCapabilityGuard` installs renderer security defaults and authentication/certificate guards; `DocumentRequestGuard` controls document interception and cache/worker-response bypass. `MainWindow.Security` owns native identity presentation, runtime-update notices and the confirmed dispose-clear-close profile lifecycle. Cleanup uses WebView2's profile API, never the policy store. Core normalizes website identity and supplies capability decisions.
 
 The active Vault policy is durable, versioned state. It contains the current classifications and access-affecting configuration.
@@ -277,6 +279,15 @@ generator. Details and limits are in ADR 0011 and `docs/adblocking.md`.
 
 ## 8. Startup and Failure Behavior
 
+Before opening protected stores or constructing the browser, `App` checks
+`BrowserHostPrivileges`. The deployment manifest requests `asInvoker`; enabled
+administrator/SYSTEM identities and identity-read failures are refused. This
+Windows hosting concern stays in App, not Core site policy. `CosmeticMessage`
+owns validation of the narrow presentation protocol; native main-frame replies
+also require the current document URL to match the message source.
+
+`TransportSecurityPolicy` owns fixed transport eligibility in Core, reused by site navigation, Greylist eligibility and resource filtering. `NetworkSafetyPolicy` independently denies shared/service-worker and unknown request sources. Per-controller `NetworkSafetyGuard` maps WebView2's `RequestedSourceKind` into Core types; no header or active-tab URL grants background access. All tab guards make the same fixed denial, so duplicate worker notifications cannot produce conflicting page-context decisions. A single session task removes legacy service workers through the profile API before any tab becomes ready; failure closes the window. No hidden browser controller or external bootstrap page is required. ADR 0016 explains the tradeoffs and native evidence.
+
 Startup order is:
 
 1. Load and validate active policy and temporal state.
@@ -291,6 +302,8 @@ State writes must be atomic. Policy revisions, pending Policy Changes and cooldo
 
 ## 9. Testing Boundaries
 
+Settings wheel chaining and closed-dropdown protection live in App's `SettingsScrollBehavior`; they do not interpret policy. `MainWindow.Interaction` translates native tab/shortcut mouse gestures into existing lifecycle and Core-evaluated navigation paths. Tab-strip controls are retained across metadata refreshes rather than rebuilt underneath pointer and keyboard input. WPF interaction regressions exercise scroll boundaries, bounded menus, stable tab controls, background opening and compact-tab middle-click closure alongside the security suite.
+
 ### Core unit tests
 
 Use fake clocks, stores and authentication results to exercise policy and state transitions deterministically.
@@ -302,6 +315,13 @@ Verify persistence, time and external-list adapters against the contracts define
 ### App integration tests
 
 Verify that each WebView2 navigation mechanism reaches the same coordinator and that App follows Core decisions exactly.
+
+`ConnectionCoverageScenario` adds server-observed resource and WebSocket probes
+to the isolated native suite. Its strict connection acceptance mode is run
+separately by `tools/security/Invoke-SecurityChecks.ps1`, preserving ordinary
+regression results when an unresolved transport gap fails the release gate.
+Evidence includes the candidate assembly hash and runtime log, not real-account
+data. Provider testing and independent review remain separate human sign-offs.
 
 ### End-to-end tests
 

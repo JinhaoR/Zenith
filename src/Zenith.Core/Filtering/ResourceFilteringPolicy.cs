@@ -3,7 +3,7 @@ using Zenith.Core.Navigation;
 namespace Zenith.Core.Filtering;
 
 public enum ResourceKind { Document, Frame, Script, Stylesheet, Image, Font, Media, Fetch, Ping, WebSocket, Other }
-public enum ResourceFilterDecision { Allow, Blacklist, Advertisement }
+public enum ResourceFilterDecision { Allow, Blacklist, Advertisement, Unavailable, InsecureTransport }
 public sealed record ResourceRequest(string Url, string SourceUrl, ResourceKind Kind);
 
 public static class ResourceDocumentContext
@@ -29,8 +29,16 @@ public sealed class ResourceFilteringPolicy(IBlacklistSource blacklist, IResourc
 {
     public ResourceFilterDecision Evaluate(ResourceRequest request)
     {
+        try { return EvaluateAvailable(request); }
+        catch (Exception) { return ResourceFilterDecision.Unavailable; }
+    }
+
+    private ResourceFilterDecision EvaluateAvailable(ResourceRequest request)
+    {
         if (BlacklistRequestPolicy.IsBlocked(blacklist.Current, request.Url))
             return ResourceFilterDecision.Blacklist;
+        if (!TransportSecurityPolicy.Allows(request.Url))
+            return ResourceFilterDecision.InsecureTransport;
         // Navigation policy owns main documents. Resource rules never reclassify sites.
         if (request.Kind != ResourceKind.Document && advertisements?.Blocks(request) == true)
             return ResourceFilterDecision.Advertisement;

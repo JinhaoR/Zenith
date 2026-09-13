@@ -20,15 +20,18 @@ public partial class VaultPanel : UserControl
     private bool _suppressDraftChanges;
     private bool _detached;
     private readonly ObservableCollection<SiteChoice> _additions = [];
+    private SiteChoice[] _knownSites = [];
+    private bool _filteringKnownSites;
 
     public VaultPanel()
     {
         InitializeComponent();
         DraftAdditions.ItemsSource = _additions;
-        KnownSite.ItemsSource = DevelopmentStarterPolicy.Sites
+        _knownSites = DevelopmentStarterPolicy.Sites
             .Select(site => new SiteChoice(site.Host, site.Name, false))
             .Concat([new SiteChoice("mail.google.com", "Gmail", false)])
             .DistinctBy(site => site.Host).OrderBy(site => site.Name).ToArray();
+        KnownSite.ItemsSource = _knownSites;
         foreach (var input in new[] { GreySeconds, GrantSeconds, VaultSeconds, SiteHost, SiteName })
         {
             input.TextChanged += DraftInput_OnChanged;
@@ -120,6 +123,8 @@ public partial class VaultPanel : UserControl
             SetDuration(GrantSeconds, GrantUnit, edit?.GrantSeconds ?? settings.GrantSeconds);
             SetDuration(VaultSeconds, VaultUnit, edit?.VaultSeconds ?? settings.VaultSeconds);
             KnownSite.SelectedIndex = -1;
+            KnownSiteFilter.Clear();
+            AdditionFeedback.Text = string.Empty;
             SiteHost.Clear();
             SiteName.Clear();
             IncludeSubdomains.IsChecked = false;
@@ -276,6 +281,8 @@ public partial class VaultPanel : UserControl
 
     private void DraftInput_OnChanged(object sender, RoutedEventArgs e)
     {
+        if (RemovalSummary is not null)
+            RemovalSummary.Text = RemoveSite.SelectedItems.Count == 0 ? "No services selected for removal." : $"{RemoveSite.SelectedItems.Count} selected for removal. Nothing changes until you confirm.";
         if (ScopeHint is not null)
             ScopeHint.Text = IncludeSubdomains.IsChecked == true
                 ? $"Includes addresses beneath {SiteHost.Text.Trim()}. Parent and sibling services remain separate."
@@ -301,10 +308,32 @@ public partial class VaultPanel : UserControl
 
     private void KnownSite_OnChanged(object sender, SelectionChangedEventArgs e)
     {
+        if (_filteringKnownSites) return;
         if (KnownSite.SelectedItem is not SiteChoice site) return;
         SiteHost.Text = site.Host;
         SiteName.Text = site.Name;
         IncludeSubdomains.IsChecked = false;
+    }
+
+    private void KnownSiteFilter_OnChanged(object sender, TextChangedEventArgs e)
+    {
+        if (KnownSite is null) return;
+        var selected = KnownSite.SelectedItem;
+        var query = KnownSiteFilter.Text.Trim();
+        _filteringKnownSites = true;
+        try
+        {
+            KnownSite.ItemsSource = _knownSites.Where(site => site.Name.Contains(query, StringComparison.OrdinalIgnoreCase)).ToArray();
+            if (selected is not null && KnownSite.Items.Contains(selected)) KnownSite.SelectedItem = selected;
+            else if (selected is not null)
+            {
+                SiteHost.Clear();
+                SiteName.Clear();
+                IncludeSubdomains.IsChecked = false;
+            }
+        }
+        finally { _filteringKnownSites = false; }
+        AdditionFeedback.Text = KnownSite.Items.Count == 0 ? "No matching services. Use ‘Add another website’ below." : string.Empty;
     }
 
     private VaultSiteAddition ReadSiteInput()
@@ -329,6 +358,8 @@ public partial class VaultPanel : UserControl
             IncludeSubdomains.IsChecked = false;
             InvalidateReview();
             OutcomeText.Text = string.Empty;
+            AdditionFeedback.Text = $"{addition.DisplayName} added to your changes. {_additions.Count} queued.";
+            KnownSite.Focus();
         }
         catch (ArgumentException exception) { ShowValidationError(exception.Message); }
     }

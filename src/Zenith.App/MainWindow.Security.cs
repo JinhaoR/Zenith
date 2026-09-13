@@ -6,6 +6,47 @@ namespace Zenith.App;
 
 public partial class MainWindow
 {
+    private Task? _workerCleanup;
+
+    private Task ClearLegacyWorkersAsync(CoreWebView2 core) => _workerCleanup ??= RemoveLegacyWorkersAsync(core);
+
+    private async Task RemoveLegacyWorkersAsync(CoreWebView2 core)
+    {
+        try
+        {
+            await core.Profile.ClearBrowsingDataAsync(CoreWebView2BrowsingDataKinds.ServiceWorkers)
+                .WaitAsync(TimeSpan.FromSeconds(30));
+        }
+        catch (Exception)
+        {
+            // Do not retain controllers with potentially active unguarded workers.
+            if (!_isClosing) _ = Dispatcher.BeginInvoke(Close);
+            throw;
+        }
+    }
+
+    private void Browser_OnFaviconChanged(object? sender, object e)
+    {
+        if (sender is CoreWebView2 core && FindTab(core) is { } tab) _ = RefreshFaviconAsync(tab);
+    }
+
+    private async Task RefreshFaviconAsync(TabState tab)
+    {
+        var version = ++tab.FaviconVersion;
+        tab.Favicon = null;
+        if (_isClosing || tab.IsStartSurface || FindStarterSiteIcon(tab.CurrentUri?.Host) is not null) return;
+        try
+        {
+            // Use the renderer's image bytes; never hand an untrusted URL to WPF.
+            using var data = await tab.Browser.CoreWebView2.GetFaviconAsync(CoreWebView2FaviconImageFormat.Png);
+            var favicon = await Navigation.FaviconDecoder.DecodeAsync(data);
+            if (_isClosing || !_tabs.Contains(tab) || version != tab.FaviconVersion || tab.IsStartSurface) return;
+            tab.Favicon = favicon;
+            RefreshTabStrip();
+        }
+        catch (Exception) { /* Missing or malformed icons use the native globe fallback. */ }
+    }
+
     private void BrowserVersionAvailable(object? sender, object e)
     {
         _runtimeUpdateAvailable = true;

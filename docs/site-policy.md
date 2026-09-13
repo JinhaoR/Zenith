@@ -4,11 +4,18 @@
 
 This document defines how Zenith classifies sites, evaluates navigation, issues Access Grants and applies Policy Changes.
 
+Site classes primarily govern the websites/documents the user may visibly open
+through navigation, redirects, popups and applicable frames. They are not an
+allowlist for every backend connection made by an authorized website. Additional
+resource filtering and capability/transport controls retain their documented
+behavior, without promising complete network isolation. See `threat-model.md`
+for the account-security boundary and `security-review.md` for current findings.
+
 ## 1.1 Development Policy and Migration
 
 Before initial password setup, the development application exposes a starter Site Policy snapshot for browser-mechanics testing. Its Whitelist entries are GitHub, ChatGPT, OpenAI, YouTube, Wikipedia, Reddit, Microsoft Learn, Google, Stack Overflow, GitLab, MDN Web Docs and Internet Archive. It has no Blacklist entries. Password setup persists these entries as the initial Vault policy. Later changes come only from confirmed Vault proposals.
 
-The general evaluator directly permits HTTP(S) targets whose normalized hostname matches an active Whitelist entry under its explicit subdomain scope. Other valid sites resolve to Greylist and require the Access Grant procedure below. Unsupported targets fail closed. Lookalike hosts do not inherit another site's classification.
+The general evaluator directly permits transport-eligible targets whose normalized hostname matches an active Whitelist entry under its explicit subdomain scope. Other valid sites resolve to Greylist and require the Access Grant procedure below. Unsupported targets fail closed. Lookalike hosts do not inherit another site's classification.
 
 Starter catalog launch URLs must match their configured entry using the same host-scope matcher as navigation. A `www.` or other subdomain launch URL is valid only when that entry includes subdomains; accepting it does not change the entry's identity or scope.
 
@@ -48,6 +55,14 @@ For example, `www.github.com` is a subdomain of `github.com`, while `notgithub.c
 
 ## 3. Navigation Evaluation
 
+### Secure transport
+
+Public browsing requires HTTPS, independently of site classification. Explicit public HTTP requests are denied with an HTTPS explanation; they are not sent first to discover an HTTPS redirect, silently upgraded, or retried over HTTP. Omitted schemes still default to HTTPS. Whitelist membership, embedded compatibility, temporary access and Vault edits cannot override transport restrictions. Blacklist and unavailable-policy denials retain precedence over transport evaluation.
+
+Literal loopback IP addresses (IPv4 loopback or `::1`) may use HTTP for local development, but still require normal site authorization. DNS names, including `localhost`, LAN addresses and lookalike loopback names do not receive this exception; Zenith does not resolve DNS to infer it. This exception is not a promise that local services are trustworthy. Never use it for primary-account credentials.
+
+Intercepted network resources use the same transport rule, including public `ws:` denials and `wss:` eligibility. Transport eligibility does not grant site access or a capability. Request coverage and its limits are described in the threat model and ADR 0016; this is not a claim that every WebSocket or speculative connection is intercepted.
+
 All top-level navigation paths use the same Core policy evaluator, including:
 
 - Address-bar navigation.
@@ -69,7 +84,7 @@ This compatibility choice applies to Whitelisted top-level pages; it does not au
 
 ### Network-document enforcement checkpoint
 
-The account-security checkpoint also disables HTTP cache use and bypasses service-worker responses for each tab before document gating is ready. This mitigation does not prevent all worker execution. Certificate errors are cancelled with no exception route. Login redirects receive the same independent hostname decisions as other redirects; signing into a service never authorizes its parent, sibling or identity-provider hosts automatically. Explicit HTTP retains its documented support, with native identity information warning against entering credentials there.
+The account-security checkpoints disable HTTP cache use and bypass service-worker responses for each tab before document gating is ready. ADR 0016 additionally removes legacy service-worker registrations before browsing and denies native shared/service-worker request sources; this does not prevent all worker execution. Certificate errors are cancelled with no exception route. Login redirects receive the same independent hostname decisions as other redirects; signing into a service never authorizes its parent, sibling or identity-provider hosts automatically. Public HTTP is denied under the secure transport rule above.
 
 Each tab installs a request-stage document gate before becoming ready, in addition to the native navigation checks. It uses host-side CDP frame IDs to distinguish main requests from frames and re-evaluates intercepted redirect hops through Core. Initialization failure leaves browsing unavailable; a runtime protection-channel failure closes the browser window and disposes its controllers. There is no unrestricted fallback.
 

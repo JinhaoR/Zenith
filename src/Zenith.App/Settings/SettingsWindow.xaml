@@ -35,17 +35,18 @@
                 </ListBox>
             </DockPanel>
         </Border>
-        <Grid Grid.Column="1" Margin="36,30,36,22">
+        <Grid Grid.Column="1" Margin="36,30,36,22" MaxWidth="900">
             <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
             <StackPanel Margin="0,0,0,26">
                 <TextBlock x:Name="PageTitle" FontSize="30" FontWeight="SemiBold" />
                 <TextBlock x:Name="PageDescription" Margin="0,8,0,0" Style="{StaticResource Description}" />
             </StackPanel>
-            <ScrollViewer x:Name="PageScrollViewer" Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,0,12,0">
+            <ScrollViewer x:Name="PageScrollViewer" Style="{StaticResource SettingsScrollViewerStyle}" Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,0,12,0">
                 <Grid>
                     <StackPanel x:Name="GeneralPage">
                         <Border Style="{StaticResource Card}"><StackPanel>
                             <TextBlock Text="Privacy and browser security" FontSize="18" FontWeight="SemiBold" />
+                            <TextBlock Text="Public websites require HTTPS. Service-worker background/offline features and shared-worker network requests are disabled for now. Existing service workers are removed at startup; cookies, sign-ins and local storage are kept. These protections have no Vault override." Style="{StaticResource Description}" Margin="0,10,0,0" />
                             <TextBlock Text="New password saving and general autofill are disabled. Previously saved passwords may still fill; clear browsing data to remove them. Website cookies and sign-ins can persist until you sign out or clear browsing data. This is still a development browser." Style="{StaticResource Description}" Margin="0,10,0,12" />
                             <TextBlock x:Name="RuntimeStatusText" Style="{StaticResource Description}" Margin="0,0,0,12" />
                             <Button x:Name="ClearBrowsingDataButton" Content="Clear browsing data…" HorizontalAlignment="Left" Click="ClearBrowsingData_OnClick" />
@@ -167,6 +168,9 @@
                             <TextBlock Text="Ctrl + L     Inspect or edit the address" Style="{StaticResource Description}" Margin="0,4" />
                             <TextBlock Text="Ctrl + T     Open a new tab" Style="{StaticResource Description}" Margin="0,4" />
                             <TextBlock Text="Ctrl + W     Close the current tab" Style="{StaticResource Description}" Margin="0,4" />
+                            <TextBlock Text="Ctrl + Tab / Ctrl + Shift + Tab     Switch tabs" Style="{StaticResource Description}" Margin="0,4" />
+                            <TextBlock Text="Middle-click a tab to close it. Right-click for tab actions." Style="{StaticResource Description}" Margin="0,4" />
+                            <TextBlock Text="Middle-click or Ctrl-click a bookmark or Sphere result to open it in the background. Add Shift to switch to the new tab." Style="{StaticResource Description}" Margin="0,4" />
                             <TextBlock Text="Ctrl + D     Bookmark the current page" Style="{StaticResource Description}" Margin="0,4" />
                         </StackPanel></Border>
                     </StackPanel>

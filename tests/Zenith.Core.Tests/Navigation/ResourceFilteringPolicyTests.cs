@@ -5,6 +5,45 @@ namespace Zenith.Core.Tests.Navigation;
 public sealed class ResourceFilteringPolicyTests
 {
     [Theory]
+    [InlineData(ResourceKind.Document)]
+    [InlineData(ResourceKind.Frame)]
+    [InlineData(ResourceKind.Fetch)]
+    [InlineData(ResourceKind.Image)]
+    [InlineData(ResourceKind.Script)]
+    [InlineData(ResourceKind.WebSocket)]
+    public void AdvertisementExceptionsNeverPermitInsecureTransport(ResourceKind kind)
+    {
+        var engine = new Engine(false);
+        var policy = new ResourceFilteringPolicy(new Source(HostsBlacklist.Parse("0.0.0.0 blocked.example")), engine);
+        Assert.Equal(ResourceFilterDecision.InsecureTransport,
+            policy.Evaluate(new(kind == ResourceKind.WebSocket ? "ws://mail.example/" : "http://mail.example/", "https://mail.example/", kind)));
+        Assert.Equal(0, engine.Calls);
+    }
+
+    private sealed class BrokenSource : IBlacklistSource
+    {
+        public HostsBlacklist? Current => throw new InvalidOperationException("Unavailable source");
+    }
+    private sealed class BrokenEngine : IResourceFilterEngine
+    {
+        public bool Blocks(ResourceRequest request) => throw new InvalidOperationException("Unavailable engine");
+    }
+
+    [Theory]
+    [InlineData(ResourceKind.Document)]
+    [InlineData(ResourceKind.Frame)]
+    [InlineData(ResourceKind.Fetch)]
+    public void SourceExceptionsDenyRequests(ResourceKind kind) =>
+        Assert.Equal(ResourceFilterDecision.Unavailable,
+            new ResourceFilteringPolicy(new BrokenSource()).Evaluate(new("https://mail.example/", "", kind)));
+
+    [Fact]
+    public void EngineExceptionsDenySubresourcesWithoutChangingSitePolicy() =>
+        Assert.Equal(ResourceFilterDecision.Unavailable,
+            new ResourceFilteringPolicy(new Source(HostsBlacklist.Parse("0.0.0.0 blocked.example")), new BrokenEngine())
+                .Evaluate(new("https://mail.example/script.js", "https://mail.example/", ResourceKind.Script)));
+
+    [Theory]
     [InlineData("https://example.org/page", "https://EXAMPLE.org:443/page#part", ResourceKind.Document)]
     [InlineData("https://example.org/frame", "https://example.org/page", ResourceKind.Frame)]
     [InlineData("https://example.org/Page", "https://example.org/page", ResourceKind.Frame)]

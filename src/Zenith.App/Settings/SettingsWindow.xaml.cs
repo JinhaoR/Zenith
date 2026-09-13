@@ -27,6 +27,8 @@ public partial class SettingsWindow : Window
     private readonly Func<string>? _adblockStatus;
     private readonly Func<Task>? _clearBrowsingData;
     private readonly Func<string>? _runtimeStatus;
+    private readonly Dictionary<string, double> _sectionOffsets = [];
+    private string? _currentSection;
 
     internal SettingsWindow(BrowserPreferencesStore store, BrowserPreferences preferences,
         Action<BrowserPreferences> applyPreferences, IReadOnlyList<StarterWhitelistSite> sites, Action<Uri> openSite,
@@ -48,6 +50,7 @@ public partial class SettingsWindow : Window
         _accessService = accessService;
         _openAccess = openAccess;
         InitializeComponent();
+        PreviewMouseWheel += SettingsScrollBehavior.HandleWheel;
         ClearBrowsingDataButton.IsEnabled = _clearBrowsingData is not null;
         RuntimeStatusText.Text = _runtimeStatus?.Invoke() ?? "Browser engine status is unavailable.";
         BlacklistStatusText.Text = _blacklistStatus?.Invoke() ?? "Blacklist status is unavailable in this window.";
@@ -84,6 +87,8 @@ public partial class SettingsWindow : Window
             return;
         }
 
+        if (_currentSection is not null) _sectionOffsets[_currentSection] = PageScrollViewer.VerticalOffset;
+        _currentSection = section;
         foreach (var page in new[] { GeneralPage, SpherePage, AccessPage, VaultPage, AboutPage })
         {
             page.Visibility = Visibility.Collapsed;
@@ -99,7 +104,9 @@ public partial class SettingsWindow : Window
         panel.Visibility = Visibility.Visible;
         PageTitle.Text = title;
         PageDescription.Text = description;
-        PageScrollViewer.ScrollToTop();
+        PageScrollViewer.UpdateLayout();
+        PageScrollViewer.ScrollToVerticalOffset(_sectionOffsets.GetValueOrDefault(section));
+        SaveStatus.Text = section == "Vault" ? "Vault changes take effect only after review, authentication, waiting and confirmation." : "Preferences are saved on this device.";
         RuntimeStatusText.Text = _runtimeStatus?.Invoke() ?? "Browser engine status is unavailable.";
         if (section == "Vault") VaultEditor.Refresh();
         if (section == "Sphere") RefreshSites();
@@ -282,7 +289,7 @@ public partial class SettingsWindow : Window
         var status = _accessService.GetStatus(target.Target.AbsoluteUri);
         var message = status.Phase switch
         {
-            AccessPhase.NotEligible => "This destination cannot use temporary access. Sites already in your Sphere can be opened there; Blacklisted sites cannot be visited.",
+            AccessPhase.NotEligible => "This destination cannot use temporary access. Public websites require HTTPS. Sites already in your Sphere can be opened there; Blacklisted sites cannot be visited.",
             AccessPhase.ClockInvalid => "Temporary access is paused after a clock change. Correct the system clock and restart Zenith; saved waits are retained.",
             AccessPhase.Unavailable => "Protected access state is unavailable. No visit has been requested.",
             AccessPhase.SetupRequired or AccessPhase.FirstChallenge or AccessPhase.Cooldown or

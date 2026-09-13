@@ -19,8 +19,6 @@ internal sealed class CosmeticFilterGuard : IDisposable
     private sealed class MessageBudget { internal long Last; }
     private sealed record FrameSubscription(EventHandler<CoreWebView2WebMessageReceivedEventArgs> Message,
         EventHandler<object> Destroyed);
-    private sealed record Query(string Kind, string Token, string Url, string[] Classes, string[] Ids, string[] Hrefs);
-    private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
 
     internal CosmeticFilterGuard(CoreWebView2 core, Func<string, string[], string[], string[], string> cosmetics)
     {
@@ -37,8 +35,18 @@ internal sealed class CosmeticFilterGuard : IDisposable
         else _scriptId = id;
     }
 
-    private void MainMessage(object? sender, CoreWebView2WebMessageReceivedEventArgs e) =>
-        Receive(e, _mainBudget, _core.PostWebMessageAsJson);
+    private void MainMessage(object? sender, CoreWebView2WebMessageReceivedEventArgs e)
+    {
+        try
+        {
+            if (_disposed || !CosmeticMessage.IsCurrentDocument(e.Source, _core.Source)) return;
+            Receive(e, _mainBudget, _core.PostWebMessageAsJson);
+        }
+        catch (Exception ex) when (ex is COMException or InvalidOperationException)
+        {
+            // A controller closing during delivery cannot receive a cosmetic reply.
+        }
+    }
 
     private void FrameCreated(object? sender, CoreWebView2FrameCreatedEventArgs e)
     {
@@ -71,21 +79,14 @@ internal sealed class CosmeticFilterGuard : IDisposable
         if (++_windowMessages > 32) return;
         try
         {
-            var json = e.WebMessageAsJson;
-            if (json.Length > 256 * 1024) return;
-            var query = JsonSerializer.Deserialize<Query>(json, JsonOptions);
-            if (query is null || query.Kind != "zenith-cosmetics" || query.Token is null || query.Token.Length > 64
-                || query.Url != e.Source || query.Url.Length > 32768 || !Uri.TryCreate(e.Source, UriKind.Absolute, out var uri) || uri.Scheme is not ("http" or "https")
-                || !Valid(query.Classes, 512, 128) || !Valid(query.Ids, 512, 128) || !Valid(query.Hrefs, 128, 512)) return;
+            var query = CosmeticMessage.Read(e.WebMessageAsJson, e.Source);
+            if (query is null) return;
             var css = _cosmetics(e.Source, query.Classes, query.Ids, query.Hrefs);
             if (css.Length > 2 * 1024 * 1024) return;
             reply(JsonSerializer.Serialize(new { kind = "zenith-cosmetics", token = query.Token, url = e.Source, css }));
         }
         catch (Exception ex) when (ex is JsonException or COMException or InvalidOperationException or ArgumentException) { }
     }
-
-    private static bool Valid(string[]? values, int count, int length) =>
-        values is not null && values.Length <= count && values.All(value => value is not null && value.Length <= length);
 
     private void Detach(CoreWebView2Frame frame)
     {

@@ -504,7 +504,7 @@
 
         <Grid Grid.Column="1" Background="{DynamicResource ZenithAmbientBrush}">
             <Grid x:Name="BrowserHost">
-                <wv2:WebView2 x:Name="Browser" Visibility="Collapsed" />
+                <wv2:WebView2 x:Name="Browser" Visibility="Collapsed" AllowExternalDrop="False" />
             </Grid>
 
             <Grid x:Name="StartSurface" Background="{DynamicResource ZenithAmbientBrush}">

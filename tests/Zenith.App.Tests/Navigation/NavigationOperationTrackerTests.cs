@@ -25,16 +25,16 @@ public sealed class NavigationOperationTrackerTests
     }
 
     [Fact]
-    public void ExternalNavigationCancelsAnInternalClearThatHasNotBeenIssued()
+    public void ExternalNavigationCannotCancelAnInternalClearThatHasNotBeenIssued()
     {
         var tracker = new NavigationOperationTracker();
         var target = new Uri("https://www.wikipedia.org/");
 
         Assert.True(tracker.ScheduleInternalClear());
 
-        Assert.Equal(ExternalNavigationDisposition.Start, tracker.PrepareExternal(target));
-        Assert.False(tracker.IsInternalClearPending);
-        Assert.False(tracker.TryIssueInternalClear());
+        Assert.Equal(ExternalNavigationDisposition.DeferUntilInternalClearCompletes, tracker.PrepareExternal(target));
+        Assert.True(tracker.IsInternalClearPending);
+        Assert.True(tracker.TryIssueInternalClear());
     }
 
     [Fact]
@@ -86,5 +86,21 @@ public sealed class NavigationOperationTrackerTests
         Assert.Equal(
             NavigationCompletionKind.Stale,
             tracker.MatchCompletion(41).Kind);
+    }
+
+    [Fact]
+    public void FailedClearDoesNotReleaseDeferredNavigationOrAcceptAnotherBlankStart()
+    {
+        var tracker = new NavigationOperationTracker();
+        tracker.ScheduleInternalClear();
+        tracker.TryIssueInternalClear();
+        tracker.TryRecordInternalClearStarting("about:blank", 1);
+        tracker.PrepareExternal(new Uri("https://github.com/"));
+        Assert.False(tracker.TryRecordInternalClearStarting("about:blank", 2));
+        Assert.Equal(NavigationCompletionKind.Stale, tracker.MatchCompletion(2).Kind);
+        var failed = tracker.MatchCompletion(1, isSuccess: false);
+        Assert.Equal(NavigationCompletionKind.InternalClearFailed, failed.Kind);
+        Assert.Null(failed.DeferredTarget);
+        Assert.True(tracker.IsInternalClearPending);
     }
 }

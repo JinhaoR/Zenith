@@ -46,8 +46,35 @@ Unknown capability requests, unsupported states and permission-service failures 
 
 ## 6. Current Hardening Checkpoint
 
+The application host runs as a standard Windows user. Its explicit manifest does
+not request elevation; startup refuses SYSTEM, an enabled administrator token or
+an unreadable identity before creating WebView2 or opening protected state. This
+is deployment safety, not a Vault-editable permission. Reopen normally if Windows
+launched Zenith as administrator. See `microsoft-security-baseline.md` for the
+secure-hosting review and verification scope.
+
+Shared/service-worker network activity has no capability grant. Core denies those native request sources, including unknown future source values, without borrowing a tab's URL or Referer. Dedicated workers remain document-scoped and receive transport and resource filtering. Before any tab becomes ready, the supported profile `ServiceWorkers` cleanup terminates and unregisters old service workers once per session; failure closes browsing. This is targeted removal, not cookie/local-storage/password cleanup. New intercepted service-worker script requests are denied. Shared workers can still execute local code, but their intercepted network requests are denied. Offline/background website features may therefore be unavailable. There is no Vault override at this checkpoint.
+
 No explicit capability grants are implemented yet. Core denies WebView2 permission requests (including unknown permission kinds), downloads and external-application launches independently of navigation access. App cancels downloads before saving and suppresses the default download UI; permission denials are handled without saving a renderer-owned permission choice to the profile. Denied requests from the active tab receive a native notice. All initialized tabs attach these guards before being marked ready and detach them on disposal.
 
 Before a tab is ready, previously stored non-default renderer permission settings are reset so old grants cannot bypass the default-deny handler. Device client certificates and browser-level HTTP authentication are denied; ordinary website form login remains subject to navigation policy. Host objects, developer tools, default context menus and default JavaScript dialogs are disabled. The renderer cannot invoke privileged host services; its optional cosmetic message bridge is bounded and has no policy authority.
 
-These hooks are not complete enforcement of every category above. File-picker access, frame-specific coverage, fullscreen, background activity and other paths still require investigation. Configurable permission grants remain Phase 6 work. See ADR 0014 for the account-security checkpoint.
+HTML file-input choosers in the root target and tested same-origin frames are natively intercepted and cancelled before a tab becomes ready, and external drag-and-drop is disabled on initial and later WPF controllers. No upload permission or selected file is returned. Unsupported required interception fails tab initialization. Browser tests exercise top-level and same-origin nested file-input cancellation with a user gesture.
+
+These hooks are not complete enforcement of every category above. The focused validation below resolves tested File System Access/persisted-handle cases and identifies the OOPIF picker and screen-capture gaps. Fullscreen, background activity and other untested paths remain outside that validation. Configurable permission grants remain Phase 6 work. See ADRs 0014 and 0015 for account-security checkpoints. Disabling HTML file selection also prevents ordinary attachment uploads until an explicit capability flow is designed.
+
+## 7. Focused Account-Boundary Validation (2026-09-13)
+
+[The F02/F06 investigation](account-boundary-validation.md) confirmed an OOPIF HTML
+picker-policy gap: the root-target interception does not prevent that frame from
+opening a native chooser. No file was selected or silently exposed. This requires
+implementation work to meet the existing no-selection policy; it is not an
+approved new permission flow. ScreenCaptureStarting also remains uncancelled by
+production, retaining the browser's native consent boundary rather than enforcing
+blanket denial. The test deliberately stopped before the screen chooser.
+
+The tested top-level File System Access pickers were cancelled; cross-origin OOPIF
+FSA pickers were refused by Chromium. Seeded persisted file handles could not read
+after restart, old FileReadWrite grants were reset, and renewal was denied.
+Focused root/OOPIF clipboard and synthetic camera/microphone requests were denied.
+These results narrow the earlier investigation gaps without changing policy.

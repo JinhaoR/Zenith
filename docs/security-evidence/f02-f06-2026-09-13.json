@@ -1,0 +1,988 @@
+[
+  {
+    "test": "legacy-file-permission-seed",
+    "observed": {
+      "anyAllowed": true
+    }
+  },
+  {
+    "test": "persisted-handle-seed",
+    "observed": {
+      "read": "synthetic-file-secret",
+      "stored": true
+    }
+  },
+  {
+    "test": "candidate",
+    "observed": {
+      "runtime": "152.0.4191.66",
+      "sdk": "1.0.4129.50",
+      "flags": "--no-proxy-server --host-resolver-rules=\u0022MAP blocked.zenith.test 127.0.0.4\u0022 --use-fake-device-for-media-stream",
+      "webMessages": true,
+      "hostObjects": false
+    }
+  },
+  {
+    "test": "legacy-file-permission-reset",
+    "observed": {
+      "anyAllowed": false
+    }
+  },
+  {
+    "test": "address-denial",
+    "observed": {
+      "target": "http://127.0.0.3:54026",
+      "decision": "Denied",
+      "source": "about:blank"
+    }
+  },
+  {
+    "test": "script-denial",
+    "observed": {
+      "target": "http://127.0.0.3:54026",
+      "source": "about:blank"
+    }
+  },
+  {
+    "test": "popup-denial",
+    "observed": {
+      "target": "http://127.0.0.3:54026",
+      "before": 1,
+      "after": 1,
+      "source": "about:blank"
+    }
+  },
+  {
+    "test": "address-denial",
+    "observed": {
+      "target": "http://blocked.zenith.test:54027",
+      "decision": "Denied",
+      "source": "about:blank"
+    }
+  },
+  {
+    "test": "script-denial",
+    "observed": {
+      "target": "http://blocked.zenith.test:54027",
+      "source": "about:blank"
+    }
+  },
+  {
+    "test": "popup-denial",
+    "observed": {
+      "target": "http://blocked.zenith.test:54027",
+      "before": 1,
+      "after": 1,
+      "source": "about:blank"
+    }
+  },
+  {
+    "test": "address-denial",
+    "observed": {
+      "target": "http://127.0.0.5:54028",
+      "decision": "Denied",
+      "source": "about:blank"
+    }
+  },
+  {
+    "test": "script-denial",
+    "observed": {
+      "target": "http://127.0.0.5:54028",
+      "source": "about:blank"
+    }
+  },
+  {
+    "test": "popup-denial",
+    "observed": {
+      "target": "http://127.0.0.5:54028",
+      "before": 1,
+      "after": 1,
+      "source": "about:blank"
+    }
+  },
+  {
+    "test": "credential-redirect",
+    "observed": {
+      "status": 302,
+      "source": "about:blank",
+      "submitted": true,
+      "leaked": false
+    }
+  },
+  {
+    "test": "credential-redirect",
+    "observed": {
+      "status": 303,
+      "source": "about:blank",
+      "submitted": true,
+      "leaked": false
+    }
+  },
+  {
+    "test": "credential-redirect",
+    "observed": {
+      "status": 307,
+      "source": "about:blank",
+      "submitted": true,
+      "leaked": false
+    }
+  },
+  {
+    "test": "credential-redirect",
+    "observed": {
+      "status": 308,
+      "source": "about:blank",
+      "submitted": true,
+      "leaked": false
+    }
+  },
+  {
+    "test": "persisted-handle-reopen",
+    "observed": {
+      "exists": true,
+      "permission": "prompt",
+      "read": "NotAllowedError"
+    }
+  },
+  {
+    "test": "permission",
+    "observed": {
+      "kind": "FileReadWrite",
+      "Uri": "http://127.0.0.1:54024/",
+      "state": "Deny",
+      "Handled": true,
+      "SavesInProfile": false,
+      "IsUserInitiated": false
+    }
+  },
+  {
+    "test": "persisted-handle-request",
+    "observed": "denied"
+  },
+  {
+    "test": "frame-processes",
+    "observed": [
+      {
+        "pid": 12936,
+        "Source": "http://127.0.0.2:54025/child",
+        "FrameId": 2,
+        "parent": 1
+      },
+      {
+        "pid": 16512,
+        "Source": "http://127.0.0.1:54024/frames",
+        "FrameId": 1,
+        "parent": null
+      }
+    ]
+  },
+  {
+    "test": "origin-isolation-child",
+    "observed": {
+      "cookie": "SecurityError",
+      "dom": "SecurityError",
+      "local": "SecurityError",
+      "ownCookie": "",
+      "ownLocal": null,
+      "ownSession": null,
+      "session": "SecurityError"
+    }
+  },
+  {
+    "test": "origin-isolation-parent",
+    "observed": "SecurityError"
+  },
+  {
+    "test": "httpOnly-hidden",
+    "observed": true
+  },
+  {
+    "test": "origin-idb-child",
+    "observed": []
+  },
+  {
+    "test": "cross-origin-handle-send",
+    "observed": "sent"
+  },
+  {
+    "test": "cross-origin-handle-receive",
+    "observed": "messageerror"
+  },
+  {
+    "test": "cross-origin-fetch",
+    "observed": "TypeError"
+  },
+  {
+    "test": "frame-document",
+    "observed": {
+      "context": "root",
+      "url": "http://127.0.0.3:54026/nested-root",
+      "decision": "Denied",
+      "reachedServer": false,
+      "executed": false,
+      "frames": [
+        "http://127.0.0.3:54026/nested-root"
+      ]
+    }
+  },
+  {
+    "test": "frame-document",
+    "observed": {
+      "context": "oopif",
+      "url": "http://127.0.0.3:54026/nested-oopif",
+      "decision": "Denied",
+      "reachedServer": true,
+      "executed": true,
+      "frames": [
+        "http://127.0.0.3:54026/nested-oopif",
+        "http://127.0.0.3:54026/nested-root"
+      ]
+    }
+  },
+  {
+    "test": "frame-document",
+    "observed": {
+      "context": "root",
+      "url": "http://blocked.zenith.test:54027/nested-root",
+      "decision": "Denied",
+      "reachedServer": false,
+      "executed": false,
+      "frames": [
+        "http://127.0.0.3:54026/nested-oopif",
+        "http://127.0.0.3:54026/nested-root",
+        "http://blocked.zenith.test:54027/nested-root"
+      ]
+    }
+  },
+  {
+    "test": "frame-document",
+    "observed": {
+      "context": "oopif",
+      "url": "http://blocked.zenith.test:54027/nested-oopif",
+      "decision": "Denied",
+      "reachedServer": false,
+      "executed": false,
+      "frames": [
+        "http://blocked.zenith.test:54027/nested-oopif",
+        "http://127.0.0.3:54026/nested-oopif",
+        "http://127.0.0.3:54026/nested-root",
+        "http://blocked.zenith.test:54027/nested-root"
+      ]
+    }
+  },
+  {
+    "test": "frame-document",
+    "observed": {
+      "context": "root",
+      "url": "http://127.0.0.5:54028/nested-root",
+      "decision": "Allowed",
+      "reachedServer": true,
+      "executed": true,
+      "frames": [
+        "http://blocked.zenith.test:54027/nested-oopif",
+        "http://127.0.0.3:54026/nested-oopif",
+        "http://127.0.0.5:54028/nested-root",
+        "http://127.0.0.3:54026/nested-root",
+        "http://blocked.zenith.test:54027/nested-root"
+      ]
+    }
+  },
+  {
+    "test": "frame-document",
+    "observed": {
+      "context": "oopif",
+      "url": "http://127.0.0.5:54028/nested-oopif",
+      "decision": "Allowed",
+      "reachedServer": true,
+      "executed": true,
+      "frames": [
+        "http://blocked.zenith.test:54027/nested-oopif",
+        "http://127.0.0.3:54026/nested-oopif",
+        "http://127.0.0.5:54028/nested-root",
+        "http://127.0.0.5:54028/nested-oopif",
+        "http://127.0.0.3:54026/nested-root",
+        "http://blocked.zenith.test:54027/nested-root"
+      ]
+    }
+  },
+  {
+    "test": "oopif-credential-redirect",
+    "observed": {
+      "status": 302,
+      "submitted": true,
+      "receivedByDenied": [
+        {
+          "Method": "GET",
+          "Path": "/credential-sink",
+          "Body": ""
+        }
+      ]
+    }
+  },
+  {
+    "test": "oopif-credential-redirect",
+    "observed": {
+      "status": 303,
+      "submitted": true,
+      "receivedByDenied": [
+        {
+          "Method": "GET",
+          "Path": "/credential-sink",
+          "Body": ""
+        }
+      ]
+    }
+  },
+  {
+    "test": "oopif-credential-redirect",
+    "observed": {
+      "status": 307,
+      "submitted": true,
+      "receivedByDenied": [
+        {
+          "Method": "POST",
+          "Path": "/credential-sink",
+          "Body": "password=synthetic-oopif-password\u0026token=synthetic-oopif-token"
+        }
+      ]
+    }
+  },
+  {
+    "test": "oopif-credential-redirect",
+    "observed": {
+      "status": 308,
+      "submitted": true,
+      "receivedByDenied": [
+        {
+          "Method": "POST",
+          "Path": "/credential-sink",
+          "Body": "password=synthetic-oopif-password\u0026token=synthetic-oopif-token"
+        }
+      ]
+    }
+  },
+  {
+    "test": "focus-root",
+    "observed": true
+  },
+  {
+    "test": "bridge-attack-root",
+    "observed": {
+      "hostObjects": "function",
+      "sent": 7
+    }
+  },
+  {
+    "test": "host-object-call-root",
+    "observed": "Error:Access is denied. (0x80070005)"
+  },
+  {
+    "test": "bridge-reply-root",
+    "observed": [
+      {
+        "fields": [
+          "css",
+          "kind",
+          "token",
+          "url"
+        ],
+        "kind": "zenith-cosmetics",
+        "url": "http://127.0.0.1:54024/frames"
+      }
+    ]
+  },
+  {
+    "test": "capability",
+    "observed": {
+      "context": "root",
+      "api": "showOpenFilePicker()",
+      "gesture": false,
+      "result": "SecurityError:Failed to execute \u0027showOpenFilePicker\u0027 on \u0027Window\u0027: Must be handling a user gesture to show a file picker.",
+      "dialogs": []
+    }
+  },
+  {
+    "test": "capability",
+    "observed": {
+      "context": "root",
+      "api": "showDirectoryPicker()",
+      "gesture": false,
+      "result": "SecurityError:Failed to execute \u0027showDirectoryPicker\u0027 on \u0027Window\u0027: Must be handling a user gesture to show a file picker.",
+      "dialogs": []
+    }
+  },
+  {
+    "test": "capability",
+    "observed": {
+      "context": "root",
+      "api": "showSaveFilePicker()",
+      "gesture": false,
+      "result": "SecurityError:Failed to execute \u0027showSaveFilePicker\u0027 on \u0027Window\u0027: Must be handling a user gesture to show a file picker.",
+      "dialogs": []
+    }
+  },
+  {
+    "test": "permission",
+    "observed": {
+      "kind": "ClipboardRead",
+      "Uri": "http://127.0.0.1:54024/",
+      "state": "Deny",
+      "Handled": true,
+      "SavesInProfile": false,
+      "IsUserInitiated": false
+    }
+  },
+  {
+    "test": "capability",
+    "observed": {
+      "context": "root",
+      "api": "navigator.clipboard.readText()",
+      "gesture": false,
+      "result": "NotAllowedError:Failed to execute \u0027readText\u0027 on \u0027Clipboard\u0027: Read permission denied.",
+      "dialogs": []
+    }
+  },
+  {
+    "test": "permission",
+    "observed": {
+      "kind": "ClipboardRead",
+      "Uri": "http://127.0.0.1:54024/",
+      "state": "Deny",
+      "Handled": true,
+      "SavesInProfile": false,
+      "IsUserInitiated": false
+    }
+  },
+  {
+    "test": "capability",
+    "observed": {
+      "context": "root",
+      "api": "navigator.clipboard.read()",
+      "gesture": false,
+      "result": "NotAllowedError:Failed to execute \u0027read\u0027 on \u0027Clipboard\u0027: Read permission denied.",
+      "dialogs": []
+    }
+  },
+  {
+    "test": "permission",
+    "observed": {
+      "kind": "Microphone",
+      "Uri": "http://127.0.0.1:54024/",
+      "state": "Deny",
+      "Handled": true,
+      "SavesInProfile": false,
+      "IsUserInitiated": false
+    }
+  },
+  {
+    "test": "permission",
+    "observed": {
+      "kind": "Camera",
+      "Uri": "http://127.0.0.1:54024/",
+      "state": "Deny",
+      "Handled": true,
+      "SavesInProfile": false,
+      "IsUserInitiated": false
+    }
+  },
+  {
+    "test": "capability",
+    "observed": {
+      "context": "root",
+      "api": "navigator.mediaDevices.getUserMedia({video:true,audio:true})",
+      "gesture": false,
+      "result": "NotAllowedError:Permission denied",
+      "dialogs": []
+    }
+  },
+  {
+    "test": "html-picker",
+    "observed": {
+      "context": "root",
+      "gesture": false,
+      "dialogs": [],
+      "result": {
+        "cancelled": false,
+        "files": 0
+      }
+    }
+  },
+  {
+    "test": "capability",
+    "observed": {
+      "context": "root",
+      "api": "showOpenFilePicker()",
+      "gesture": true,
+      "result": "AbortError:Failed to execute \u0027showOpenFilePicker\u0027 on \u0027Window\u0027: Intercepted by Page.setInterceptFileChooserDialog().",
+      "dialogs": []
+    }
+  },
+  {
+    "test": "capability",
+    "observed": {
+      "context": "root",
+      "api": "showDirectoryPicker()",
+      "gesture": true,
+      "result": "AbortError:Failed to execute \u0027showDirectoryPicker\u0027 on \u0027Window\u0027: Intercepted by Page.setInterceptFileChooserDialog().",
+      "dialogs": []
+    }
+  },
+  {
+    "test": "capability",
+    "observed": {
+      "context": "root",
+      "api": "showSaveFilePicker()",
+      "gesture": true,
+      "result": "AbortError:Failed to execute \u0027showSaveFilePicker\u0027 on \u0027Window\u0027: Intercepted by Page.setInterceptFileChooserDialog().",
+      "dialogs": []
+    }
+  },
+  {
+    "test": "permission",
+    "observed": {
+      "kind": "ClipboardRead",
+      "Uri": "http://127.0.0.1:54024/",
+      "state": "Deny",
+      "Handled": true,
+      "SavesInProfile": false,
+      "IsUserInitiated": true
+    }
+  },
+  {
+    "test": "capability",
+    "observed": {
+      "context": "root",
+      "api": "navigator.clipboard.readText()",
+      "gesture": true,
+      "result": "NotAllowedError:Failed to execute \u0027readText\u0027 on \u0027Clipboard\u0027: Read permission denied.",
+      "dialogs": []
+    }
+  },
+  {
+    "test": "permission",
+    "observed": {
+      "kind": "ClipboardRead",
+      "Uri": "http://127.0.0.1:54024/",
+      "state": "Deny",
+      "Handled": true,
+      "SavesInProfile": false,
+      "IsUserInitiated": true
+    }
+  },
+  {
+    "test": "capability",
+    "observed": {
+      "context": "root",
+      "api": "navigator.clipboard.read()",
+      "gesture": true,
+      "result": "NotAllowedError:Failed to execute \u0027read\u0027 on \u0027Clipboard\u0027: Read permission denied.",
+      "dialogs": []
+    }
+  },
+  {
+    "test": "permission",
+    "observed": {
+      "kind": "Microphone",
+      "Uri": "http://127.0.0.1:54024/",
+      "state": "Deny",
+      "Handled": true,
+      "SavesInProfile": false,
+      "IsUserInitiated": true
+    }
+  },
+  {
+    "test": "permission",
+    "observed": {
+      "kind": "Camera",
+      "Uri": "http://127.0.0.1:54024/",
+      "state": "Deny",
+      "Handled": true,
+      "SavesInProfile": false,
+      "IsUserInitiated": true
+    }
+  },
+  {
+    "test": "capability",
+    "observed": {
+      "context": "root",
+      "api": "navigator.mediaDevices.getUserMedia({video:true,audio:true})",
+      "gesture": true,
+      "result": "NotAllowedError:Permission denied",
+      "dialogs": []
+    }
+  },
+  {
+    "test": "html-picker",
+    "observed": {
+      "context": "root",
+      "gesture": true,
+      "dialogs": [],
+      "result": {
+        "cancelled": true,
+        "files": 0
+      }
+    }
+  },
+  {
+    "test": "screen-capture-native",
+    "observed": {
+      "context": "root",
+      "productionCancel": false,
+      "Handled": false,
+      "source": "http://127.0.0.1:54024/frames"
+    }
+  },
+  {
+    "test": "screen-capture",
+    "observed": "NotAllowedError"
+  },
+  {
+    "test": "focus-oopif",
+    "observed": true
+  },
+  {
+    "test": "bridge-attack-oopif",
+    "observed": {
+      "hostObjects": "function",
+      "sent": 7
+    }
+  },
+  {
+    "test": "host-object-call-oopif",
+    "observed": "Error:Access is denied. (0x80070005)"
+  },
+  {
+    "test": "bridge-reply-oopif",
+    "observed": [
+      {
+        "fields": [
+          "css",
+          "kind",
+          "token",
+          "url"
+        ],
+        "kind": "zenith-cosmetics",
+        "url": "http://127.0.0.2:54025/child"
+      }
+    ]
+  },
+  {
+    "test": "capability",
+    "observed": {
+      "context": "oopif",
+      "api": "showOpenFilePicker()",
+      "gesture": false,
+      "result": "SecurityError:Failed to execute \u0027showOpenFilePicker\u0027 on \u0027Window\u0027: Cross origin sub frames aren\u0027t allowed to show a file picker.",
+      "dialogs": []
+    }
+  },
+  {
+    "test": "capability",
+    "observed": {
+      "context": "oopif",
+      "api": "showDirectoryPicker()",
+      "gesture": false,
+      "result": "SecurityError:Failed to execute \u0027showDirectoryPicker\u0027 on \u0027Window\u0027: Cross origin sub frames aren\u0027t allowed to show a file picker.",
+      "dialogs": []
+    }
+  },
+  {
+    "test": "capability",
+    "observed": {
+      "context": "oopif",
+      "api": "showSaveFilePicker()",
+      "gesture": false,
+      "result": "SecurityError:Failed to execute \u0027showSaveFilePicker\u0027 on \u0027Window\u0027: Cross origin sub frames aren\u0027t allowed to show a file picker.",
+      "dialogs": []
+    }
+  },
+  {
+    "test": "permission",
+    "observed": {
+      "kind": "ClipboardRead",
+      "Uri": "http://127.0.0.1:54024/",
+      "state": "Deny",
+      "Handled": true,
+      "SavesInProfile": false,
+      "IsUserInitiated": false
+    }
+  },
+  {
+    "test": "capability",
+    "observed": {
+      "context": "oopif",
+      "api": "navigator.clipboard.readText()",
+      "gesture": false,
+      "result": "NotAllowedError:Failed to execute \u0027readText\u0027 on \u0027Clipboard\u0027: Read permission denied.",
+      "dialogs": []
+    }
+  },
+  {
+    "test": "permission",
+    "observed": {
+      "kind": "ClipboardRead",
+      "Uri": "http://127.0.0.1:54024/",
+      "state": "Deny",
+      "Handled": true,
+      "SavesInProfile": false,
+      "IsUserInitiated": false
+    }
+  },
+  {
+    "test": "capability",
+    "observed": {
+      "context": "oopif",
+      "api": "navigator.clipboard.read()",
+      "gesture": false,
+      "result": "NotAllowedError:Failed to execute \u0027read\u0027 on \u0027Clipboard\u0027: Read permission denied.",
+      "dialogs": []
+    }
+  },
+  {
+    "test": "permission",
+    "observed": {
+      "kind": "Microphone",
+      "Uri": "http://127.0.0.1:54024/",
+      "state": "Deny",
+      "Handled": true,
+      "SavesInProfile": false,
+      "IsUserInitiated": false
+    }
+  },
+  {
+    "test": "permission",
+    "observed": {
+      "kind": "Camera",
+      "Uri": "http://127.0.0.1:54024/",
+      "state": "Deny",
+      "Handled": true,
+      "SavesInProfile": false,
+      "IsUserInitiated": false
+    }
+  },
+  {
+    "test": "capability",
+    "observed": {
+      "context": "oopif",
+      "api": "navigator.mediaDevices.getUserMedia({video:true,audio:true})",
+      "gesture": false,
+      "result": "NotAllowedError:Permission denied",
+      "dialogs": []
+    }
+  },
+  {
+    "test": "html-picker",
+    "observed": {
+      "context": "oopif",
+      "gesture": false,
+      "dialogs": [],
+      "result": {
+        "cancelled": false,
+        "files": 0
+      }
+    }
+  },
+  {
+    "test": "capability",
+    "observed": {
+      "context": "oopif",
+      "api": "showOpenFilePicker()",
+      "gesture": true,
+      "result": "SecurityError:Failed to execute \u0027showOpenFilePicker\u0027 on \u0027Window\u0027: Cross origin sub frames aren\u0027t allowed to show a file picker.",
+      "dialogs": []
+    }
+  },
+  {
+    "test": "capability",
+    "observed": {
+      "context": "oopif",
+      "api": "showDirectoryPicker()",
+      "gesture": true,
+      "result": "SecurityError:Failed to execute \u0027showDirectoryPicker\u0027 on \u0027Window\u0027: Cross origin sub frames aren\u0027t allowed to show a file picker.",
+      "dialogs": []
+    }
+  },
+  {
+    "test": "capability",
+    "observed": {
+      "context": "oopif",
+      "api": "showSaveFilePicker()",
+      "gesture": true,
+      "result": "SecurityError:Failed to execute \u0027showSaveFilePicker\u0027 on \u0027Window\u0027: Cross origin sub frames aren\u0027t allowed to show a file picker.",
+      "dialogs": []
+    }
+  },
+  {
+    "test": "permission",
+    "observed": {
+      "kind": "ClipboardRead",
+      "Uri": "http://127.0.0.1:54024/",
+      "state": "Deny",
+      "Handled": true,
+      "SavesInProfile": false,
+      "IsUserInitiated": true
+    }
+  },
+  {
+    "test": "capability",
+    "observed": {
+      "context": "oopif",
+      "api": "navigator.clipboard.readText()",
+      "gesture": true,
+      "result": "NotAllowedError:Failed to execute \u0027readText\u0027 on \u0027Clipboard\u0027: Read permission denied.",
+      "dialogs": []
+    }
+  },
+  {
+    "test": "permission",
+    "observed": {
+      "kind": "ClipboardRead",
+      "Uri": "http://127.0.0.1:54024/",
+      "state": "Deny",
+      "Handled": true,
+      "SavesInProfile": false,
+      "IsUserInitiated": true
+    }
+  },
+  {
+    "test": "capability",
+    "observed": {
+      "context": "oopif",
+      "api": "navigator.clipboard.read()",
+      "gesture": true,
+      "result": "NotAllowedError:Failed to execute \u0027read\u0027 on \u0027Clipboard\u0027: Read permission denied.",
+      "dialogs": []
+    }
+  },
+  {
+    "test": "permission",
+    "observed": {
+      "kind": "Microphone",
+      "Uri": "http://127.0.0.1:54024/",
+      "state": "Deny",
+      "Handled": true,
+      "SavesInProfile": false,
+      "IsUserInitiated": true
+    }
+  },
+  {
+    "test": "permission",
+    "observed": {
+      "kind": "Camera",
+      "Uri": "http://127.0.0.1:54024/",
+      "state": "Deny",
+      "Handled": true,
+      "SavesInProfile": false,
+      "IsUserInitiated": true
+    }
+  },
+  {
+    "test": "capability",
+    "observed": {
+      "context": "oopif",
+      "api": "navigator.mediaDevices.getUserMedia({video:true,audio:true})",
+      "gesture": true,
+      "result": "NotAllowedError:Permission denied",
+      "dialogs": []
+    }
+  },
+  {
+    "test": "html-picker",
+    "observed": {
+      "context": "oopif",
+      "gesture": true,
+      "dialogs": [
+        "native-file-dialog"
+      ],
+      "result": {
+        "cancelled": false,
+        "files": 0
+      }
+    }
+  },
+  {
+    "test": "screen-capture-native",
+    "observed": {
+      "context": "oopif",
+      "productionCancel": false,
+      "Handled": false,
+      "source": "http://127.0.0.2:54025/child"
+    }
+  },
+  {
+    "test": "screen-capture",
+    "observed": "NotAllowedError"
+  },
+  {
+    "test": "bridge-state",
+    "observed": {
+      "vaultUnchanged": true,
+      "deniedDecision": "Denied",
+      "fileUnchanged": true
+    }
+  },
+  {
+    "test": "oopif-popup",
+    "observed": {
+      "before": 1,
+      "after": 1,
+      "source": "about:blank",
+      "reached": false
+    }
+  },
+  {
+    "test": "denied-server-requests",
+    "observed": {
+      "vault": [
+        {
+          "Method": "GET",
+          "Path": "/nested-oopif",
+          "Body": ""
+        },
+        {
+          "Method": "GET",
+          "Path": "/credential-sink",
+          "Body": ""
+        },
+        {
+          "Method": "GET",
+          "Path": "/credential-sink",
+          "Body": ""
+        },
+        {
+          "Method": "POST",
+          "Path": "/credential-sink",
+          "Body": "password=synthetic-oopif-password\u0026token=synthetic-oopif-token"
+        },
+        {
+          "Method": "POST",
+          "Path": "/credential-sink",
+          "Body": "password=synthetic-oopif-password\u0026token=synthetic-oopif-token"
+        }
+      ],
+      "mandatory": [],
+      "grey": [
+        {
+          "Method": "GET",
+          "Path": "/nested-root",
+          "Body": ""
+        },
+        {
+          "Method": "GET",
+          "Path": "/nested-oopif",
+          "Body": ""
+        }
+      ]
+    }
+  },
+  {
+    "test": "interception-observations",
+    "observed": {
+      "rootFetchDeniedChild": true,
+      "rootFetchOopifGrandchild": false,
+      "nativeFrameDeniedChild": true,
+      "nativeFrameOopifGrandchild": true,
+      "nativeCredentialSink": true
+    }
+  }
+]

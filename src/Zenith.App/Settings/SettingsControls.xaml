@@ -17,6 +17,7 @@
             <Setter Property="Margin" Value="0,0,0,16" />
         </Style>
         <Style TargetType="Button">
+            <Setter Property="MinHeight" Value="40" />
             <Setter Property="Padding" Value="15,10" />
             <Setter Property="Background" Value="{DynamicResource ZenithRaisedSurfaceBrush}" />
             <Setter Property="Foreground" Value="{DynamicResource ZenithTextBrush}" />
@@ -39,13 +40,94 @@
                             <Trigger Property="IsKeyboardFocused" Value="True">
                                 <Setter TargetName="Frame" Property="BorderBrush" Value="{DynamicResource ZenithFocusBrush}" />
                             </Trigger>
+                            <Trigger Property="IsPressed" Value="True"><Setter TargetName="Frame" Property="Opacity" Value="0.8" /></Trigger>
                             <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.5" /></Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
         </Style>
+        <Style x:Key="PrimaryButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Background" Value="{DynamicResource ZenithAccentBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource ZenithAccentForegroundBrush}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+        <Style TargetType="TextBox">
+            <Setter Property="MinHeight" Value="42" />
+            <Setter Property="Padding" Value="12,10" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Background" Value="{DynamicResource ZenithRaisedSurfaceBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource ZenithTextBrush}" />
+            <Setter Property="CaretBrush" Value="{DynamicResource ZenithAccentBrush}" />
+            <Setter Property="SelectionBrush" Value="{DynamicResource ZenithAccentBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource ZenithInteractiveBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="TextBox">
+                <Border x:Name="InputFrame" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="9">
+                    <ScrollViewer x:Name="PART_ContentHost" Style="{x:Null}" Focusable="False" VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                </Border>
+                <ControlTemplate.Triggers>
+                    <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="InputFrame" Property="BorderBrush" Value="{DynamicResource ZenithAccentBrush}" /></Trigger>
+                    <Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="InputFrame" Property="BorderBrush" Value="{DynamicResource ZenithFocusBrush}" /></Trigger>
+                    <Trigger Property="IsEnabled" Value="False"><Setter TargetName="InputFrame" Property="Opacity" Value="0.5" /></Trigger>
+                </ControlTemplate.Triggers>
+            </ControlTemplate></Setter.Value></Setter>
+        </Style>
+        <Style TargetType="PasswordBox">
+            <Setter Property="MinHeight" Value="42" />
+            <Setter Property="Padding" Value="12,10" />
+            <Setter Property="MaxLength" Value="128" />
+            <Setter Property="Background" Value="{DynamicResource ZenithRaisedSurfaceBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource ZenithTextBrush}" />
+            <Setter Property="CaretBrush" Value="{DynamicResource ZenithAccentBrush}" />
+            <Setter Property="SelectionBrush" Value="{DynamicResource ZenithAccentBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource ZenithInteractiveBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="PasswordBox">
+                <Border x:Name="InputFrame" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="9">
+                    <ScrollViewer x:Name="PART_ContentHost" Style="{x:Null}" Focusable="False" VerticalAlignment="Center" />
+                </Border>
+                <ControlTemplate.Triggers>
+                    <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="InputFrame" Property="BorderBrush" Value="{DynamicResource ZenithAccentBrush}" /></Trigger>
+                    <Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="InputFrame" Property="BorderBrush" Value="{DynamicResource ZenithFocusBrush}" /></Trigger>
+                    <Trigger Property="IsEnabled" Value="False"><Setter TargetName="InputFrame" Property="Opacity" Value="0.5" /></Trigger>
+                </ControlTemplate.Triggers>
+            </ControlTemplate></Setter.Value></Setter>
+        </Style>
+        <Style TargetType="CheckBox">
+            <Setter Property="MinHeight" Value="36" />
+            <Setter Property="Padding" Value="4,6" />
+            <Setter Property="Foreground" Value="{DynamicResource ZenithTextBrush}" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="CheckBox">
+                <Border x:Name="CheckRow" Background="Transparent" BorderBrush="Transparent" BorderThickness="1" CornerRadius="8" Padding="{TemplateBinding Padding}">
+                    <Grid>
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="20" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                        <Border x:Name="CheckFrame" Width="18" Height="18" CornerRadius="5" BorderThickness="1" BorderBrush="{DynamicResource ZenithInteractiveBorderBrush}" Background="{DynamicResource ZenithRaisedSurfaceBrush}" VerticalAlignment="Center">
+                            <Path x:Name="CheckMark" Data="M 3,8 L 6,11 L 12,4" Stroke="{DynamicResource ZenithAccentForegroundBrush}" StrokeThickness="2" Visibility="Collapsed" />
+                        </Border>
+                        <ContentPresenter Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center" HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" RecognizesAccessKey="True" />
+                    </Grid>
+                </Border>
+                <ControlTemplate.Triggers>
+                    <Trigger Property="IsChecked" Value="True">
+                        <Setter TargetName="CheckFrame" Property="Background" Value="{DynamicResource ZenithAccentBrush}" />
+                        <Setter TargetName="CheckMark" Property="Visibility" Value="Visible" />
+                    </Trigger>
+                    <Trigger Property="IsChecked" Value="{x:Null}">
+                        <Setter TargetName="CheckFrame" Property="Background" Value="{DynamicResource ZenithAccentBrush}" />
+                        <Setter TargetName="CheckMark" Property="Visibility" Value="Visible" />
+                        <Setter TargetName="CheckMark" Property="Data" Value="M 3,8 L 12,8" />
+                    </Trigger>
+                    <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="CheckRow" Property="Background" Value="{DynamicResource ZenithHoverBrush}" /><Setter Property="Foreground" Value="{DynamicResource ZenithHighlightForegroundBrush}" /></Trigger>
+                    <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="CheckRow" Property="BorderBrush" Value="{DynamicResource ZenithFocusBrush}" /></Trigger>
+                    <Trigger Property="IsEnabled" Value="False"><Setter TargetName="CheckRow" Property="Opacity" Value="0.5" /></Trigger>
+                </ControlTemplate.Triggers>
+            </ControlTemplate></Setter.Value></Setter>
+        </Style>
         <Style TargetType="ListBoxItem">
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
             <Setter Property="Padding" Value="14,12" />
             <Setter Property="Margin" Value="0,3" />
             <Setter Property="Foreground" Value="{DynamicResource ZenithMutedTextBrush}" />
@@ -53,7 +135,7 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="ListBoxItem">
                         <Border x:Name="Frame" CornerRadius="10" Background="Transparent" BorderBrush="Transparent" BorderThickness="1" Padding="{TemplateBinding Padding}">
-                            <ContentPresenter />
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" />
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Frame" Property="Background" Value="{DynamicResource ZenithHoverBrush}" /></Trigger>
@@ -109,6 +191,8 @@
             </ControlTemplate></Setter.Value></Setter>
         </Style>
         <Style TargetType="ComboBox">
+            <Setter Property="MinHeight" Value="40" />
+            <Setter Property="MaxDropDownHeight" Value="300" />
             <Setter Property="Foreground" Value="{DynamicResource ZenithTextBrush}" />
             <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ComboBox">
                 <Grid>
@@ -122,7 +206,10 @@
                     <ContentPresenter Content="{TemplateBinding SelectionBoxItem}" ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}" IsHitTestVisible="False" Margin="10,8,25,8" VerticalAlignment="Center" />
                     <Popup x:Name="PART_Popup" IsOpen="{TemplateBinding IsDropDownOpen}" Placement="Bottom" AllowsTransparency="True" Focusable="False">
                         <Border Background="{DynamicResource ZenithSurfaceBrush}" BorderBrush="{DynamicResource ZenithInteractiveBorderBrush}" BorderThickness="1" CornerRadius="6" MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}">
-                            <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained" />
+                            <ScrollViewer Style="{DynamicResource SettingsScrollViewerStyle}" MaxHeight="{TemplateBinding MaxDropDownHeight}" CanContentScroll="False"
+                                          VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="2">
+                                <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained" />
+                            </ScrollViewer>
                         </Border>
                     </Popup>
                     <Border x:Name="FocusRing" BorderBrush="{DynamicResource ZenithFocusBrush}" BorderThickness="2" CornerRadius="6" IsHitTestVisible="False" Visibility="Collapsed" />
@@ -132,7 +219,7 @@
         </Style>
         <!-- These windows scroll vertically only. Reserve a slim, transparent gutter
              so the thumb never covers settings text or controls. -->
-        <Style TargetType="ScrollBar">
+        <Style x:Key="SettingsScrollBarStyle" TargetType="ScrollBar">
             <Setter Property="Width" Value="12" />
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="Template">
@@ -169,5 +256,36 @@
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
+        </Style>
+        <Style TargetType="ScrollBar" BasedOn="{StaticResource SettingsScrollBarStyle}" />
+        <Style x:Key="SettingsScrollViewerStyle" TargetType="ScrollViewer">
+            <Setter Property="HorizontalScrollBarVisibility" Value="Disabled" />
+            <Setter Property="VerticalScrollBarVisibility" Value="Auto" />
+            <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ScrollViewer">
+                <Grid Background="{TemplateBinding Background}">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                    <ScrollContentPresenter x:Name="PART_ScrollContentPresenter" Margin="{TemplateBinding Padding}"
+                                            Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}"
+                                            CanContentScroll="{TemplateBinding CanContentScroll}" />
+                    <ScrollBar x:Name="PART_VerticalScrollBar" Grid.Column="1" Style="{StaticResource SettingsScrollBarStyle}"
+                               Orientation="Vertical" Minimum="0" Maximum="{TemplateBinding ScrollableHeight}"
+                               ViewportSize="{TemplateBinding ViewportHeight}" Value="{TemplateBinding VerticalOffset}"
+                               Visibility="{TemplateBinding ComputedVerticalScrollBarVisibility}" />
+                </Grid>
+            </ControlTemplate></Setter.Value></Setter>
+        </Style>
+        <Style TargetType="ScrollViewer" BasedOn="{StaticResource SettingsScrollViewerStyle}" />
+        <Style TargetType="ListBox">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ListBox">
+                <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="8" Padding="{TemplateBinding Padding}">
+                    <ScrollViewer Style="{StaticResource SettingsScrollViewerStyle}" Focusable="False"
+                                  CanContentScroll="{Binding Path=(ScrollViewer.CanContentScroll), RelativeSource={RelativeSource TemplatedParent}}">
+                        <ItemsPresenter />
+                    </ScrollViewer>
+                </Border>
+            </ControlTemplate></Setter.Value></Setter>
         </Style>
 </ResourceDictionary>

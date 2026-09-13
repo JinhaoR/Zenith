@@ -11,6 +11,7 @@ public sealed class BrowserCapabilityPolicyTests
     [InlineData(BrowserCapability.InvalidServerCertificate)]
     [InlineData(BrowserCapability.ClientCertificate)]
     [InlineData(BrowserCapability.HttpAuthentication)]
+    [InlineData(BrowserCapability.FileSelection)]
     [InlineData((BrowserCapability)999)]
     public void CapabilitiesWithoutExplicitGrantsAreDenied(BrowserCapability capability)
     {

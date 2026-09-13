@@ -43,6 +43,14 @@ public partial class App : Application
     {
         base.OnStartup(e);
 
+        if (!BrowserHostPrivileges.CanStart())
+        {
+            MessageBox.Show("Zenith needs to run as a standard Windows user. Close it and reopen without ‘Run as administrator’.",
+                "Start Zenith normally", MessageBoxButton.OK, MessageBoxImage.Information);
+            Shutdown(1);
+            return;
+        }
+
         CaptureMidnightTheme();
         SystemParameters.StaticPropertyChanged += SystemParameters_OnStaticPropertyChanged;
         ApplyAccessibilityPalette();

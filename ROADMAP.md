@@ -79,6 +79,20 @@ Locked
 
 ## Phase 5: Policy Hardening (In Progress)
 
+Connection acceptance follow-up: server-observed fetch/XHR/beacon/EventSource,
+keepalive and inherited-frame probes were added. The strict WebSocket test
+reproduced filtered-host contact (SEC-CONN-001). Under the 2026-09-12 clarified
+browser-level model, F01 is Informational and is not a primary-account blocker;
+the historical runner still applies the stronger criterion. `docs/security-review.md`
+tracks the re-ranked findings, `docs/provider-mfa-testing.md` provides the live-account
+acceptance procedure, and `tools/security/Invoke-SecurityChecks.ps1` packages
+local synthetic evidence. Real-provider MFA and independent review are still
+pending, not completed by these additions.
+
+Transport/worker checkpoint (ADR 0016): HTTPS-only public navigation and intercepted resources, non-overridable transport rules, native worker-source denials and targeted legacy-worker termination/registration cleanup. Controlled password/OTP and credential-bearing redirect tests extend browser-boundary coverage. Account readiness now focuses on reliable document teardown, actual frame/navigation policy, sensitive capability and origin isolation tests, private profile handling and servicing. Exhaustive egress blocking is not required; see `docs/security-review.md`. Phase 5 is not complete and primary-email readiness is not established.
+
+Follow-up account-security checkpoint (ADR 0015): HTML file-input cancellation, external-drop denial, exception-safe resource filtering, removal of direct WPF favicon URL loads, native origin captions, and additional cookie/renderer regressions. Known package advisories were checked on 2026-09-09; this is a dated observation, not continuous assurance. The subsequent user-approved HTTPS decision is implemented in ADR 0016.
+
 Account-security checkpoint (ADR 0014): explicit certificate rejection, restricted browser defaults, old permission reset, native website identity, runtime-update notification and confirmed renderer-profile cleanup. Document requests bypass worker responses and cache use. These controls do not finish worker/background enforcement, file-picker restrictions, account-provider compatibility or independent security review; primary personal-account readiness is not yet established.
 
 First checkpoint: a Core-owned default-deny capability policy is wired to WebView2 permission requests, download starts and external-application launches for initial and subsequent tabs. Real renderer tests verify permission denial without profile persistence and download cancellation on both tab paths. This does not complete frame, redirect/popup or recovery hardening.

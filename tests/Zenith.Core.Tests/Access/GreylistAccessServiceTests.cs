@@ -9,6 +9,16 @@ public sealed class GreylistAccessServiceTests
     private const string Password = "test password for access";
 
     [Fact]
+    public void PublicHttpCannotStartATemporaryAccessChallenge()
+    {
+        var fixture = new Fixture();
+        Assert.Equal(AccessPhase.NotEligible, fixture.Service.GetStatus("http://outside.example/").Phase);
+        fixture.Service.SubmitPassword("http://outside.example/", Password);
+        Assert.Empty(fixture.State.Snapshot.Requests);
+        Assert.Equal(0, fixture.State.Verifications);
+    }
+
+    [Fact]
     public void FirstChallengeStartsWaitAndCannotGrantEarly()
     {
         var fixture = new Fixture();

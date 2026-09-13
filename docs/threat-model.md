@@ -4,6 +4,22 @@
 
 Zenith must enforce the user's previously chosen access policy consistently, including when the user experiences a later impulse to weaken it.
 
+Clarified 2026-09-12: Zenith is a browser-level intentional-access system, not a
+general-purpose network firewall. Site classes govern visible website/document
+access through navigation, redirects, popups and the applicable frame policy.
+Ordinary background communication by an authorized website is not a violation
+merely because its destination is not Whitelisted. Resource filtering supplies
+additional protection within its documented coverage; it is not universal egress
+isolation or a guarantee about the provenance of everything an allowed page displays.
+
+Sensitive-account security is a separate requirement: preserve Chromium TLS,
+certificate validation, sandboxing and origin isolation; prevent web content from
+obtaining native privileges or policy authority; protect credentials and browser
+state from unintended disclosure; and reliably remove documents when Zenith
+claims they have been removed. Whitelist membership authorizes browsing, never
+trust with WPF/Core privileges. Existing transport and capability restrictions
+remain implemented; this clarification does not authorize removing them.
+
 Zenith protects the integrity of:
 
 - Site classification.
@@ -39,7 +55,7 @@ Threats include:
 ## 4. Required Mitigations
 
 - Route every navigation mechanism through common policy logic.
-- Unload external documents replaced by native Zenith surfaces. A host-initiated internal clear may admit only its exact internal target and must not become a general navigation exception.
+- Unload external documents replaced by native Zenith surfaces. A host-initiated internal clear may admit only its exact internal target and must not become a general navigation exception. Keep the recorded document until successful matching blank navigation completes or the controller is destroyed. Failed/cancelled clearing, a ten-second dispatcher deadline, or process failure during clearing destroys the affected controller and discards deferred navigation. A destroyed controller cannot be reused; a new tab initializes the existing guards normally. Failure to destroy terminates Zenith. Hiding and best-effort suspension do not establish removal.
 - Evaluate policy before allowing content to load.
 - Normalize and compare URIs structurally.
 - Persist cooldowns and Policy Changes safely. Access Grants are intentionally session-only under the current Site Policy; restarting must never recreate a consumed grant.
@@ -59,11 +75,29 @@ Stronger tamper resistance may be considered later and must be documented as a s
 
 ## 6. Current Development Boundary
 
+The follow-up connection acceptance run confirmed a denied WebSocket handshake
+reaching a loopback receiver on WebView2 152.0.4191.66 (SEC-CONN-001). Ordinary
+resource interception must not be assumed to cover WebSockets. The strict
+connection gate currently fails; `connection-coverage.md` records the measured
+scope, positive controls and untested transports. It was a release blocker under
+the earlier zero-contact interpretation. Under the clarified
+model, F01/SEC-CONN-001 is Informational: a request-filtering coverage limitation,
+not a demonstrated navigation bypass, credential leak, TLS break or host escape.
+It does not require a gateway/WFP remediation for primary-account readiness.
+The historical strict runner still fails on this criterion; its result must be
+interpreted using the current [account-security assessment](security-review.md).
+
+ADR 0016 adds HTTPS-only public navigation and intercepted resources, with a literal-loopback development exception that never grants site access. Fixed Core transport/capability rules cannot be overridden by the Vault or filter exceptions. Native request-source identity replaces active-page assumptions for shared/service-worker network requests. Legacy service workers are terminated/unregistered before tabs become ready, and new intercepted service-worker requests are denied. Tests exposed persisted-worker traffic missing a newly installed listener, which is why request interception alone is insufficient. Startup before cleanup completes, speculative connections, WebSockets, out-of-process coverage and already-established connections are not proven isolated. A failed worker cleanup closes browsing rather than retaining potentially unguarded controllers.
+
+Synthetic form/OTP and credential-bearing redirect regressions are browser-boundary tests, not real-provider MFA certification or OAuth protocol validation. Test the intended account/provider flow with disposable credentials and resolve the account-relevant findings in `security-review.md`. Independent review is recommended; its absence is not itself a vulnerability. Unrelated providers and exhaustive network-isolation tests are not account-readiness prerequisites. Do not treat this development checkpoint as approval for primary email use.
+
+The follow-up account-security checkpoint (ADR 0015) closes the WPF favicon URL-loading path: tab icons are bounded PNG bytes supplied by WebView2, never website-controlled filesystem, UNC or network addresses handed to the native image loader. The native window caption shows the normalized engine origin rather than a site-controlled title. HTML file-input dialogs are cancelled and controller file drops disabled. Core filter exceptions deny requests; native adapter metadata/response failures produce local denials or close browsing if no response can be assigned. These measures reduce attack surface but do not constitute an independent security audit.
+
 The account-security checkpoint rejects server-certificate exceptions without a bypass, clears cached certificate decisions and resets old renderer permissions before browsing. New password saving and general autofill are disabled; old saved passwords require confirmed browser-data cleanup to remove. A native identity command displays the normalized engine origin and distinguishes HTTP from HTTPS, not trustworthy from malicious sites. Cookies and website sessions may persist in WebView2's profile; Vault credential protection must not be mistaken for encryption of all browser data. SmartScreen is requested and remains subject to Windows settings. Runtime-update notifications request a restart; they do not establish update-policy health or update Zenith itself.
 
 Confirmed browsing-data cleanup disposes live tabs, clears the renderer profile through WebView2's supported API and closes Zenith. It never deletes Vault state, saved waits or Zenith bookmarks, does not revoke server-side sessions and is not secure erasure. Failure closes browsing without claiming complete deletion. The application adapters do not log request bodies, authentication headers or raw runtime exceptions. See ADR 0014 for implementation and verification scope.
 
-Document interception now bypasses service-worker responses and disables cache use per tab. Workers can still register or perform background tasks; this does not complete worker/network isolation or the existing-connection threat model. Sensitive-account readiness still requires broader integration testing and independent security review.
+Document interception bypasses service-worker responses and disables cache use per tab. The worker restrictions above supersede the earlier registration behavior, but do not establish universal network isolation, which is outside the clarified product requirement. Sensitive-account readiness depends on the targeted lifecycle, origin, host, capability and profile checks in `security-review.md`, not banning ordinary background activity.
 
 Ad-resource filtering uses a bundled maintained engine in a host-side JavaScript
 context, with no exposed CLR objects. It is not an OS process sandbox. Fixed

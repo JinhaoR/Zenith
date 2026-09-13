@@ -12,6 +12,9 @@ internal sealed class LoopbackSite : IAsyncDisposable
     private readonly CancellationTokenSource _stop = new();
     private readonly Task _run;
     internal ConcurrentQueue<string> Requests { get; } = new();
+    internal sealed record TestRequest(string Method, string Path, string Body);
+    internal ConcurrentQueue<TestRequest> Received { get; } = new();
+    internal Func<TestRequest, (int Status, string Headers, string Body)>? DetailedResponse { get; set; }
     internal Func<string, (int Status, string Headers, string Body)> Response { get; set; } =
         _ => (200, "", "<html><body>Loopback test</body></html>");
     internal string Origin { get; }
@@ -46,13 +49,30 @@ internal sealed class LoopbackSite : IAsyncDisposable
                     var parts = line.Split(' ');
                     if (parts.Length < 2) continue;
                     var size = line.Length;
+                    var contentLength = 0;
                     while (await reader.ReadLineAsync(deadline.Token) is { Length: > 0 } header)
                     {
                         size += header.Length;
                         if (size > 16384) throw new IOException("Oversized test request.");
+                        if (header.StartsWith("Content-Length:", StringComparison.OrdinalIgnoreCase))
+                        {
+                            if (!int.TryParse(header[15..].Trim(), out contentLength) || contentLength is < 0 or > 16384)
+                                throw new IOException("Oversized test body.");
+                        }
                     }
+                    // Only ASCII fixture form values are submitted in these tests.
+                    var buffer = new char[contentLength];
+                    var offset = 0;
+                    while (offset < buffer.Length)
+                    {
+                        var count = await reader.ReadAsync(buffer.AsMemory(offset), deadline.Token);
+                        if (count == 0) throw new IOException("Incomplete test body.");
+                        offset += count;
+                    }
+                    var received = new TestRequest(parts[0], parts[1], new string(buffer));
                     Requests.Enqueue(parts[1]);
-                    var response = Response(parts[1]);
+                    Received.Enqueue(received);
+                    var response = DetailedResponse?.Invoke(received) ?? Response(parts[1]);
                     var body = Encoding.UTF8.GetBytes(response.Body);
                     var headers = Encoding.ASCII.GetBytes($"HTTP/1.1 {response.Status} Test\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {body.Length}\r\nConnection: close\r\nCache-Control: no-store\r\n{response.Headers}\r\n");
                     await stream.WriteAsync(headers, deadline.Token);

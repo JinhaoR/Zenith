@@ -4,6 +4,7 @@ internal enum NavigationCompletionKind
 {
     Stale,
     InternalClear,
+    InternalClearFailed,
     External
 }
 
@@ -59,6 +60,7 @@ internal sealed class NavigationOperationTracker
     public bool TryRecordInternalClearStarting(string target, ulong navigationId)
     {
         if (_internalClearStage != InternalClearStage.Issued ||
+            _internalClearNavigationId is not null ||
             !IsBlankTarget(target))
         {
             return false;
@@ -73,13 +75,7 @@ internal sealed class NavigationOperationTracker
         ArgumentNullException.ThrowIfNull(requestedTarget);
         AbandonExternal();
 
-        if (_internalClearStage == InternalClearStage.Scheduled)
-        {
-            _internalClearStage = InternalClearStage.None;
-            return ExternalNavigationDisposition.Start;
-        }
-
-        if (_internalClearStage == InternalClearStage.Issued)
+        if (IsInternalClearPending)
         {
             _deferredExternalTarget = requestedTarget;
             return ExternalNavigationDisposition.DeferUntilInternalClearCompletes;
@@ -109,10 +105,15 @@ internal sealed class NavigationOperationTracker
         return TakeDeferredTarget();
     }
 
-    public NavigationOperationCompletion MatchCompletion(ulong navigationId)
+    public NavigationOperationCompletion MatchCompletion(ulong navigationId, bool isSuccess = true)
     {
         if (_internalClearNavigationId == navigationId)
         {
+            if (!isSuccess)
+            {
+                // Keep the clear pending until the controller has been destroyed.
+                return new NavigationOperationCompletion(NavigationCompletionKind.InternalClearFailed);
+            }
             _internalClearStage = InternalClearStage.None;
             _internalClearNavigationId = null;
             return new NavigationOperationCompletion(

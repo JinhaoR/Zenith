@@ -38,9 +38,12 @@ public sealed class WebViewNavigationTests
             {
                 try
                 {
+                    await DocumentClearingScenario.RunAsync();
+                    await Zenith.App.Tests.Settings.SettingsInteractionScenario.RunAsync();
                     await ExerciseWindowAsync();
                     await NetworkEnforcementScenario.RunAsync();
                     await SecurityHardeningScenario.RunAsync();
+                    await AuthenticationFlowScenario.RunAsync();
                     finished.TrySetResult();
                 }
                 catch (Exception exception)
@@ -56,7 +59,7 @@ public sealed class WebViewNavigationTests
         }) { IsBackground = true };
         thread.SetApartmentState(ApartmentState.STA);
         thread.Start();
-        await finished.Task.WaitAsync(TimeSpan.FromSeconds(150));
+        await finished.Task.WaitAsync(TimeSpan.FromSeconds(210));
     }
 
     private static async Task ExerciseWindowAsync()
@@ -171,8 +174,22 @@ public sealed class WebViewNavigationTests
                     $"First open produced a boundary for {boundaryTarget.Text}. {string.Join(" | ", trace)}");
                 await firstLoad;
                 Console.WriteLine("WebView regression: first page loaded");
+                var accountCookie = core.CookieManager.CreateCookie("zenith-account-test", "fixture-only", "github.com", "/");
+                accountCookie.IsHttpOnly = true;
+                accountCookie.IsSecure = true;
+                accountCookie.SameSite = CoreWebView2CookieSameSiteKind.Strict;
+                core.CookieManager.AddOrUpdateCookie(accountCookie);
+                Assert.Equal("false", await core.ExecuteScriptAsync("document.cookie.includes('zenith-account-test')"));
+                Assert.DoesNotContain(await core.CookieManager.GetCookiesAsync("https://github.com.evil.example/"),
+                    cookie => cookie.Name == "zenith-account-test");
+                core.CookieManager.DeleteCookie(accountCookie);
                 Assert.Equal(Visibility.Visible, browser.Visibility);
                 Assert.Equal(0, blankBoundaries);
+                var stableRows = ((StackPanel)window.FindName("OpenTabsPanel")).Children.OfType<Grid>().ToArray();
+                var stableButton = stableRows[0].Children.OfType<Button>().First();
+                Invoke(window, "RefreshTabStrip");
+                Assert.Same(stableButton, ((StackPanel)window.FindName("OpenTabsPanel")).Children.OfType<Grid>().First().Children.OfType<Button>().First());
+                Assert.NotNull(stableRows[0].ContextMenu);
 
                 // Same-document address changes must still update the real shell.
                 await core.ExecuteScriptAsync("history.pushState({}, '', '/navigation-test#section')");
@@ -246,6 +263,10 @@ public sealed class WebViewNavigationTests
                 await ExerciseSettingsAsync(window, browser, profile.FullName);
                 await ExerciseAccessAsync(window, browser, access, clock, profile.FullName);
                 await ExerciseVaultAsync(window, browser, accessStore, policy, access, clock, profile.FullName);
+            }
+            catch (Exception exception)
+            {
+                throw new InvalidOperationException("Synthetic navigation trace: " + string.Join(" | ", trace), exception);
             }
             finally
             {
@@ -433,7 +454,8 @@ public sealed class WebViewNavigationTests
             deniedImage.src = 'https://blocked.example/pixel'; document.body.append(deniedImage);
             """);
         await WaitUntilAsync(() => filtered.Contains("https://blocked.example/data") &&
-            filtered.Contains("https://blocked.example/frame") && filtered.Contains("https://blocked.example/pixel"));
+            filtered.Contains("https://blocked.example/pixel"));
+        // The CDP document gate may reject the frame before WebResourceRequested.
         Assert.DoesNotContain(permitted, address => new Uri(address).Host == "blocked.example");
         Assert.Equal(Visibility.Visible, browser.Visibility);
         source.Current = Zenith.Core.Filtering.HostsBlacklist.Parse("0.0.0.0 blocked.example github.com");
@@ -654,6 +676,11 @@ public sealed class WebViewNavigationTests
             Assert.Equal(1.1, browser.ZoomFactor);
             Assert.Equal(sourceBeforeSettings, browser.CoreWebView2.Source);
 
+            var pageScroll = (ScrollViewer)settings.FindName("PageScrollViewer");
+            pageScroll.ScrollToVerticalOffset(120);
+            await Dispatcher.CurrentDispatcher.InvokeAsync(() => { }, DispatcherPriority.ContextIdle);
+            var generalOffset = pageScroll.VerticalOffset;
+            Assert.True(generalOffset > 0);
             settings.SelectSection("Sphere");
             ((TextBox)settings.FindName("SiteFilter")).Text = "git";
             var matchingSites = ((ItemsControl)settings.FindName("SiteList")).Items.Cast<StarterWhitelistSite>().ToArray();
@@ -671,6 +698,8 @@ public sealed class WebViewNavigationTests
                 settings.SelectSection(section);
                 Assert.Equal(Visibility.Visible, ((FrameworkElement)settings.FindName($"{section}Page")).Visibility);
             }
+            await Dispatcher.CurrentDispatcher.InvokeAsync(() => { }, DispatcherPriority.ContextIdle);
+            Assert.Equal(generalOffset, pageScroll.VerticalOffset);
 
             if (Environment.GetEnvironmentVariable("ZENITH_SETTINGS_SCREENSHOT") is { Length: > 0 } screenshot)
             {
@@ -880,6 +909,30 @@ public sealed class WebViewNavigationTests
             settings.Show();
             settings.SelectSection("Vault");
             var panel = (VaultPanel)settings.FindName("VaultEditor");
+            var serviceFilter = (TextBox)panel.FindName("KnownSiteFilter");
+            var serviceChoices = (ComboBox)panel.FindName("KnownSite");
+            serviceFilter.Text = "Gmail";
+            Assert.Single(serviceChoices.Items.Cast<object>());
+            serviceChoices.SelectedIndex = 0;
+            Assert.Equal("mail.google.com", ((TextBox)panel.FindName("SiteHost")).Text);
+            ((CheckBox)panel.FindName("IncludeSubdomains")).IsChecked = true;
+            serviceFilter.Text = "mail";
+            Assert.True(((CheckBox)panel.FindName("IncludeSubdomains")).IsChecked);
+            serviceFilter.Text = "no-matching-service";
+            Assert.Empty(serviceChoices.Items);
+            Assert.Empty(((TextBox)panel.FindName("SiteHost")).Text);
+            serviceFilter.Clear();
+            if (Environment.GetEnvironmentVariable("ZENITH_SETTINGS_SCREENSHOT") is { Length: > 0 } editorScreenshot)
+            {
+                settings.UpdateLayout();
+                var content = (FrameworkElement)settings.Content;
+                var bitmap = new RenderTargetBitmap((int)content.ActualWidth, (int)content.ActualHeight, 96, 96, PixelFormats.Pbgra32);
+                bitmap.Render(content);
+                var encoder = new PngBitmapEncoder();
+                encoder.Frames.Add(BitmapFrame.Create(bitmap));
+                using var stream = File.Create(Path.Combine(Path.GetDirectoryName(editorScreenshot)!, "vault-editor-preview.png"));
+                encoder.Save(stream);
+            }
             Assert.False(((CheckBox)panel.FindName("IncludeSubdomains")).IsChecked);
             ((CheckBox)panel.FindName("IncludeSubdomains")).IsChecked = true;
             ((TextBox)panel.FindName("GreySeconds")).Text = "10";

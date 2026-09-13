@@ -4,14 +4,6 @@
     <UserControl.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries><ResourceDictionary Source="/Zenith.App;component/Settings/SettingsControls.xaml" /></ResourceDictionary.MergedDictionaries>
-            <Style TargetType="TextBox">
-                <Setter Property="Background" Value="{DynamicResource ZenithRaisedSurfaceBrush}" /><Setter Property="Foreground" Value="{DynamicResource ZenithTextBrush}" />
-                <Setter Property="BorderBrush" Value="{DynamicResource ZenithInteractiveBorderBrush}" /><Setter Property="CaretBrush" Value="{DynamicResource ZenithAccentBrush}" /><Setter Property="Padding" Value="12" />
-            </Style>
-            <Style TargetType="PasswordBox">
-                <Setter Property="Background" Value="{DynamicResource ZenithRaisedSurfaceBrush}" /><Setter Property="Foreground" Value="{DynamicResource ZenithTextBrush}" />
-                <Setter Property="BorderBrush" Value="{DynamicResource ZenithInteractiveBorderBrush}" /><Setter Property="CaretBrush" Value="{DynamicResource ZenithAccentBrush}" /><Setter Property="Padding" Value="12" /><Setter Property="MaxLength" Value="128" />
-            </Style>
         </ResourceDictionary>
     </UserControl.Resources>
     <StackPanel>
@@ -34,7 +26,7 @@
                 <Label Content="Current password" Target="{Binding ElementName=ConfirmPassword}" Foreground="{DynamicResource ZenithTextBrush}" Padding="0,0,0,8" />
                 <PasswordBox x:Name="ConfirmPassword" AutomationProperties.Name="Current password to confirm proposal" />
                 <WrapPanel Margin="0,16,0,0">
-                    <Button x:Name="ConfirmButton" Content="Confirm and apply" Click="Confirm_OnClick" Margin="0,0,10,10" />
+                    <Button x:Name="ConfirmButton" Style="{StaticResource PrimaryButton}" Content="Confirm and apply" Click="Confirm_OnClick" Margin="0,0,10,10" />
                     <Button x:Name="EditButton" Content="Edit proposal" Click="Edit_OnClick" Margin="0,0,10,10" />
                     <Button x:Name="CancelButton" Content="Cancel proposal" Click="Cancel_OnClick" Margin="0,0,0,10" />
                 </WrapPanel>
@@ -66,7 +58,10 @@
                 <Border Style="{StaticResource Card}"><StackPanel>
                     <TextBlock Text="Add to your Sphere" FontSize="18" FontWeight="SemiBold" />
                     <TextBlock Text="Choose the services you want. Each choice allows only that service by default. You can add several before reviewing." Style="{StaticResource Description}" Margin="0,10,0,14" />
+                    <Label Content="Find a service" Target="{Binding ElementName=KnownSiteFilter}" Foreground="{DynamicResource ZenithTextBrush}" Padding="0,0,0,8" />
+                    <TextBox x:Name="KnownSiteFilter" AutomationProperties.Name="Find a service to add" TextChanged="KnownSiteFilter_OnChanged" Margin="0,0,0,8" ToolTip="Filter the service choices by name" />
                     <ComboBox x:Name="KnownSite" DisplayMemberPath="Name" IsTextSearchEnabled="True" AutomationProperties.Name="Choose a service" SelectionChanged="KnownSite_OnChanged" />
+                    <TextBlock x:Name="AdditionFeedback" Style="{StaticResource Description}" Margin="0,8,0,0" AutomationProperties.LiveSetting="Polite" />
                     <Expander x:Name="CustomSiteExpander" Header="Add another website" Foreground="{DynamicResource ZenithMutedTextBrush}" Margin="0,12,0,0">
                         <StackPanel Margin="0,10,0,0">
                             <Label Content="Site name" Target="{Binding ElementName=SiteName}" Foreground="{DynamicResource ZenithTextBrush}" />
@@ -91,27 +86,35 @@
                     <TextBlock Text="Remove from your Sphere" FontSize="18" FontWeight="SemiBold" />
                     <TextBlock Text="Select any services to remove. A broad entry also removes its covered services; add back the ones you want to keep above. All changes apply together after confirmation." Style="{StaticResource Description}" Margin="0,10,0,14" />
                     <ListBox x:Name="RemoveSite" SelectionMode="Multiple" SelectedValuePath="Host" MaxHeight="220"
+                             ScrollViewer.CanContentScroll="False"
                              Background="{DynamicResource ZenithRaisedSurfaceBrush}" Foreground="{DynamicResource ZenithTextBrush}"
                              BorderBrush="{DynamicResource ZenithInteractiveBorderBrush}" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                              AutomationProperties.Name="Services to remove from your Sphere">
                         <ListBox.ItemTemplate><DataTemplate>
                             <CheckBox IsChecked="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}, Mode=TwoWay}"
-                                      Foreground="{DynamicResource ZenithTextBrush}" Padding="4">
+                                      Foreground="{DynamicResource ZenithTextBrush}" Padding="8" HorizontalContentAlignment="Stretch" MinHeight="40">
                                 <StackPanel><TextBlock Text="{Binding Name}" /><TextBlock Text="{Binding Scope}" FontSize="11" /></StackPanel>
                             </CheckBox>
                         </DataTemplate></ListBox.ItemTemplate>
                     </ListBox>
+                    <TextBlock x:Name="RemovalSummary" Style="{StaticResource Description}" Margin="0,10,0,0" AutomationProperties.LiveSetting="Polite" />
                     <Button x:Name="ClearRemovalButton" Content="Clear removal selection" HorizontalAlignment="Left" Margin="0,12,0,0" Click="ClearRemoval_OnClick" />
                 </StackPanel></Border>
                 <Border Style="{StaticResource Card}"><StackPanel>
                     <CheckBox x:Name="ChangePassword" Content="Change my password" Foreground="{DynamicResource ZenithTextBrush}" FontSize="18" />
+                    <StackPanel>
+                        <StackPanel.Style><Style TargetType="StackPanel">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers><DataTrigger Binding="{Binding IsChecked, ElementName=ChangePassword}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers>
+                        </Style></StackPanel.Style>
                     <TextBlock Text="Optional: enter and repeat a new password of 15–128 characters. Your old password remains active until you confirm after the wait. This is not forgotten-password recovery." Style="{StaticResource Description}" Margin="0,12,0,14" />
                     <Label Content="New password" Target="{Binding ElementName=NewPassword}" Foreground="{DynamicResource ZenithTextBrush}" Padding="0,0,0,8" />
                     <PasswordBox x:Name="NewPassword" AutomationProperties.Name="Proposed new password" />
                     <Label Content="Repeat new password" Target="{Binding ElementName=RepeatPassword}" Foreground="{DynamicResource ZenithTextBrush}" Padding="0,14,0,8" />
                     <PasswordBox x:Name="RepeatPassword" AutomationProperties.Name="Repeat proposed new password" />
+                    </StackPanel>
                 </StackPanel></Border>
-                <Button x:Name="ReviewButton" Content="Review changes" Click="Review_OnClick" HorizontalAlignment="Left" Margin="0,0,0,16" />
+                <Button x:Name="ReviewButton" Style="{StaticResource PrimaryButton}" Content="Review changes" Click="Review_OnClick" HorizontalAlignment="Left" Margin="0,0,0,16" />
                 <Border x:Name="ReviewCard" Style="{StaticResource Card}" Visibility="Collapsed"><StackPanel>
                     <TextBlock Text="Review before you begin" FontSize="18" FontWeight="SemiBold" />
                     <TextBlock x:Name="ReviewSummary" Style="{StaticResource Description}" Margin="0,12,0,14" />
@@ -121,7 +124,7 @@
                     <TextBlock Text="Staging replaces any pending proposal and starts the full current Vault wait again. Existing Greylist waits keep their recorded deadlines." Style="{StaticResource Description}" Margin="0,0,0,14" />
                     <Label Content="Current password" Target="{Binding ElementName=StagePassword}" Foreground="{DynamicResource ZenithTextBrush}" Padding="0,0,0,8" />
                     <PasswordBox x:Name="StagePassword" AutomationProperties.Name="Current password to stage proposal" />
-                    <Button x:Name="StageButton" Content="Authenticate and start wait" Click="Stage_OnClick" HorizontalAlignment="Left" Margin="0,16,0,0" />
+                    <Button x:Name="StageButton" Style="{StaticResource PrimaryButton}" Content="Authenticate and start wait" Click="Stage_OnClick" HorizontalAlignment="Left" Margin="0,16,0,0" />
                 </StackPanel></Border>
             </StackPanel>
         </StackPanel>

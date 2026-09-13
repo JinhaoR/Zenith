@@ -50,9 +50,11 @@ The immutable host index matches canonical **exact hostnames**, as a hosts file 
 
 Settings → About exposes source/category information, last-success time, count, hash and failure status without controls that weaken protection. Changes to the blocked-host set unload retained pages/frame trees and refresh Sphere discovery; comment-only changes do not interrupt browsing. Users must reopen destinations after an effective list update.
 
-The mandatory host layer remains independent of the resource-filtering layer below. A Whitelist entry never overrides mandatory host filtering. Browser caches, service workers, WebSockets and independent network-observation coverage require further hardening before claiming universal network isolation.
+The mandatory host layer remains independent of the resource-filtering layer below. A Whitelist entry never overrides mandatory host filtering where applied. Resource filtering is additional protection within its implemented coverage, not a promise of universal network isolation. Ordinary backend communication by an authorized website is not a navigation violation; see `threat-model.md` for the clarified scope.
 
 ## 7. Network and Cosmetic Filtering Checkpoint
+
+Transport restrictions precede advertisement exceptions: intercepted public HTTP/WS resources are denied even when a filter would allow them. Mandatory Blacklist matching remains authoritative. Native shared/service-worker sources are denied separately by the capability safety guard, not evaluated with the selected page's filter context. Document-scoped requests, including dedicated workers, continue through the resource engine. See ADR 0016 for worker cleanup, native regressions and remaining coverage limits.
 
 Zenith runs the pinned Ghostery engine 2.18.2 in a host-side ClearScript V8 runtime with no exposed CLR objects. The engine is bundled with the application, not downloaded at runtime or injected into websites. EasyList and EasyPrivacy are the fixed data subscriptions:
 
@@ -73,6 +75,8 @@ Only declarative hiding is enabled. Scriptlets, custom style actions, extended/p
 
 ### Updates and failure handling
 
+Core converts exceptions from the mandatory-list provider or resource engine into an unavailable/denied resource decision. The native adapter also catches metadata and response failures: it assigns a local 403, or requests controller teardown if assignment itself is unavailable. Allowed requests are not assigned a temporary response. A loopback regression injects an engine exception and verifies both the local denial and absence of a server request.
+
 The two resource lists are one atomic snapshot, independent of the mandatory hosts cache. Unmodified bundled snapshots provide initial/offline resource filtering. They do not waive the mandatory Blacklist's first-download requirement. A valid saved resource snapshot takes precedence over bundled data; a corrupt/uncompilable resource cache falls back to the bundle, without changing site policy.
 
 Updates are checked daily while running and failed updates retried hourly. Downloads use fixed HTTPS URLs with redirects disabled, a 90-second combined deadline and a 16 MiB cap per list. Validation checks headers, UTF-8, line lengths, rule counts, compiled network/cosmetic counts and unexpected shrinkage. Both lists must validate and compile before the protected cache is atomically replaced and the engine published. Failed download, compilation or persistence retains the previous snapshot. No previous protected envelope is automatically restored. Network matching failures block the affected request; a cosmetic failure leaves network and site protection active. If no engine can load, intercepted subresources fail closed.
@@ -80,6 +84,14 @@ Updates are checked daily while running and failed updates retried hourly. Downl
 New network rules apply to subsequent intercepted requests. Existing cosmetic sheets are refreshed on later DOM queries; reload pages after an update for consistent rule/exception application. Settings → About exposes the engine version, list versions, update time, compiled counts, snapshot hash, aggregate blocked count and failure status. It does not record browsing URLs or expose a policy bypass.
 
 ### Remaining limitations and maintenance
+
+Connection acceptance testing has confirmed denied WebSocket handshake contact
+on WebView2 152.0.4191.66. The Websocket resource-context branch is not sufficient
+evidence of native interception. Under the clarified product model this is an
+Informational filtering limitation, not an account-security release blocker.
+SEC-CONN-001 and the historical strict failing gate are
+documented in `connection-coverage.md`; mandatory-host enforcement must not be
+claimed across this unguarded path until it is fixed and retested.
 
 This is not full uBlock Origin equivalence. Scriptlets, anti-adblock responses, same-origin video ads, shadow DOM, inherited blank/srcdoc cosmetics, complete cache/worker/WebSocket coverage and exact initiating-frame metadata need further work. Cosmetic CSS runs in the page's renderer and can be removed or interfered with by a hostile page; it is not a security boundary. Blacklist enforcement remains native and independent.
 

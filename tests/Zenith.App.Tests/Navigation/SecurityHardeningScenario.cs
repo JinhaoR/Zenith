@@ -12,6 +12,11 @@ using Zenith.App.Navigation;
 using Zenith.App.Access;
 using Zenith.Core.Navigation;
 using Zenith.Core.Permissions;
+using System.Text.Json;
+using Zenith.Core.Filtering;
+using Zenith.App.Filtering;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
 
 namespace Zenith.App.Tests.Navigation;
 
@@ -26,7 +31,7 @@ internal static class SecurityHardeningScenario
         var savedVault = File.ReadAllBytes(vaultPath);
         await using var site = new LoopbackSite("127.0.0.1");
         site.Response = path => path == "/sw.js"
-            ? (200, "Content-Type: text/javascript\r\n", "self.addEventListener('install', e => self.skipWaiting()); self.addEventListener('activate', e => e.waitUntil(clients.claim())); self.addEventListener('fetch', e => e.respondWith(new Response('worker response')));")
+            ? (200, "Content-Type: text/javascript\r\n", "self.addEventListener('install', e => self.skipWaiting()); self.addEventListener('activate', e => e.waitUntil(clients.claim())); self.addEventListener('fetch', e => { if(!e.request.url.includes('/denied-')) e.respondWith(new Response('worker response')); }); self.onmessage=e=>e.waitUntil(fetch(e.data).then(r=>e.ports[0].postMessage(r.status)).catch(()=>e.ports[0].postMessage('failed')));")
             : (200, "", "<html><body>Session test</body></html>");
         var policy = new SitePolicyNavigationEvaluator(new FixedSitePolicySource(new SitePolicySnapshot(
             [new SitePolicyEntry("127.0.0.1", AccessClass.Whitelist)])));
@@ -38,6 +43,7 @@ internal static class SecurityHardeningScenario
         var exited = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         try
         {
+            await SeedWorkerAsync(folder.FullName, site.Origin);
             window.Show();
             await browser.EnsureCoreWebView2Async();
             var core = browser.CoreWebView2;
@@ -50,11 +56,13 @@ internal static class SecurityHardeningScenario
                 await Task.Delay(20);
             }
             Assert.False(core.Settings.AreHostObjectsAllowed);
+            Assert.False(browser.AllowExternalDrop);
             Assert.False(core.Settings.IsWebMessageEnabled);
             Assert.False(core.Settings.IsPasswordAutosaveEnabled);
             Assert.False(core.Settings.IsGeneralAutofillEnabled);
             Assert.False(core.Settings.AreDevToolsEnabled);
             Assert.True(core.Settings.IsReputationCheckingRequired);
+            await FaviconBytesAsync();
 
             await core.Profile.SetPermissionStateAsync(CoreWebView2PermissionKind.Geolocation,
                 site.Origin, CoreWebView2PermissionState.Allow);
@@ -68,16 +76,23 @@ internal static class SecurityHardeningScenario
             core.NavigationCompleted += (_, e) => { if (e.IsSuccess) loaded.TrySetResult(); };
             Request(window, site.Origin + "/session");
             await loaded.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            await core.ExecuteScriptAsync("document.title='Trusted Primary Email Login';");
+            Assert.Equal(site.Origin + " — Zenith", window.Title);
+            await FilePickerCancellationAsync(core);
+            await ResourceFailureAsync(core, site);
+            Assert.Equal("\"preserved\"", await core.ExecuteScriptAsync("localStorage.getItem('worker-cleanup-control')"));
+            Assert.Contains(await core.CookieManager.GetCookiesAsync(site.Origin), c => c.Name == "worker-cleanup-control");
             await core.ExecuteScriptAsync("localStorage.setItem('session-test','private'); document.cookie='session=test; path=/';");
             Assert.NotEmpty(await core.CookieManager.GetCookiesAsync(site.Origin));
-            await core.ExecuteScriptAsync("navigator.serviceWorker.register('/sw.js').then(() => navigator.serviceWorker.ready).then(() => window.workerReady = true);");
-            var workerReady = false;
-            for (var i = 0; i < 200; i++)
-            {
-                if (await core.ExecuteScriptAsync("window.workerReady === true") == "true") { workerReady = true; break; }
+            await core.ExecuteScriptAsync("navigator.serviceWorker.getRegistrations().then(r => window.legacyWorkers = r.length);");
+            for (var i = 0; i < 200 && await core.ExecuteScriptAsync("window.legacyWorkers") != "0"; i++)
                 await Task.Delay(20);
-            }
-            Assert.True(workerReady);
+            Assert.Equal("0", await core.ExecuteScriptAsync("window.legacyWorkers"));
+            await core.ExecuteScriptAsync("navigator.serviceWorker.register('/denied-new-sw.js').catch(() => window.registrationDenied=true);");
+            for (var i = 0; i < 200 && await core.ExecuteScriptAsync("window.registrationDenied") != "true"; i++)
+                await Task.Delay(20);
+            Assert.Equal("true", await core.ExecuteScriptAsync("window.registrationDenied"));
+            Assert.DoesNotContain("/denied-new-sw.js", site.Requests);
             await core.ExecuteScriptAsync("fetch('/worker-controlled').then(r => r.text()).then(t => window.responseText = t);");
             var bypassed = false;
             for (var i = 0; i < 200; i++)
@@ -86,6 +101,7 @@ internal static class SecurityHardeningScenario
                 await Task.Delay(20);
             }
             Assert.True(bypassed);
+            await WorkerNetworkDenialAsync(core, site);
             await window.ClearBrowsingDataAndCloseAsync();
             Assert.False(window.IsVisible);
             await exited.Task.WaitAsync(TimeSpan.FromSeconds(15));
@@ -167,6 +183,111 @@ internal static class SecurityHardeningScenario
             stop.Cancel();
             await server;
         }
+    }
+
+    private static async Task SeedWorkerAsync(string profile, string origin)
+    {
+        // Simulate an old profile: seed using an unprotected test-only controller,
+        // then fully exit that browser process before Zenith installs its guards.
+        using var browser = new WebView2 { CreationProperties = new() { UserDataFolder = profile } };
+        var host = new Window { Content = browser, Opacity = 0, ShowActivated = false, ShowInTaskbar = false };
+        var exited = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var initialized = false;
+        try
+        {
+            host.Show();
+            await browser.EnsureCoreWebView2Async();
+            initialized = true;
+            var core = browser.CoreWebView2;
+            core.Environment.BrowserProcessExited += (_, _) => exited.TrySetResult();
+            var loaded = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            core.NavigationCompleted += (_, e) => { if (e.IsSuccess) loaded.TrySetResult(); };
+            core.Navigate(origin + "/seed");
+            await loaded.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            await core.ExecuteScriptAsync("navigator.serviceWorker.register('/sw.js').then(()=>navigator.serviceWorker.ready).then(()=>window.seeded=true);");
+            for (var i = 0; i < 200 && await core.ExecuteScriptAsync("window.seeded") != "true"; i++)
+                await Task.Delay(20);
+            Assert.Equal("true", await core.ExecuteScriptAsync("window.seeded"));
+            await core.ExecuteScriptAsync("localStorage.setItem('worker-cleanup-control','preserved'); document.cookie='worker-cleanup-control=preserved; path=/; max-age=86400';");
+        }
+        finally
+        {
+            browser.Dispose();
+            host.Close();
+            if (initialized) await exited.Task.WaitAsync(TimeSpan.FromSeconds(15));
+        }
+    }
+
+    private static async Task FilePickerCancellationAsync(CoreWebView2 core)
+    {
+        foreach (var nested in new[] { false, true })
+        {
+            await core.ExecuteScriptAsync(nested
+                ? "window.pickerFrame=document.createElement('iframe'); document.body.appendChild(pickerFrame); window.pickerDoc=pickerFrame.contentDocument;"
+                : "window.pickerDoc=document;");
+            await core.ExecuteScriptAsync("window.fileInput=pickerDoc.createElement('input'); fileInput.type='file'; pickerDoc.body.appendChild(fileInput); window.pickerCancelled=false; fileInput.oncancel=()=>window.pickerCancelled=true;");
+            await core.CallDevToolsProtocolMethodAsync("Runtime.evaluate", JsonSerializer.Serialize(new
+            {
+                expression = "fileInput.click()", userGesture = true
+            }));
+            for (var i = 0; i < 100 && await core.ExecuteScriptAsync("window.pickerCancelled") != "true"; i++)
+                await Task.Delay(20);
+            Assert.Equal("true", await core.ExecuteScriptAsync("window.pickerCancelled"));
+            Assert.Equal("0", await core.ExecuteScriptAsync("fileInput.files.length"));
+        }
+    }
+
+    private static async Task FaviconBytesAsync()
+    {
+        var encoder = new PngBitmapEncoder();
+        encoder.Frames.Add(BitmapFrame.Create(BitmapSource.Create(1, 1, 96, 96, PixelFormats.Bgra32,
+            null, new byte[] { 128, 128, 128, 255 }, 4)));
+        using var data = new MemoryStream();
+        encoder.Save(data);
+        data.Position = 0;
+        var icon = await FaviconDecoder.DecodeAsync(data);
+        Assert.NotNull(icon);
+        Assert.True(icon.IsFrozen);
+    }
+
+    private static async Task WorkerNetworkDenialAsync(CoreWebView2 core, LoopbackSite site)
+    {
+        await core.ExecuteScriptAsync("""
+            const script = `onconnect=e=>{ const p=e.ports[0]; p.onmessage=m=>fetch(m.data).then(r=>p.postMessage(r.status)).catch(()=>p.postMessage('failed')); p.start(); };`;
+            window.sharedProbe=new SharedWorker(URL.createObjectURL(new Blob([script], {type:'text/javascript'})));
+            window.sharedStatus=null;
+            sharedProbe.port.onmessage=e=>window.sharedStatus=e.data;
+            sharedProbe.port.start();
+            sharedProbe.port.postMessage(location.origin+'/denied-shared-worker');
+            """);
+        for (var i = 0; i < 250; i++)
+        {
+            if (await core.ExecuteScriptAsync("sharedStatus !== null") == "true") break;
+            await Task.Delay(20);
+        }
+        Assert.Equal("403", await core.ExecuteScriptAsync("sharedStatus"));
+        Assert.DoesNotContain("/denied-shared-worker", site.Requests);
+        await core.ExecuteScriptAsync("sharedProbe.port.close();");
+    }
+
+    private sealed class BrokenFilter : IResourceFilterEngine
+    {
+        public bool Blocks(ResourceRequest request) => throw new InvalidOperationException("Injected filter failure");
+    }
+    private sealed class Source : IBlacklistSource
+    {
+        public HostsBlacklist Current { get; } = HostsBlacklist.Parse("0.0.0.0 blocked.example");
+    }
+
+    private static async Task ResourceFailureAsync(CoreWebView2 core, LoopbackSite site)
+    {
+        using var guard = new ResourceRequestGuard(core, new Source(), new BrokenFilter(),
+            () => Assert.Fail("Native response handling failed"));
+        await core.ExecuteScriptAsync("fetch('/must-not-reach-server').then(r=>window.deniedStatus=r.status);");
+        for (var i = 0; i < 100 && await core.ExecuteScriptAsync("window.deniedStatus") != "403"; i++)
+            await Task.Delay(20);
+        Assert.Equal("403", await core.ExecuteScriptAsync("window.deniedStatus"));
+        Assert.DoesNotContain("/must-not-reach-server", site.Requests);
     }
 
     private static void Request(MainWindow window, string target) => typeof(MainWindow)

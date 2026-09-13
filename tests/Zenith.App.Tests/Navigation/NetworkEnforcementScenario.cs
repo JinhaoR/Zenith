@@ -81,7 +81,7 @@ internal static class NetworkEnforcementScenario
             await Open("/start-again");
             var mandatory = blacklist.Current;
             blacklist.Current = HostsBlacklist.Parse("0.0.0.0 unrelated.zenith.test");
-            await core.ExecuteScriptAsync("fetch(" + JsonSerializer.Serialize(black.Origin + "/browser-control") + ", {mode:'no-cors'}).catch(() => {})");
+            await core.ExecuteScriptAsync("fetch(" + JsonSerializer.Serialize(black.ListenerOrigin + "/browser-control") + ", {mode:'no-cors'}).catch(() => {})");
             await WaitAsync(() => black.Requests.Contains("/browser-control"));
             blacklist.Current = mandatory;
             Request(window, allowed.Origin + "/allowed-redirect");
@@ -113,6 +113,7 @@ internal static class NetworkEnforcementScenario
             await WaitAsync(() => grey.Requests.Contains("/nested-widget"));
             await core.ExecuteScriptAsync("const b = document.createElement('iframe'); b.src = " + JsonSerializer.Serialize(black.Origin + "/denied-frame") + "; document.body.appendChild(b);");
             await Task.Delay(500);
+            await ConnectionCoverageScenario.RunAsync(core, allowed, black);
             var creation = (Task)typeof(MainWindow).GetMethod("CreateTabAsync", BindingFlags.Instance | BindingFlags.NonPublic)!
                 .Invoke(window, [new Uri(allowed.Origin + "/new-tab")])!;
             await creation;

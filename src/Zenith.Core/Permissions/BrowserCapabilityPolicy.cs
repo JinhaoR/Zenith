@@ -7,7 +7,8 @@ public enum BrowserCapability
     ExternalApplication,
     InvalidServerCertificate,
     ClientCertificate,
-    HttpAuthentication
+    HttpAuthentication,
+    FileSelection
 }
 
 public sealed record CapabilityDecision(bool Allowed, string Explanation);
@@ -24,6 +25,7 @@ public sealed class BrowserCapabilityPolicy
         BrowserCapability.InvalidServerCertificate => "The connection's certificate could not be verified. Zenith did not allow a certificate exception.",
         BrowserCapability.ClientCertificate => "Signing in with a device certificate is not enabled in Zenith.",
         BrowserCapability.HttpAuthentication => "Browser-level authentication is not enabled in Zenith. Website sign-in forms are separate.",
+        BrowserCapability.FileSelection => "File uploads are not enabled in Zenith yet. No file was shared.",
         _ => "This website capability is not permitted."
     });
 }

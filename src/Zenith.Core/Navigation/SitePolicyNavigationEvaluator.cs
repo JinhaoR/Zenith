@@ -39,11 +39,15 @@ public sealed class SitePolicyNavigationEvaluator : INavigationPolicyEvaluator
             return new NavigationDecision.Denied(NavigationDenialReason.PolicyUnavailable);
         }
 
-        return policy.Classify(target.Site) switch
+        var classification = policy.Classify(target.Site);
+        if (classification == AccessClass.Blacklist)
+            return new NavigationDecision.Denied(NavigationDenialReason.Blacklisted);
+        if (!TransportSecurityPolicy.Allows(target.Target.AbsoluteUri))
+            return new NavigationDecision.Denied(NavigationDenialReason.InsecureTransport);
+
+        return classification switch
         {
             AccessClass.Whitelist => new NavigationDecision.Allowed(target.Target, AccessClass.Whitelist),
-            AccessClass.Blacklist =>
-                new NavigationDecision.Denied(NavigationDenialReason.Blacklisted),
             AccessClass.Greylist => EvaluateGrant(target),
             _ => new NavigationDecision.Denied(NavigationDenialReason.PolicyUnavailable)
         };

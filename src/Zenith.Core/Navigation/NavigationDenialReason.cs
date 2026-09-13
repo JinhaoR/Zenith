@@ -5,5 +5,6 @@ public enum NavigationDenialReason
     PolicyUnavailable,
     UnsupportedTarget,
     Greylisted,
-    Blacklisted
+    Blacklisted,
+    InsecureTransport
 }
