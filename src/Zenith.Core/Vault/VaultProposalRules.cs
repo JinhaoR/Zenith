@@ -9,6 +9,10 @@ internal static class VaultProposalRules
     public static VaultEdit Normalize(VaultState state, VaultEdit edit)
     {
         ArgumentNullException.ThrowIfNull(edit);
+        if (edit.ChangePassword && edit.DisablePassword)
+            throw new ArgumentException("Choose either password protection or cooldown-only access.");
+        if (edit.DisablePassword && !state.PasswordRequired)
+            throw new ArgumentException("Password protection is already off.");
         var settings = ApplySettings(state.Settings, edit);
         settings.Validate();
 
@@ -82,7 +86,7 @@ internal static class VaultProposalRules
             }
         }
 
-        if (host is null && removeHost is null && settings == state.Settings && !edit.ChangePassword)
+        if (host is null && removeHost is null && settings == state.Settings && !edit.ChangePassword && !edit.DisablePassword)
         {
             throw new ArgumentException("Choose at least one change before creating a proposal.");
         }
@@ -133,7 +137,7 @@ internal static class VaultProposalRules
             working = working with { Sites = ApplySites(working, new(AddSites: [item], RemoveSites: [])) };
         }
         if (working.Sites.ToHashSet().SetEquals(state.Sites) &&
-            ApplySettings(state.Settings, edit) == state.Settings && !edit.ChangePassword)
+            ApplySettings(state.Settings, edit) == state.Settings && !edit.ChangePassword && !edit.DisablePassword)
             throw new ArgumentException("Choose at least one change before creating a proposal.");
         // Copy the caller's collections so edits after review cannot change the proposal.
         return edit with { AddSites = additions.AsReadOnly(), RemoveSites = removals.AsReadOnly() };

@@ -1,0 +1,341 @@
+[
+  {
+    "name": "startup",
+    "value": {
+      "runtime": "152.0.4191.66",
+      "milliseconds": 376,
+      "mode": "baseline",
+      "extension": "none"
+    }
+  },
+  {
+    "name": "memory-initial",
+    "value": {
+      "processCount": 5,
+      "workingBytes": 227258368,
+      "privateBytes": 87732224
+    }
+  },
+  {
+    "name": "extensions-before",
+    "value": [
+      {
+        "Id": "dgiklkfkllikcanfonkcabmbdfmgleag",
+        "Name": "Microsoft Clipboard Extension",
+        "IsEnabled": true
+      },
+      {
+        "Id": "mhjfbmdgcfjbbpaeojofohoefgiehjai",
+        "Name": "Microsoft Edge PDF Viewer",
+        "IsEnabled": true
+      }
+    ]
+  },
+  {
+    "name": "fixture-navigation",
+    "value": {
+      "success": true,
+      "error": "Unknown",
+      "milliseconds": 1579,
+      "scheme": "http",
+      "dom": {
+        "bodyCharacters": 48,
+        "navigation": [
+          {
+            "domContentLoaded": 749.9000000022352,
+            "load": 1059.5
+          }
+        ],
+        "ready": "complete",
+        "resources": 7,
+        "title": "Zenith extension fixture"
+      }
+    }
+  },
+  {
+    "name": "fixture-dom",
+    "value": {
+      "control": "block",
+      "custom": "block",
+      "customScriptlet": null,
+      "generic": "block",
+      "scriptlet": "boolean",
+      "specific": "inline"
+    }
+  },
+  {
+    "name": "fixture-server",
+    "value": [
+      "/page",
+      "/bnf1.js",
+      "/xpopup/xpopup.js",
+      "/analytics/rakuten.js",
+      "/custom-block-1",
+      "/custom-block-2",
+      "/bnf2.png",
+      "/control.png",
+      "/favicon.ico"
+    ]
+  },
+  {
+    "name": "memory-fixture",
+    "value": {
+      "processCount": 5,
+      "workingBytes": 309858304,
+      "privateBytes": 157007872
+    }
+  },
+  {
+    "name": "public-site",
+    "value": {
+      "url": "https://en.wikipedia.org/wiki/Web_browser",
+      "result": {
+        "success": true,
+        "error": "Unknown",
+        "milliseconds": 968,
+        "scheme": "https",
+        "dom": {
+          "bodyCharacters": 20441,
+          "navigation": [
+            {
+              "domContentLoaded": 318.69999999925494,
+              "load": 457.19999999925494
+            }
+          ],
+          "ready": "complete",
+          "resources": 38,
+          "title": "Web browser - Wikipedia"
+        }
+      }
+    }
+  },
+  {
+    "name": "public-memory",
+    "value": {
+      "host": "en.wikipedia.org",
+      "memory": {
+        "processCount": 5,
+        "workingBytes": 393945088,
+        "privateBytes": 237244416
+      }
+    }
+  },
+  {
+    "name": "public-site",
+    "value": {
+      "url": "https://github.com/",
+      "result": {
+        "success": true,
+        "error": "Unknown",
+        "milliseconds": 1130,
+        "scheme": "https",
+        "dom": {
+          "bodyCharacters": 5911,
+          "navigation": [
+            {
+              "domContentLoaded": 493.19999999925494,
+              "load": 496.19999999925494
+            }
+          ],
+          "ready": "complete",
+          "resources": 147,
+          "title": "GitHub \u00B7 Change is constant. GitHub keeps you ahead. \u00B7 GitHub"
+        }
+      }
+    }
+  },
+  {
+    "name": "public-memory",
+    "value": {
+      "host": "github.com",
+      "memory": {
+        "processCount": 5,
+        "workingBytes": 535408640,
+        "privateBytes": 520085504
+      }
+    }
+  },
+  {
+    "name": "public-site",
+    "value": {
+      "url": "https://mail.google.com/",
+      "result": {
+        "success": true,
+        "error": "Unknown",
+        "milliseconds": 1571,
+        "scheme": "https",
+        "dom": {
+          "bodyCharacters": 218,
+          "navigation": [
+            {
+              "domContentLoaded": 757.6999999992549,
+              "load": 1061.800000000745
+            }
+          ],
+          "ready": "complete",
+          "resources": 20,
+          "title": "Gmail"
+        }
+      }
+    }
+  },
+  {
+    "name": "public-memory",
+    "value": {
+      "host": "mail.google.com",
+      "memory": {
+        "processCount": 8,
+        "workingBytes": 609247232,
+        "privateBytes": 570171392
+      }
+    }
+  },
+  {
+    "name": "public-site",
+    "value": {
+      "url": "https://www.youtube.com/",
+      "result": {
+        "success": true,
+        "error": "Unknown",
+        "milliseconds": 1411,
+        "scheme": "https",
+        "dom": {
+          "bodyCharacters": 0,
+          "navigation": [
+            {
+              "domContentLoaded": 0,
+              "load": 0
+            }
+          ],
+          "ready": "loading",
+          "resources": 23,
+          "title": "YouTube"
+        }
+      }
+    }
+  },
+  {
+    "name": "public-memory",
+    "value": {
+      "host": "www.youtube.com",
+      "memory": {
+        "processCount": 8,
+        "workingBytes": 787767296,
+        "privateBytes": 759750656
+      }
+    }
+  },
+  {
+    "name": "public-site",
+    "value": {
+      "url": "https://www.reddit.com/",
+      "result": {
+        "success": false,
+        "error": "ConnectionAborted",
+        "milliseconds": 544,
+        "scheme": "https",
+        "dom": {
+          "bodyCharacters": 196,
+          "navigation": [
+            {
+              "domContentLoaded": 41.80000000074506,
+              "load": 43.100000001490116
+            }
+          ],
+          "ready": "complete",
+          "resources": 0,
+          "title": "www.reddit.com"
+        }
+      }
+    }
+  },
+  {
+    "name": "public-memory",
+    "value": {
+      "host": "www.reddit.com",
+      "memory": {
+        "processCount": 8,
+        "workingBytes": 540430336,
+        "privateBytes": 482799616
+      }
+    }
+  },
+  {
+    "name": "public-site",
+    "value": {
+      "url": "https://www.speedtest.net/",
+      "result": {
+        "success": true,
+        "error": "Unknown",
+        "milliseconds": 1299,
+        "scheme": "https",
+        "dom": {
+          "bodyCharacters": 2383,
+          "navigation": [
+            {
+              "domContentLoaded": 786.7999999970198,
+              "load": 793
+            }
+          ],
+          "ready": "complete",
+          "resources": 34,
+          "title": "Speedtest by Ookla - The Global Broadband Speed Test"
+        }
+      }
+    }
+  },
+  {
+    "name": "public-memory",
+    "value": {
+      "host": "www.speedtest.net",
+      "memory": {
+        "processCount": 8,
+        "workingBytes": 696041472,
+        "privateBytes": 612790272
+      }
+    }
+  },
+  {
+    "name": "public-site",
+    "value": {
+      "url": "https://www.cnn.com/",
+      "result": {
+        "success": true,
+        "error": "Unknown",
+        "milliseconds": 1888,
+        "scheme": "https",
+        "dom": {
+          "bodyCharacters": 8805,
+          "navigation": [
+            {
+              "domContentLoaded": 665.1999999992549,
+              "load": 1371.5
+            }
+          ],
+          "ready": "complete",
+          "resources": 96,
+          "title": "Breaking News, Latest News and Videos | CNN"
+        }
+      }
+    }
+  },
+  {
+    "name": "public-memory",
+    "value": {
+      "host": "www.cnn.com",
+      "memory": {
+        "processCount": 9,
+        "workingBytes": 899960832,
+        "privateBytes": 753205248
+      }
+    }
+  },
+  {
+    "name": "memory-final",
+    "value": {
+      "processCount": 9,
+      "workingBytes": 893353984,
+      "privateBytes": 748027904
+    }
+  }
+]

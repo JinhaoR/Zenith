@@ -1,0 +1,273 @@
+[
+    {
+        "test":  "candidate",
+        "observed":  {
+                         "runtime":  "152.0.4191.66",
+                         "sdk":  "1.0.4129.50",
+                         "flags":  "--no-proxy-server --host-resolver-rules=\"MAP blocked.zenith.test 127.0.0.4\" --use-fake-device-for-media-stream",
+                         "webMessages":  true,
+                         "hostObjects":  false
+                     }
+    },
+    {
+        "test":  "address-denial",
+        "observed":  {
+                         "target":  "http://127.0.0.3:60363",
+                         "decision":  "Denied",
+                         "source":  "about:blank"
+                     }
+    },
+    {
+        "test":  "script-denial",
+        "observed":  {
+                         "target":  "http://127.0.0.3:60363",
+                         "source":  "about:blank"
+                     }
+    },
+    {
+        "test":  "popup-denial",
+        "observed":  {
+                         "target":  "http://127.0.0.3:60363",
+                         "before":  1,
+                         "after":  1,
+                         "source":  "about:blank"
+                     }
+    },
+    {
+        "test":  "address-denial",
+        "observed":  {
+                         "target":  "http://blocked.zenith.test:60364",
+                         "decision":  "Denied",
+                         "source":  "about:blank"
+                     }
+    },
+    {
+        "test":  "script-denial",
+        "observed":  {
+                         "target":  "http://blocked.zenith.test:60364",
+                         "source":  "about:blank"
+                     }
+    },
+    {
+        "test":  "popup-denial",
+        "observed":  {
+                         "target":  "http://blocked.zenith.test:60364",
+                         "before":  1,
+                         "after":  1,
+                         "source":  "about:blank"
+                     }
+    },
+    {
+        "test":  "address-denial",
+        "observed":  {
+                         "target":  "http://127.0.0.5:60365",
+                         "decision":  "Denied",
+                         "source":  "about:blank"
+                     }
+    },
+    {
+        "test":  "script-denial",
+        "observed":  {
+                         "target":  "http://127.0.0.5:60365",
+                         "source":  "about:blank"
+                     }
+    },
+    {
+        "test":  "popup-denial",
+        "observed":  {
+                         "target":  "http://127.0.0.5:60365",
+                         "before":  1,
+                         "after":  1,
+                         "source":  "about:blank"
+                     }
+    },
+    {
+        "test":  "credential-redirect",
+        "observed":  {
+                         "status":  302,
+                         "source":  "about:blank",
+                         "submitted":  true,
+                         "leaked":  false
+                     }
+    },
+    {
+        "test":  "credential-redirect",
+        "observed":  {
+                         "status":  303,
+                         "source":  "about:blank",
+                         "submitted":  true,
+                         "leaked":  false
+                     }
+    },
+    {
+        "test":  "credential-redirect",
+        "observed":  {
+                         "status":  307,
+                         "source":  "about:blank",
+                         "submitted":  true,
+                         "leaked":  false
+                     }
+    },
+    {
+        "test":  "credential-redirect",
+        "observed":  {
+                         "status":  308,
+                         "source":  "about:blank",
+                         "submitted":  true,
+                         "leaked":  false
+                     }
+    },
+    {
+        "test":  "frame-processes",
+        "observed":  [
+                         {
+                             "pid":  20676,
+                             "Source":  "http://127.0.0.2:60362/child",
+                             "FrameId":  2,
+                             "parent":  1
+                         },
+                         {
+                             "pid":  10440,
+                             "Source":  "http://127.0.0.1:60361/frames",
+                             "FrameId":  1,
+                             "parent":  null
+                         }
+                     ]
+    },
+    {
+        "test":  "frame-document",
+        "observed":  {
+                         "context":  "root",
+                         "url":  "http://127.0.0.3:60363/nested-root",
+                         "decision":  "Denied",
+                         "reachedServer":  false,
+                         "executed":  false,
+                         "frames":  [
+
+                                    ]
+                     }
+    },
+    {
+        "test":  "frame-document",
+        "observed":  {
+                         "context":  "oopif",
+                         "url":  "http://127.0.0.3:60363/nested-oopif",
+                         "decision":  "Denied",
+                         "reachedServer":  true,
+                         "executed":  false,
+                         "frames":  [
+
+                                    ]
+                     }
+    },
+    {
+        "test":  "frame-document",
+        "observed":  {
+                         "context":  "root",
+                         "url":  "http://blocked.zenith.test:60364/nested-root",
+                         "decision":  "Denied",
+                         "reachedServer":  false,
+                         "executed":  false,
+                         "frames":  [
+
+                                    ]
+                     }
+    },
+    {
+        "test":  "frame-document",
+        "observed":  {
+                         "context":  "oopif",
+                         "url":  "http://blocked.zenith.test:60364/nested-oopif",
+                         "decision":  "Denied",
+                         "reachedServer":  false,
+                         "executed":  false,
+                         "frames":  [
+
+                                    ]
+                     }
+    },
+    {
+        "test":  "frame-document",
+        "observed":  {
+                         "context":  "root",
+                         "url":  "http://127.0.0.5:60365/nested-root",
+                         "decision":  "Allowed",
+                         "reachedServer":  true,
+                         "executed":  true,
+                         "frames":  [
+                                        "http://127.0.0.5:60365/nested-root"
+                                    ]
+                     }
+    },
+    {
+        "test":  "frame-document",
+        "observed":  {
+                         "context":  "oopif",
+                         "url":  "http://127.0.0.5:60365/nested-oopif",
+                         "decision":  "Allowed",
+                         "reachedServer":  true,
+                         "executed":  true,
+                         "frames":  [
+                                        "http://127.0.0.5:60365/nested-root",
+                                        "http://127.0.0.5:60365/nested-oopif"
+                                    ]
+                     }
+    },
+    {
+        "test":  "oopif-credential-redirect",
+        "observed":  {
+                         "status":  302,
+                         "submitted":  true,
+                         "receivedByDenied":  [
+                                                  {
+                                                      "Method":  "GET",
+                                                      "Path":  "/credential-sink",
+                                                      "Body":  ""
+                                                  }
+                                              ]
+                     }
+    },
+    {
+        "test":  "oopif-credential-redirect",
+        "observed":  {
+                         "status":  303,
+                         "submitted":  true,
+                         "receivedByDenied":  [
+                                                  {
+                                                      "Method":  "GET",
+                                                      "Path":  "/credential-sink",
+                                                      "Body":  ""
+                                                  }
+                                              ]
+                     }
+    },
+    {
+        "test":  "oopif-credential-redirect",
+        "observed":  {
+                         "status":  307,
+                         "submitted":  true,
+                         "receivedByDenied":  [
+
+                                              ]
+                     }
+    },
+    {
+        "test":  "oopif-credential-redirect",
+        "observed":  {
+                         "status":  308,
+                         "submitted":  true,
+                         "receivedByDenied":  [
+
+                                              ]
+                     }
+    },
+    {
+        "test":  "oopif-popup",
+        "observed":  {
+                         "before":  1,
+                         "after":  1,
+                         "source":  "about:blank",
+                         "reached":  false
+                     }
+    }
+]

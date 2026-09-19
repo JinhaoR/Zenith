@@ -56,6 +56,11 @@ public partial class App : Application
         ApplyAccessibilityPalette();
 
         _accessStore = new ProtectedAccessStore();
+        if (_accessStore.ConfigurationState == AccessConfigurationState.NeedsSetup)
+        {
+            try { _accessStore.InitializeWithoutPassword(DateTimeOffset.UtcNow); }
+            catch (Exception) { /* Unavailable initialized storage keeps browsing closed. */ }
+        }
         _listHttp = new System.Net.Http.HttpClient(new System.Net.Http.HttpClientHandler { AllowAutoRedirect = false })
         { Timeout = TimeSpan.FromSeconds(45) };
         _blacklist = new Zenith.App.Filtering.BlacklistUpdater(

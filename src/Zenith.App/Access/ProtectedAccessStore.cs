@@ -18,6 +18,7 @@ public sealed class ProtectedAccessStore : IVaultStore, IDisposable
     private bool _disposed;
     private bool _observedInitialization;
     public object SyncRoot => _gate;
+    public bool PasswordRequired { get { lock (_gate) { return ReadEnvelope().Vault!.PasswordRequired; } } }
 
     public ProtectedAccessStore(string? directory = null)
     {
@@ -59,21 +60,25 @@ public sealed class ProtectedAccessStore : IVaultStore, IDisposable
         }
     }
 
-    public void Initialize(string password, DateTimeOffset now)
+    public void Initialize(string password, DateTimeOffset now) => InitializeState(password, now);
+
+    public void InitializeWithoutPassword(DateTimeOffset now) => InitializeState(null, now);
+
+    private void InitializeState(string? password, DateTimeOffset now)
     {
         lock (_gate)
         {
             EnsureLease();
-            if (ConfigurationState != AccessConfigurationState.NeedsSetup || password.Length is < 15 or > 128)
+            if (ConfigurationState != AccessConfigurationState.NeedsSetup || (password is not null && password.Length is < 15 or > 128))
             {
                 throw new InvalidOperationException("Access cannot be initialized.");
             }
             var salt = RandomNumberGenerator.GetBytes(32);
-            var verifier = Rfc2898DeriveBytes.Pbkdf2(password, salt, Iterations, HashAlgorithmName.SHA256, 32);
+            var verifier = password is null ? new byte[32] : Rfc2898DeriveBytes.Pbkdf2(password, salt, Iterations, HashAlgorithmName.SHA256, 32);
             try
             {
-                var envelope = new Envelope(4, Iterations, salt, verifier,
-                    new(now, DateTimeOffset.MinValue, []), VaultState.CreateDevelopment(now));
+                var envelope = new Envelope(5, Iterations, salt, verifier,
+                    new(now, DateTimeOffset.MinValue, []), VaultState.CreateDevelopment(now) with { PasswordRequired = password is not null });
                 // A failed initial write leaves a marker and requires recovery; it must
                 // never silently offer fresh credential setup over missing state.
                 using (var marker = new FileStream(_markerPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
@@ -93,7 +98,7 @@ public sealed class ProtectedAccessStore : IVaultStore, IDisposable
         lock (_gate)
         {
             var envelope = ReadEnvelope();
-            if (password.Length is < 1 or > 128)
+            if (!envelope.Vault!.PasswordRequired || password.Length is < 1 or > 128)
             {
                 return false;
             }
@@ -148,6 +153,7 @@ public sealed class ProtectedAccessStore : IVaultStore, IDisposable
                 }
                 finally { CryptographicOperations.ZeroMemory(bytes); }
             }
+            if (!state.PasswordRequired) envelope = envelope with { Verifier = new byte[32] };
             WriteEnvelope(envelope, overwrite: true);
         }
     }
@@ -169,11 +175,12 @@ public sealed class ProtectedAccessStore : IVaultStore, IDisposable
         {
             using var document = JsonDocument.Parse(plaintext);
             var storedVersion = document.RootElement.GetProperty("Version").GetInt32();
-            if (storedVersion is 2 or 3 or 4)
+            if (storedVersion is 2 or 3 or 4 or 5)
             {
                 // Missing current-schema fields must not acquire constructor defaults,
                 // especially a shorter wait or a longer grant lifetime.
                 var vault = document.RootElement.GetProperty("Vault");
+                if (storedVersion == 5) _ = vault.GetProperty("PasswordRequired").GetBoolean();
                 foreach (var field in new[] { "Revision", "Settings", "Sites", "LastObservedUtc", "RetryAfter", "Pending" })
                     _ = vault.GetProperty(field);
                 foreach (var field in new[] { "GreylistSeconds", "GrantSeconds", "VaultSeconds" })
@@ -190,9 +197,10 @@ public sealed class ProtectedAccessStore : IVaultStore, IDisposable
                         _ = pending.GetProperty("Edit").GetProperty(field);
                     if (storedVersion >= 3)
                         _ = pending.GetProperty("Edit").GetProperty("RemoveHost");
-                    if (storedVersion == 4)
+                    if (storedVersion >= 4)
                     {
                         var edit = pending.GetProperty("Edit");
+                        if (storedVersion == 5) _ = edit.GetProperty("DisablePassword").GetBoolean();
                         var additions = edit.GetProperty("AddSites");
                         _ = edit.GetProperty("RemoveSites");
                         if (additions.ValueKind != JsonValueKind.Null)
@@ -212,7 +220,7 @@ public sealed class ProtectedAccessStore : IVaultStore, IDisposable
                 }
             }
             var envelope = JsonSerializer.Deserialize<Envelope>(plaintext);
-            if (envelope is not { Version: 1 or 2 or 3 or 4, Iterations: Iterations, Salt.Length: 32, Verifier.Length: 32, State: not null })
+            if (envelope is not { Version: 1 or 2 or 3 or 4 or 5, Iterations: Iterations, Salt.Length: 32, Verifier.Length: 32, State: not null })
             {
                 throw new InvalidDataException("Invalid access envelope.");
             }
@@ -224,9 +232,13 @@ public sealed class ProtectedAccessStore : IVaultStore, IDisposable
             envelope.Vault.Validate();
             if (envelope.Vault.Pending?.PasswordVerifier is { } pendingVerifier && Convert.FromBase64String(pendingVerifier).Length != 64)
                 throw new InvalidDataException("Invalid pending verifier.");
-            if (storedVersion < 4)
+            if (storedVersion < 5)
             {
-                envelope = envelope with { Version = 4 };
+                // Explicit product migration: keep policy, proposal IDs and captured
+                // waits, but turn off mandatory passwords for existing profiles too.
+                envelope = envelope with { Version = 5, Verifier = new byte[32],
+                    State = envelope.State with { RetryAfter = DateTimeOffset.MinValue },
+                    Vault = envelope.Vault with { PasswordRequired = false, RetryAfter = DateTimeOffset.MinValue } };
                 WriteEnvelope(envelope, overwrite: true);
             }
             return envelope;

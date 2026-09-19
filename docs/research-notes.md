@@ -59,6 +59,16 @@ results establish only the tested HTTP paths, not universal network isolation.
 - How will authenticity, integrity and version rollback be handled?
 - How should conflicting local and external classifications be represented?
 
+## 2026-09-14 — uBO Lite extension experiment
+
+The isolated [WebView2 assessment](ubolite-webview2-experiment.md) records native
+tests of current official Edge/Chromium uBO Lite packages, filtering, settings,
+persistence, a package upgrade, guard coexistence and public-site measurements.
+Packaged filtering works; some custom features and production lifecycle questions
+remain unresolved. An optional pilot is recommended, not an adopted architecture.
+Production policy and filtering specifications remain unchanged. See the report's
+adoption gates before proposing a production integration or ADR.
+
 ## Note Template
 
 ```markdown

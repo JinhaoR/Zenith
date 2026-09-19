@@ -275,6 +275,10 @@ public partial class MainWindow : Window
             new Zenith.Core.Permissions.BrowserCapabilityPolicy(), message =>
             {
                 if (!_isClosing && tab == _activeTab) ShowNotice(message);
+            }, () =>
+            {
+                tab.IsReady = false;
+                if (!_isClosing) Dispatcher.BeginInvoke(Close);
             });
         await tab.CapabilityGuard.InitializeAsync(_adblock is not null);
         if (_isClosing || !_tabs.Contains(tab)) return;
@@ -1019,7 +1023,7 @@ public partial class MainWindow : Window
                          "Zenith does not open unencrypted public websites. Try the site's HTTPS address. Temporary access and Vault changes cannot bypass this protection."),
                     NavigationDenialReason.Greylisted =>
                         ("This destination isn’t in your Sphere",
-                         "This destination is outside your Sphere. You can request a temporary visit after a waiting period and two password challenges."),
+                         "This destination is outside your Sphere. You can request a temporary visit after a waiting period and confirmation."),
                     NavigationDenialReason.Blacklisted =>
                         ("This destination is unavailable",
                          "This destination is Blacklisted and cannot be opened while that policy remains active."),

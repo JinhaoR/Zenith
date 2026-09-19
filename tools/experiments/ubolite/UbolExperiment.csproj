@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <!-- Existing friend access, without production changes. Not in Zenith.slnx. -->
+    <AssemblyName>Zenith.App.Tests</AssemblyName>
+    <StartupObject>UbolExperiment</StartupObject>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../../src/Zenith.App/Zenith.App.csproj" />
+    <Compile Include="../../../tests/Zenith.App.Tests/Navigation/LoopbackSite.cs" Link="LoopbackSite.cs" />
+    <Using Include="System.IO" />
+  </ItemGroup>
+</Project>

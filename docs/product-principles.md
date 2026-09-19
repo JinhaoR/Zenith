@@ -49,14 +49,14 @@ This makes the Greylist the default state for an unknown site.
 Accessing a Greylisted site requires a time-separated sequence:
 
 1. Request access.
-2. Complete the first password challenge.
+2. Explicitly start the request (authenticate only if password protection is enabled).
 3. Wait for the configured cooldown.
-4. Complete the second password challenge.
+4. Confirm the visit (authenticate again only if password protection is enabled).
 5. Receive a limited access grant.
 
 The purpose of this sequence is to distinguish persistent intention from momentary impulse.
 
-The first password makes the request explicit. The cooldown creates distance from the original impulse. The second password requires the user to confirm that the intention remains.
+The request makes the intention explicit. The cooldown creates distance from the original impulse. Confirmation establishes that the intention remains. Password protection is optional and off by default; cooldowns remain the basic friction.
 
 Completing this procedure does not add the site to the Whitelist. It grants only the limited exception defined by the site policy. 
 
@@ -78,11 +78,11 @@ The Vault is deliberately separated from ordinary browsing. A website, blocked p
 
 Vault changes must not take effect immediately. An access-affecting change follows a staged process:
 
-1. The user authenticates and proposes the exact change.
+1. The user proposes the exact change, authenticating if password protection is enabled.
 2. Zenith records the change as pending.
 3. A long cooldown—potentially several days—begins.
 4. The existing policy remains active throughout the cooldown.
-5. After the cooldown, the user must return to the Vault, authenticate again and confirm the pending change.
+5. After the cooldown, the user must return to the Vault and confirm the pending change, authenticating again if password protection is enabled.
 6. Only then does the new policy take effect.
 
 If the change is altered, the waiting period begins again. An unconfirmed change never takes effect.

@@ -1,0 +1,112 @@
+[
+  {
+    "name": "startup",
+    "value": {
+      "runtime": "152.0.4191.66",
+      "milliseconds": 364,
+      "mode": "measure",
+      "extension": "build/ubolite-experiment/edge"
+    }
+  },
+  {
+    "name": "memory-initial",
+    "value": {
+      "processCount": 5,
+      "workingBytes": 253140992,
+      "privateBytes": 87437312
+    }
+  },
+  {
+    "name": "extensions-before",
+    "value": [
+      {
+        "Id": "dgiklkfkllikcanfonkcabmbdfmgleag",
+        "Name": "Microsoft Clipboard Extension",
+        "IsEnabled": true
+      },
+      {
+        "Id": "mhjfbmdgcfjbbpaeojofohoefgiehjai",
+        "Name": "Microsoft Edge PDF Viewer",
+        "IsEnabled": true
+      }
+    ]
+  },
+  {
+    "name": "installed",
+    "value": {
+      "Id": "nnmkioolanpfhcjajnnnojialjelbpoc",
+      "Name": "uBlock Origin Lite",
+      "IsEnabled": true,
+      "milliseconds": 432
+    }
+  },
+  {
+    "name": "fixture-navigation",
+    "value": {
+      "success": true,
+      "error": "Unknown",
+      "milliseconds": 1148,
+      "scheme": "http",
+      "dom": {
+        "bodyCharacters": 48,
+        "navigation": [
+          {
+            "domContentLoaded": 629.0999999940395,
+            "load": 629.5
+          }
+        ],
+        "ready": "complete",
+        "resources": 9,
+        "title": "Zenith extension fixture"
+      }
+    }
+  },
+  {
+    "name": "fixture-dom",
+    "value": {
+      "control": "block",
+      "custom": "block",
+      "customScriptlet": null,
+      "generic": "block",
+      "scriptlet": "boolean",
+      "specific": "inline"
+    }
+  },
+  {
+    "name": "fixture-server",
+    "value": [
+      "/page",
+      "/bnf1.js",
+      "/bnf3.js",
+      "/custom-block-1",
+      "/custom-block-2",
+      "/bnf2.png",
+      "/control.png",
+      "/favicon.ico"
+    ]
+  },
+  {
+    "name": "memory-fixture",
+    "value": {
+      "processCount": 6,
+      "workingBytes": 448495616,
+      "privateBytes": 246886400
+    }
+  },
+  {
+    "name": "memory-idle-stock",
+    "value": {
+      "processCount": 5,
+      "workingBytes": 368844800,
+      "privateBytes": 187359232
+    }
+  },
+  {
+    "name": "memory-final",
+    "value": {
+      "processCount": 5,
+      "workingBytes": 368844800,
+      "privateBytes": 187359232
+    }
+  }
+]

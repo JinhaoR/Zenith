@@ -35,6 +35,18 @@ public sealed class GreylistAccessService : IAccessGrantSource
 
     public AccessConfigurationState ConfigurationState => _authenticator.ConfigurationState;
 
+    public bool PasswordRequired
+    {
+        get
+        {
+            lock (_gate)
+            {
+                try { return _authenticator.PasswordRequired; }
+                catch (Exception) { return true; }
+            }
+        }
+    }
+
     public AccessTiming? Timing
     {
         get
@@ -125,7 +137,9 @@ public sealed class GreylistAccessService : IAccessGrantSource
         }
     }
 
-    public AccessSubmission SubmitPassword(string target, string password)
+    public AccessSubmission SubmitPassword(string target, string password) => SubmitRequest(target, password);
+
+    public AccessSubmission SubmitRequest(string target, string password = "")
     {
         lock (_gate)
         {
@@ -150,7 +164,7 @@ public sealed class GreylistAccessService : IAccessGrantSource
 
             try
             {
-                var verified = _authenticator.Verify(password);
+                var verified = !_authenticator.PasswordRequired || _authenticator.Verify(password);
                 // Authentication may take time; recheck policy, clock and persisted state
                 // before committing a transition or issuing authorization.
                 if (!TryGetGreylistedTarget(target, out normalized) ||

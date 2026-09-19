@@ -10,6 +10,77 @@ public sealed class VaultServiceTests
     private const string Replacement = "the replacement password";
 
     [Fact]
+    public void CooldownOnlyAccessPersistsWaitAndRequiresExplicitConfirmation()
+    {
+        var f = new Fixture();
+        f.Store.Vault = f.Store.Vault with { PasswordRequired = false };
+        var access = new GreylistAccessService(f.Service, f.Store, f.Store, f.Clock);
+        const string target = "https://outside.example/";
+        Assert.False(access.PasswordRequired);
+        Assert.Equal(AccessPhase.Cooldown, access.SubmitRequest(target).Status.Phase);
+        Assert.Equal(AccessSubmissionResult.NotReady, access.SubmitRequest(target).Result);
+        f.Clock.Advance(4);
+        access = new GreylistAccessService(f.Service, f.Store, f.Store, f.Clock);
+        Assert.Equal(AccessPhase.Cooldown, access.GetStatus(target).Phase);
+        f.Clock.Advance(1);
+        Assert.Empty(access.GetActiveGrants());
+        Assert.Equal(AccessPhase.SecondChallenge, access.GetStatus(target).Phase);
+        Assert.Equal(AccessPhase.Granted, access.SubmitRequest(target).Status.Phase);
+        Assert.Empty(f.Store.Load().Requests);
+        Assert.Equal(0, f.Store.Verifications);
+        Assert.IsType<NavigationDecision.Denied>(new SitePolicyNavigationEvaluator(f.Service, access, f.Clock)
+            .Evaluate(new("https://sub.outside.example/", NavigationOrigin.AddressBar)));
+        f.Clock.Advance(5);
+        Assert.Empty(access.GetActiveGrants());
+        Assert.Equal(AccessPhase.FirstChallenge, access.GetStatus(target).Phase);
+    }
+
+    [Fact]
+    public void OptionalPasswordChangesStillWaitAndRequireTheCurrentlyActivePassword()
+    {
+        var f = new Fixture();
+        f.Store.Vault = f.Store.Vault with { PasswordRequired = false };
+        Assert.Equal(VaultResult.Staged, f.Service.Stage(new(ChangePassword: true), "", Replacement).Result);
+        var id = f.Store.Vault.Pending!.Id;
+        Assert.False(f.Store.PasswordRequired);
+        Assert.Equal(VaultResult.TooEarly, f.Service.Confirm(id, "").Result);
+        f.Clock.Advance(5);
+        Assert.Equal(VaultResult.Applied, f.Service.Confirm(id, "").Result);
+        Assert.True(f.Store.PasswordRequired);
+        Assert.Equal(0, f.Store.Verifications);
+        Assert.Equal(VaultResult.WrongPassword, f.Service.Stage(new(DisablePassword: true), "").Result);
+        f.Clock.Advance(5);
+        Assert.Equal(VaultResult.Staged, f.Service.Stage(new(DisablePassword: true), Replacement).Result);
+        id = f.Store.Vault.Pending!.Id;
+        Assert.True(f.Store.PasswordRequired);
+        Assert.Equal(VaultResult.TooEarly, f.Service.Confirm(id, Replacement).Result);
+        f.Clock.Advance(5);
+        Assert.Equal(VaultResult.Applied, f.Service.Confirm(id, Replacement).Result);
+        Assert.False(f.Store.PasswordRequired);
+        Assert.Equal(VaultResult.Invalid, f.Service.Stage(new(ChangePassword: true, DisablePassword: true), "", Replacement).Result);
+    }
+
+    [Fact]
+    public void CooldownOnlyCannotBypassFailedWritesPolicyOrClockValidation()
+    {
+        var f = new Fixture();
+        f.Store.Vault = f.Store.Vault with { PasswordRequired = false };
+        var access = new GreylistAccessService(f.Service, f.Store, f.Store, f.Clock);
+        const string target = "https://outside.example/";
+        Assert.Equal(AccessPhase.Cooldown, access.SubmitRequest(target).Status.Phase);
+        f.Clock.Advance(5);
+        f.Store.FailWrites = true;
+        Assert.Equal(AccessSubmissionResult.Unavailable, access.SubmitRequest(target).Result);
+        Assert.Empty(access.GetActiveGrants());
+        Assert.Single(f.Store.Load().Requests);
+        Assert.Equal(VaultResult.Unavailable, f.Service.Stage(new(AddHost: "outside.example"), "").Result);
+        f.Store.FailWrites = false;
+        f.Clock.JumpWall(-60);
+        Assert.Equal(AccessPhase.ClockInvalid, access.GetStatus(target).Phase);
+        Assert.Empty(access.GetActiveGrants());
+    }
+
+    [Fact]
     public void MandatoryBlacklistCannotBeOverriddenAndIsRecheckedAtConfirmation()
     {
         var f = new Fixture();
@@ -587,7 +658,8 @@ public sealed class VaultServiceTests
 
     private sealed class MemoryStore(DateTimeOffset now) : IVaultStore
     {
-        public VaultState Vault { get; set; } = VaultState.CreateDevelopment(now);
+        public VaultState Vault { get; set; } = VaultState.CreateDevelopment(now) with { PasswordRequired = true };
+        public bool PasswordRequired => Vault.PasswordRequired;
         private AccessStateSnapshot _access = new(now, DateTimeOffset.MinValue, []);
         private string _password = Password;
         public bool FailWrites { get; set; }

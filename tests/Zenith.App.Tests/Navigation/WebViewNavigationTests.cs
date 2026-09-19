@@ -38,6 +38,24 @@ public sealed class WebViewNavigationTests
             {
                 try
                 {
+                    await GreylistOpenScenario.RunAsync();
+                    if (Environment.GetEnvironmentVariable("ZENITH_GREYLIST_TESTS_ONLY") == "1")
+                    {
+                        finished.TrySetResult();
+                        return;
+                    }
+                    await FileChooserScenario.RunAsync();
+                    if (Environment.GetEnvironmentVariable("ZENITH_FILE_CHOOSER_TESTS_ONLY") == "1")
+                    {
+                        finished.TrySetResult();
+                        return;
+                    }
+                    await FrameDocumentEnforcementScenario.RunAsync();
+                    if (Environment.GetEnvironmentVariable("ZENITH_FRAME_TESTS_ONLY") == "1")
+                    {
+                        finished.TrySetResult();
+                        return;
+                    }
                     await DocumentClearingScenario.RunAsync();
                     await Zenith.App.Tests.Settings.SettingsInteractionScenario.RunAsync();
                     await ExerciseWindowAsync();
@@ -59,7 +77,7 @@ public sealed class WebViewNavigationTests
         }) { IsBackground = true };
         thread.SetApartmentState(ApartmentState.STA);
         thread.Start();
-        await finished.Task.WaitAsync(TimeSpan.FromSeconds(210));
+        await finished.Task.WaitAsync(TimeSpan.FromSeconds(300));
     }
 
     private static async Task ExerciseWindowAsync()
@@ -565,7 +583,7 @@ public sealed class WebViewNavigationTests
         }
     }
 
-    private static async Task ExerciseCapabilitiesAsync(CoreWebView2 core)
+    private static async Task ExerciseCapabilitiesAsync(CoreWebView2 core, Action? revealPendingPermission = null)
     {
         var permission = new TaskCompletionSource<CoreWebView2PermissionRequestedEventArgs>(TaskCreationOptions.RunContinuationsAsynchronously);
         var download = new TaskCompletionSource<CoreWebView2DownloadStartingEventArgs>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -575,7 +593,20 @@ public sealed class WebViewNavigationTests
         core.DownloadStarting += Download;
         try
         {
-            await core.ExecuteScriptAsync("navigator.geolocation.getCurrentPosition(() => {}, () => {});");
+            // Another tab on this origin may already have a session-only denial.
+            // Reset the fixture permission so this assertion observes a new native
+            // event rather than Chromium reusing that earlier denial.
+            await core.Profile.SetPermissionStateAsync(CoreWebView2PermissionKind.Geolocation,
+                new Uri(core.Source).GetLeftPart(UriPartial.Authority), CoreWebView2PermissionState.Default);
+            await core.ExecuteScriptAsync("window.geoResult='pending'; navigator.geolocation.getCurrentPosition(() => {window.geoResult='allowed';}, () => {window.geoResult='denied';});");
+            if (revealPendingPermission is not null)
+            {
+                // Chromium may defer permission requests while a tab is hidden.
+                // It must not provide the capability there; revealing the tab must
+                // then produce the same native denial as a foreground request.
+                Assert.NotEqual("\"allowed\"", await core.ExecuteScriptAsync("window.geoResult"));
+                revealPendingPermission();
+            }
             var request = await permission.Task.WaitAsync(TimeSpan.FromSeconds(15));
             Assert.Equal(CoreWebView2PermissionState.Deny, request.State);
             Assert.True(request.Handled);
@@ -625,7 +656,11 @@ public sealed class WebViewNavigationTests
         Assert.Equal(target, newBrowser.CoreWebView2.Source);
         Assert.Equal(Visibility.Collapsed, newBrowser.Visibility);
         Assert.Equal(Visibility.Visible, browser.Visibility);
-        await ExerciseCapabilitiesAsync(newBrowser.CoreWebView2);
+        // A background tab may already be suspended after its load completes.
+        // Explicitly resume execution while retaining hidden-tab capability coverage.
+        newBrowser.CoreWebView2.Resume();
+        await ExerciseCapabilitiesAsync(newBrowser.CoreWebView2, () => Invoke(window, "ActivateTab", newTab));
+        Invoke(window, "ActivateTab", originalTab);
         var blockedRequest = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
         var adRequest = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
         void Resource(object? sender, CoreWebView2WebResourceRequestedEventArgs e)

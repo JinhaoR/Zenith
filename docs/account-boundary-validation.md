@@ -1,6 +1,12 @@
 # F02/F06 account-boundary investigation — 2026-09-13
 
-**Do not use primary accounts yet. F02 requires an implementation change.**
+**Historical pre-fix investigation. F02 has since been fixed and strictly retested:**
+see [F02 fix validation](f02-fix-validation.md). The reproduction, classifications
+and remediation discussion below describe the original implementation and are
+retained as evidence. F06's HTML chooser gap was subsequently fixed and locally
+validated on 2026-09-14; see [chooser fix validation](f06-file-chooser-validation.md).
+Other F06 conclusions are unchanged. Overall primary-account
+readiness is still subject to the [security review](security-review.md).
 A Core-denied document executed beneath an out-of-process iframe. In the same
 context, 307/308 redirects delivered synthetic password/token POST bodies to the
 denied destination. No Chromium same-origin, native privilege, TLS or sandbox

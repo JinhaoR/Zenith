@@ -105,13 +105,13 @@
                     <StackPanel x:Name="AccessPage" Visibility="Collapsed">
                         <Border Style="{StaticResource Card}"><StackPanel>
                             <TextBlock Text="A deliberate exception" FontSize="18" FontWeight="SemiBold" />
-                            <TextBlock Text="Temporary access lets you visit a place outside your Sphere after two password challenges separated by a waiting period." Margin="0,10,0,0" Style="{StaticResource Description}" />
+                            <TextBlock Text="Temporary access lets you visit a place outside your Sphere after a waiting period and confirmation. Password protection is optional in the Vault." Margin="0,10,0,0" Style="{StaticResource Description}" />
                             <TextBlock x:Name="AccessStatusText" Margin="0,20,0,0" Style="{StaticResource Description}" />
                             <Button x:Name="SetupPasswordButton" Content="Set up access password" HorizontalAlignment="Left" Margin="0,20,0,0" Visibility="Collapsed" Click="SetupPassword_OnClick" />
                         </StackPanel></Border>
                         <Border Style="{StaticResource Card}"><StackPanel>
                             <TextBlock Text="Request a deliberate visit" FontSize="18" FontWeight="SemiBold" />
-                            <TextBlock Text="Enter a website address, such as example.com. HTTPS is added automatically when omitted. This is not a search: continuing opens the password challenge, not the website. Nothing is added to your Sphere." Style="{StaticResource Description}" Margin="0,10,0,16" />
+                            <TextBlock Text="Enter a website address, such as example.com. HTTPS is added automatically when omitted. Continuing opens a temporary-access request. Nothing is added to your Sphere." Style="{StaticResource Description}" Margin="0,10,0,16" />
                             <Label Content="Website address" Target="{Binding ElementName=AccessAddress}" Foreground="{DynamicResource ZenithTextBrush}" Padding="0,0,0,8" />
                             <TextBox x:Name="AccessAddress" Padding="12" Background="{DynamicResource ZenithRaisedSurfaceBrush}" Foreground="{DynamicResource ZenithTextBrush}" BorderBrush="{DynamicResource ZenithInteractiveBorderBrush}" CaretBrush="{DynamicResource ZenithAccentBrush}" AutomationProperties.Name="Website address for temporary access" KeyDown="AccessAddress_OnKeyDown" TextChanged="AccessAddress_OnTextChanged" />
                             <Button x:Name="BeginAccessButton" Content="Continue to access request" HorizontalAlignment="Left" Margin="0,16,0,0" Click="BeginAccess_OnClick" />

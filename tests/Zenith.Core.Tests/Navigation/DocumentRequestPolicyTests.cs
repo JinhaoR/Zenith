@@ -16,6 +16,15 @@ public sealed class DocumentRequestPolicyTests
     [InlineData("https://unknown.example/", false, null, false)]
     [InlineData("file:///local", false, "https://sphere.example/", false)]
     [InlineData("https://sphere.example/", true, null, true)]
+    [InlineData("about:blank", false, "https://sphere.example/", true)]
+    [InlineData("about:srcdoc", false, "https://sphere.example/", true)]
+    [InlineData("about:srcdoc", true, "https://sphere.example/", false)]
+    [InlineData("about:blank", true, "https://sphere.example/", false)]
+    [InlineData("about:srcdoc", false, null, false)]
+    [InlineData("about:blank", false, "https://blocked.example/", false)]
+    [InlineData("about:srcdoc", false, "https://unknown.example/", false)]
+    [InlineData("about:blank?destination=https://blocked.example/", false, "https://sphere.example/", false)]
+    [InlineData("data:text/html,example", false, "https://sphere.example/", false)]
     public void DocumentsPreserveIndependentNavigationAndEmbeddedCompatibility(string target, bool main, string? parent, bool allowed) =>
         Assert.Equal(allowed, _policy.Evaluate(target, main, parent) is NavigationDecision.Allowed);
 
@@ -37,8 +46,10 @@ public sealed class DocumentRequestPolicyTests
         var policy = new DocumentRequestPolicy(new SitePolicyNavigationEvaluator(new FixedSitePolicySource(new SitePolicySnapshot(
             [new SitePolicyEntry("sphere.example", AccessClass.Whitelist)])), grants, clock));
         Assert.IsType<NavigationDecision.Allowed>(policy.Evaluate("https://temporary.example/frame", false, "https://temporary.example/"));
+        Assert.IsType<NavigationDecision.Allowed>(policy.Evaluate("about:srcdoc", false, "https://temporary.example/"));
         Assert.IsType<NavigationDecision.Denied>(policy.Evaluate("https://other.example/", false, "https://temporary.example/"));
         clock.Now += TimeSpan.FromMinutes(1);
+        Assert.IsType<NavigationDecision.Denied>(policy.Evaluate("about:blank", false, "https://temporary.example/"));
         Assert.IsType<NavigationDecision.Denied>(policy.Evaluate("https://sphere.example/", false, "https://temporary.example/"));
     }
 

@@ -1,0 +1,592 @@
+[
+  {
+    "name": "startup",
+    "value": {
+      "runtime": "152.0.4191.66",
+      "milliseconds": 367,
+      "mode": "complete",
+      "extension": "build/ubolite-experiment/edge"
+    }
+  },
+  {
+    "name": "memory-initial",
+    "value": {
+      "processCount": 5,
+      "workingBytes": 217993216,
+      "privateBytes": 83505152
+    }
+  },
+  {
+    "name": "extensions-before",
+    "value": [
+      {
+        "Id": "dgiklkfkllikcanfonkcabmbdfmgleag",
+        "Name": "Microsoft Clipboard Extension",
+        "IsEnabled": true
+      },
+      {
+        "Id": "mhjfbmdgcfjbbpaeojofohoefgiehjai",
+        "Name": "Microsoft Edge PDF Viewer",
+        "IsEnabled": true
+      }
+    ]
+  },
+  {
+    "name": "installed",
+    "value": {
+      "Id": "nnmkioolanpfhcjajnnnojialjelbpoc",
+      "Name": "uBlock Origin Lite",
+      "IsEnabled": true,
+      "milliseconds": 426
+    }
+  },
+  {
+    "name": "dashboard-navigation",
+    "value": {
+      "success": true,
+      "error": "Unknown",
+      "milliseconds": 620,
+      "scheme": "chrome-extension",
+      "dom": {
+        "bodyCharacters": 1428,
+        "navigation": [
+          {
+            "domContentLoaded": 96.10000000149012,
+            "load": 96.39999999850988
+          }
+        ],
+        "ready": "complete",
+        "resources": 0,
+        "title": "uBO Lite \u2014 Dashboard"
+      }
+    }
+  },
+  {
+    "name": "extension-api",
+    "value": {
+      "dnr": "object",
+      "id": "nnmkioolanpfhcjajnnnojialjelbpoc",
+      "offscreen": "object",
+      "permissions": {
+        "origins": [
+          "\u003Call_urls\u003E"
+        ],
+        "permissions": [
+          "activeTab",
+          "alarms",
+          "storage",
+          "unlimitedStorage",
+          "declarativeNetRequest",
+          "scripting",
+          "offscreen",
+          "userScripts"
+        ]
+      },
+      "scripting": "object",
+      "update": "function",
+      "userScripts": "undefined"
+    }
+  },
+  {
+    "name": "dashboard-state",
+    "value": {
+      "enabled": [
+        "ublock-filters",
+        "easylist",
+        "easyprivacy",
+        "pgl",
+        "ublock-badware",
+        "urlhaus-full"
+      ],
+      "hasOmnipotence": true,
+      "mode": 2,
+      "supportsCompiledFilters": true,
+      "supportsUserScripts": false
+    }
+  },
+  {
+    "name": "persistence-marker",
+    "value": {}
+  },
+  {
+    "name": "mode-configured",
+    "value": 3
+  },
+  {
+    "name": "test-rules",
+    "value": [
+      "ublock-filters",
+      "easylist",
+      "easyprivacy",
+      "pgl",
+      "ublock-badware",
+      "urlhaus-full",
+      "ubol-tests"
+    ]
+  },
+  {
+    "name": "custom-list-import",
+    "value": null
+  },
+  {
+    "name": "custom-scriptlet",
+    "value": null
+  },
+  {
+    "name": "registered-scripts",
+    "value": [
+      {
+        "id": "ublock-filters.main",
+        "world": "MAIN"
+      },
+      {
+        "id": "ublock-filters.isolated",
+        "world": "ISOLATED"
+      },
+      {
+        "id": "easyprivacy.main",
+        "world": "MAIN"
+      },
+      {
+        "id": "easyprivacy.isolated",
+        "world": "ISOLATED"
+      },
+      {
+        "id": "ublock-badware.main",
+        "world": "MAIN"
+      },
+      {
+        "id": "ublock-badware.isolated",
+        "world": "ISOLATED"
+      },
+      {
+        "id": "ubol-tests.main",
+        "world": "MAIN"
+      },
+      {
+        "id": "ubol-tests.isolated",
+        "world": "ISOLATED"
+      },
+      {
+        "id": "css-generic-all",
+        "world": "ISOLATED"
+      },
+      {
+        "id": "css-generic-some",
+        "world": "ISOLATED"
+      },
+      {
+        "id": "prevent-popup",
+        "world": "ISOLATED"
+      },
+      {
+        "id": "css-specific",
+        "world": "ISOLATED"
+      }
+    ]
+  },
+  {
+    "name": "user-scripts",
+    "value": {
+      "error": "Cannot read properties of undefined (reading \u0027getScripts\u0027)"
+    }
+  },
+  {
+    "name": "extension-update-check",
+    "value": {
+      "status": "no_update",
+      "version": ""
+    }
+  },
+  {
+    "name": "dashboard-dom",
+    "value": {
+      "bodyCharacters": 1428,
+      "frames": 0,
+      "title": "uBO Lite \u2014 Dashboard"
+    }
+  },
+  {
+    "name": "fixture-navigation",
+    "value": {
+      "success": true,
+      "error": "Unknown",
+      "milliseconds": 1082,
+      "scheme": "http",
+      "dom": {
+        "bodyCharacters": 25,
+        "navigation": [
+          {
+            "domContentLoaded": 327.8999999985099,
+            "load": 569.2999999970198
+          }
+        ],
+        "ready": "complete",
+        "resources": 8,
+        "title": "Zenith extension fixture"
+      }
+    }
+  },
+  {
+    "name": "fixture-dom",
+    "value": {
+      "control": "block",
+      "custom": "block",
+      "customScriptlet": null,
+      "generic": "none",
+      "scriptlet": "undefined",
+      "specific": "none"
+    }
+  },
+  {
+    "name": "fixture-server",
+    "value": [
+      "/filters.txt",
+      "/page",
+      "/custom-block-2",
+      "/control.png",
+      "/favicon.ico"
+    ]
+  },
+  {
+    "name": "memory-fixture",
+    "value": {
+      "processCount": 6,
+      "workingBytes": 526774272,
+      "privateBytes": 336207872
+    }
+  },
+  {
+    "name": "simulate-list-expiry",
+    "value": true
+  },
+  {
+    "name": "custom-list-update",
+    "value": null
+  },
+  {
+    "name": "dynamic-rules",
+    "value": {
+      "count": 167,
+      "custom": [
+        {
+          "action": {
+            "type": "block"
+          },
+          "condition": {
+            "urlFilter": "||localhost^*/custom-block-2"
+          },
+          "id": 9000000,
+          "priority": 10
+        }
+      ]
+    }
+  },
+  {
+    "name": "disabled",
+    "value": {
+      "IsEnabled": false
+    }
+  },
+  {
+    "name": "disabled-fixture",
+    "value": {
+      "success": true,
+      "error": "Unknown",
+      "milliseconds": 3253,
+      "scheme": "http",
+      "dom": {
+        "bodyCharacters": 48,
+        "navigation": [
+          {
+            "domContentLoaded": 2739.300000000745,
+            "load": 2739.5
+          }
+        ],
+        "ready": "complete",
+        "resources": 8,
+        "title": "Zenith extension fixture"
+      }
+    }
+  },
+  {
+    "name": "disabled-dom",
+    "value": {
+      "generic": "block",
+      "scriptlet": "boolean"
+    }
+  },
+  {
+    "name": "disabled-server",
+    "value": [
+      "/filters.txt",
+      "/page",
+      "/custom-block-2",
+      "/control.png",
+      "/favicon.ico",
+      "/filters.txt",
+      "/page-disabled",
+      "/bnf1.js",
+      "/xpopup/xpopup.js",
+      "/analytics/rakuten.js",
+      "/custom-block-1",
+      "/custom-block-2",
+      "/bnf2.png",
+      "/control.png",
+      "/favicon.ico"
+    ]
+  },
+  {
+    "name": "public-site",
+    "value": {
+      "url": "https://en.wikipedia.org/wiki/Web_browser",
+      "result": {
+        "success": true,
+        "error": "Unknown",
+        "milliseconds": 1090,
+        "scheme": "https",
+        "dom": {
+          "bodyCharacters": 20441,
+          "navigation": [
+            {
+              "domContentLoaded": 345.0999999977648,
+              "load": 585
+            }
+          ],
+          "ready": "complete",
+          "resources": 38,
+          "title": "Web browser - Wikipedia"
+        }
+      }
+    }
+  },
+  {
+    "name": "public-memory",
+    "value": {
+      "host": "en.wikipedia.org",
+      "memory": {
+        "processCount": 6,
+        "workingBytes": 526200832,
+        "privateBytes": 340455424
+      }
+    }
+  },
+  {
+    "name": "public-site",
+    "value": {
+      "url": "https://github.com/",
+      "result": {
+        "success": true,
+        "error": "Unknown",
+        "milliseconds": 1431,
+        "scheme": "https",
+        "dom": {
+          "bodyCharacters": 5911,
+          "navigation": [
+            {
+              "domContentLoaded": 775.6999999992549,
+              "load": 784.6999999992549
+            }
+          ],
+          "ready": "complete",
+          "resources": 148,
+          "title": "GitHub \u00B7 Change is constant. GitHub keeps you ahead. \u00B7 GitHub"
+        }
+      }
+    }
+  },
+  {
+    "name": "public-memory",
+    "value": {
+      "host": "github.com",
+      "memory": {
+        "processCount": 6,
+        "workingBytes": 661512192,
+        "privateBytes": 606642176
+      }
+    }
+  },
+  {
+    "name": "public-site",
+    "value": {
+      "url": "https://mail.google.com/",
+      "result": {
+        "success": true,
+        "error": "Unknown",
+        "milliseconds": 1767,
+        "scheme": "https",
+        "dom": {
+          "bodyCharacters": 218,
+          "navigation": [
+            {
+              "domContentLoaded": 801.5,
+              "load": 1252.5
+            }
+          ],
+          "ready": "complete",
+          "resources": 20,
+          "title": "Gmail"
+        }
+      }
+    }
+  },
+  {
+    "name": "public-memory",
+    "value": {
+      "host": "mail.google.com",
+      "memory": {
+        "processCount": 9,
+        "workingBytes": 767266816,
+        "privateBytes": 685621248
+      }
+    }
+  },
+  {
+    "name": "public-site",
+    "value": {
+      "url": "https://www.youtube.com/",
+      "result": {
+        "success": true,
+        "error": "Unknown",
+        "milliseconds": 1722,
+        "scheme": "https",
+        "dom": {
+          "bodyCharacters": 0,
+          "navigation": [
+            {
+              "domContentLoaded": 0,
+              "load": 0
+            }
+          ],
+          "ready": "loading",
+          "resources": 26,
+          "title": "YouTube"
+        }
+      }
+    }
+  },
+  {
+    "name": "public-memory",
+    "value": {
+      "host": "www.youtube.com",
+      "memory": {
+        "processCount": 9,
+        "workingBytes": 896622592,
+        "privateBytes": 869441536
+      }
+    }
+  },
+  {
+    "name": "public-site",
+    "value": {
+      "url": "https://www.reddit.com/",
+      "result": {
+        "success": false,
+        "error": "Unknown",
+        "milliseconds": 599,
+        "scheme": "https",
+        "dom": {
+          "bodyCharacters": 196,
+          "navigation": [
+            {
+              "domContentLoaded": 73.09999999776483,
+              "load": 74.69999999925494
+            }
+          ],
+          "ready": "complete",
+          "resources": 0,
+          "title": "www.reddit.com"
+        }
+      }
+    }
+  },
+  {
+    "name": "public-memory",
+    "value": {
+      "host": "www.reddit.com",
+      "memory": {
+        "processCount": 10,
+        "workingBytes": 913584128,
+        "privateBytes": 839688192
+      }
+    }
+  },
+  {
+    "name": "public-site",
+    "value": {
+      "url": "https://www.speedtest.net/",
+      "result": {
+        "success": true,
+        "error": "Unknown",
+        "milliseconds": 1431,
+        "scheme": "https",
+        "dom": {
+          "bodyCharacters": 2383,
+          "navigation": [
+            {
+              "domContentLoaded": 820.4000000022352,
+              "load": 918.1999999992549
+            }
+          ],
+          "ready": "complete",
+          "resources": 31,
+          "title": "Speedtest by Ookla - The Global Broadband Speed Test"
+        }
+      }
+    }
+  },
+  {
+    "name": "public-memory",
+    "value": {
+      "host": "www.speedtest.net",
+      "memory": {
+        "processCount": 10,
+        "workingBytes": 1058140160,
+        "privateBytes": 963567616
+      }
+    }
+  },
+  {
+    "name": "public-site",
+    "value": {
+      "url": "https://www.cnn.com/",
+      "result": {
+        "success": true,
+        "error": "Unknown",
+        "milliseconds": 1803,
+        "scheme": "https",
+        "dom": {
+          "bodyCharacters": 8794,
+          "navigation": [
+            {
+              "domContentLoaded": 542.3000000007451,
+              "load": 1292.5999999977648
+            }
+          ],
+          "ready": "complete",
+          "resources": 80,
+          "title": "Breaking News, Latest News and Videos | CNN"
+        }
+      }
+    }
+  },
+  {
+    "name": "public-memory",
+    "value": {
+      "host": "www.cnn.com",
+      "memory": {
+        "processCount": 9,
+        "workingBytes": 1156616192,
+        "privateBytes": 1023516672
+      }
+    }
+  },
+  {
+    "name": "memory-final",
+    "value": {
+      "processCount": 9,
+      "workingBytes": 1157877760,
+      "privateBytes": 1024335872
+    }
+  }
+]

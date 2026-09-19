@@ -1,11 +1,14 @@
 # Account-security reassessment and review handoff
 
-Status, updated 2026-09-13: **Primary-account readiness not yet established.**
+Status, updated 2026-09-14: **Primary-account readiness not yet established.**
 F03 has been fixed and locally regression-tested. The 2026-09-13 focused
 [account-boundary investigation](account-boundary-validation.md) reproduced F02:
 a denied OOPIF document executed and 307/308 redirects delivered synthetic
-credential bodies to a denied destination. F06 is narrowed to a confirmed OOPIF
-picker-policy gap, screen-capture hardening and otherwise validated tested paths. F01 is Informational and no longer an
+credential bodies to a denied destination. F02 is now fixed and locally regression-tested;
+see the [F02 fix validation](f02-fix-validation.md) for evidence and limits.
+F06's OOPIF HTML picker-policy gap is also fixed and locally regression-tested;
+see [chooser validation](f06-file-chooser-validation.md). Screen-capture hardening
+and the other capability dispositions remain separate. F01 is Informational and no longer an
 account-security release blocker. No Critical issue, cross-origin credential
 theft, privileged bridge exploit, TLS bypass or sandbox escape was established
 by the original review. This is not a claim that such defects are impossible.
@@ -29,11 +32,11 @@ not a Microsoft certification requirement.
 | ID | Original -> revised severity | Primary-account relevance and disposition |
 | --- | --- | --- |
 | F01 WebSocket request-filter bypass | High -> **Informational** | Not a demonstrated credential, origin, host or navigation-policy breach. Remove its former release-blocking classification; retain the coverage limitation. |
-| F02 Incomplete frame/target coverage | High provisional -> **High confirmed** | Denied OOPIF grandchild executed; 307/308 nested redirects delivered synthetic credential POST bodies. Requires implementation change before primary accounts. See focused validation. |
+| F02 Incomplete frame/target coverage | High provisional -> **High confirmed, fixed** | Native recursive frame enforcement blocks the reproduced denied document execution and 307/308 POST-body delivery. Locally regression-tested; independent retest pending. See [fix validation](f02-fix-validation.md). |
 | F03 Failed clear can retain authenticated documents | High -> **High** | Historical concrete failure path; fixed and locally regression-tested on 2026-09-13. Independent retest remains pending. No credential theft was demonstrated. |
 | F04 Persisted-worker startup interval | Medium -> **Low** | Ordinary same-origin background activity is not a flaw. Review legacy profile migration and removal guarantees; no cross-origin access or credential leak established. Not a standalone blocker with a fresh, known profile. |
 | F05 Executable-adjacent browser profile | Medium -> **Medium** | Deployment-dependent disclosure risk from copying/syncing browser state. Establish a private, known production profile before primary use. Default location alone does not prove insecure ACLs or plaintext cookies. |
-| F06 Incomplete capability coverage | Medium -> **Medium** | OOPIF HTML chooser bypasses explicit cancellation policy but retains native file selection. No silent file theft reproduced. Tested FSA/persisted handles/clipboard/media paths validated; screen cancellation is hardening on current evidence. |
+| F06 Incomplete capability coverage | Medium -> **Medium; HTML chooser defect fixed** | OOPIF chooser cancellation is now applied before each iframe target resumes and is locally regression-tested. No silent file theft was reproduced. Tested FSA/persisted handles/clipboard/media dispositions remain unchanged; screen cancellation remains hardening. |
 | F07 Legacy password filling | Medium -> **Low** | New-saving disabled does not remove existing filling. Conditional on legacy saved passwords; not cross-origin theft or inherently unsafe password-manager behavior. Fresh profile or informed cleanup resolves the legacy concern. |
 | F08 Filtering inside WPF/Core process | Medium -> **Medium** | Data-controlled native parser exposure and synchronous UI work are real architectural risks; no native exploit established. Resource budgets/servicing matter; a separate process is hardening, not a mandatory rewrite. |
 | F09 External runtime/debugging overrides | Medium -> **Low** | No unsafe override was observed. Validate production launch configuration before use. An actually exposed debugging endpoint or weakened TLS/sandbox setting would require separate, higher-severity treatment. |
@@ -52,22 +55,25 @@ explains why the unchanged strict runner can still return failure.
 
 ### F02: confirmed OOPIF document and credential-redirect gap
 
-**Requires implementation change; High confirmed, 2026-09-13.** The focused
+**Fixed and locally regression-tested, 2026-09-13; original severity High.** The focused
 [validation report](account-boundary-validation.md) records actual separate
 renderer processes, a Core-denied nested document executing, and 307/308 redirects
 sending synthetic password/token POST bodies to the denied endpoint. Root-target
 CDP Fetch observed the direct-child denial but missed the OOPIF grandchild;
-recursive native frame-navigation observers saw both. Production neither installs
-that recursive policy handling nor initializes child-target Fetch enforcement.
-The separate resource filter does not substitute for the full site policy.
+recursive native frame-navigation observers saw both. `DocumentRequestGuard` now
+subscribes recursively to supported native frame events and evaluates every
+navigation/redirect through the existing Core document policy. Root CDP remains
+additional protection, not the source of OOPIF coverage.
 
 Top-level denied navigation/redirects and denied popups, including an OOPIF popup,
 passed. Chromium origin isolation and the tested native message boundary passed.
 The normal 307/308 preservation of a form's body is not a same-origin escape;
-the failure is bypassing Zenith's explicit document decision. Fix frame/document
-coverage and retest before primary accounts. Preserve intentional Greylist
-embedding and Chromium security; the report gives the concrete remediation and
-case-by-case F06 dispositions. No production change was made in this investigation.
+the failure was bypassing Zenith's explicit document decision. Strict native
+regressions now pass with root Fetch enabled and disabled, including independently
+observed absence of denied 307/308 POST requests and preserved Greylist embedding.
+Native cancellation can follow a denied GET reaching the server; this is not a
+zero-contact guarantee. See [fix validation](f02-fix-validation.md). The F02 fix
+did not change F06; neither correction establishes overall primary-account readiness.
 
 ### F03: removal must complete or destroy the controller
 
@@ -136,7 +142,7 @@ profiles into reports, source snapshots or distributable archives. Shared tabs
 in one profile and persistent sign-in are normal, not cross-origin disclosure.
 [Microsoft UDF guidance](https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/user-data-folder).
 
-### F06: validated controls, picker gap and screen hardening
+### F06: validated controls, corrected HTML picker gap and screen hardening
 
 The 2026-09-13 [focused experiments](account-boundary-validation.md) closed the
 tested top-level file-picker, File System Access, persisted handle/permission,
@@ -146,13 +152,17 @@ were denied. OOPIF origin and capability checks are identified explicitly in the
 report; these are scoped runtime results, not universal security certification.
 
 OOPIF HTML file inputs did open a native chooser despite the no-selection policy:
-**Requires implementation change; Medium policy defect**, with no silent read or
-upload demonstrated. Root-only CDP chooser interception does not cover that target.
+**Fixed and locally regression-tested, 2026-09-14; original severity Medium**, with
+no silent read or upload demonstrated. Root-only CDP interception missed that
+target. `FileChooserGuard` now configures every recursively attached iframe target
+before it resumes, using Core's unchanged file-selection policy. Strict tests
+verify absent denied dialogs/selections/uploads, real allowed chooser selection,
+and policy-failure disposal. See [F06 evidence and limitations](f06-file-chooser-validation.md).
 ScreenCaptureStarting remained uncancelled by production; the test cancelled it
 before UI display. This is **Hardening only** for account-security evidence, not
 proof of silent capture or validation of the complete consent experience.
 
-Maintain the tested denials and repair the actual picker-policy gap. Do not add
+Maintain the tested denials and rerun chooser target coverage on runtime updates. Do not add
 speculative capability systems merely because dedicated handlers are absent.
 Intentional denial of attachments/media can be a provider compatibility limitation.
 
@@ -217,8 +227,9 @@ erased or automatically upload raw profiles/crash dumps.
 
 1. F03 implementation and local removal/failure regression checks are complete.
    Preserve those checks for release candidates; independent retest remains pending.
-2. Fix and strictly retest the reproduced F02 frame-document/credential-redirect
-   defect. Repair F06's OOPIF HTML picker-policy gap. Retain the now-passing
+2. F02 implementation and local strict frame/credential-redirect checks are complete;
+   retain them for runtime updates and independent review. F06's OOPIF HTML
+   picker-policy correction is also complete and locally tested. Retain the now-passing
    origin, native bridge, persisted-file and clipboard/media cases; screen-capture
    consent remains a specifically documented hardening/validation limit.
 3. Establish a private, known production profile and clean launch configuration
@@ -231,7 +242,7 @@ erased or automatically upload raw profiles/crash dumps.
    for this recommendation, not proof of a vulnerability or an obligation to test
    every provider/MFA method before using any account.
 
-The concrete code fix established here is F03. Other prerequisites include
+The concrete code fixes established here are F02, F03 and F06's HTML chooser gap. Other prerequisites include
 targeted validation and deployment choices; code fixes depend on what those checks
 show. Independent review of these boundaries is valuable for this new browser,
 but neither its absence nor failure to support a provider is itself a vulnerability.
@@ -377,8 +388,8 @@ confirmed flaws from untested risks and compatibility refusals.
 - Candidate snapshot/hash and runtime accepted for review: **pending**
 - SEC-CONN-001/F01: **Informational; no longer an account-security blocker; filtering limitation retained**
 - F03 lifecycle defect: **fixed and locally regression-tested; independent retest pending**
-- F02: **confirmed High OOPIF document/credential-redirect defect; implementation required**
-- F06: **OOPIF picker-policy fix required; other tested paths validated, screen hardening remains**
+- F02: **fixed and locally regression-tested; independent retest pending**
+- F06: **HTML chooser gap fixed and locally regression-tested; other tested paths unchanged, screen hardening remains**
 - Provider MFA results reviewed: **not run**
 - Vault/persistence/permission/filter-supply-chain findings: **review pending**
 - Critical/high findings resolved and independently retested: **not established**

@@ -36,7 +36,7 @@ The Vault governs classifications, cooldowns, authentication settings and other 
 
 ## Access Grant
 
-A limited authorization to access a Greylisted site after completing the required password–cooldown–password sequence.
+A limited authorization to access a Greylisted site after explicitly requesting access, waiting for the cooldown and confirming the visit. Optional password protection adds authentication to both confirmations.
 
 An Access Grant does not alter the Whitelist, Blacklist or Greylist and cannot authorize a Blacklisted site.
 
@@ -56,7 +56,7 @@ Access Class is distinct from temporary runtime state such as Access Grants.
 
 A staged request to alter durable policy held by the Vault.
 
-A Policy Change becomes effective only after its long waiting period has elapsed and the exact pending change is authenticated and confirmed. Until then, the previous policy remains active.
+A Policy Change becomes effective only after its long waiting period has elapsed and the exact pending change is confirmed, with authentication if password protection is enabled. Until then, the previous policy remains active.
 
 ## Usage Rules
 

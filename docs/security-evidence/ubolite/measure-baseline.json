@@ -1,0 +1,105 @@
+[
+  {
+    "name": "startup",
+    "value": {
+      "runtime": "152.0.4191.66",
+      "milliseconds": 357,
+      "mode": "measure-baseline",
+      "extension": "none"
+    }
+  },
+  {
+    "name": "memory-initial",
+    "value": {
+      "processCount": 5,
+      "workingBytes": 254418944,
+      "privateBytes": 88580096
+    }
+  },
+  {
+    "name": "extensions-before",
+    "value": [
+      {
+        "Id": "dgiklkfkllikcanfonkcabmbdfmgleag",
+        "Name": "Microsoft Clipboard Extension",
+        "IsEnabled": true
+      },
+      {
+        "Id": "mhjfbmdgcfjbbpaeojofohoefgiehjai",
+        "Name": "Microsoft Edge PDF Viewer",
+        "IsEnabled": true
+      }
+    ]
+  },
+  {
+    "name": "fixture-navigation",
+    "value": {
+      "success": true,
+      "error": "Unknown",
+      "milliseconds": 1524,
+      "scheme": "http",
+      "dom": {
+        "bodyCharacters": 48,
+        "navigation": [
+          {
+            "domContentLoaded": 690.2000000029802,
+            "load": 1004.3000000044703
+          }
+        ],
+        "ready": "complete",
+        "resources": 9,
+        "title": "Zenith extension fixture"
+      }
+    }
+  },
+  {
+    "name": "fixture-dom",
+    "value": {
+      "control": "block",
+      "custom": "block",
+      "customScriptlet": null,
+      "generic": "block",
+      "scriptlet": "boolean",
+      "specific": "inline"
+    }
+  },
+  {
+    "name": "fixture-server",
+    "value": [
+      "/page",
+      "/bnf1.js",
+      "/bnf3.js",
+      "/xpopup/xpopup.js",
+      "/analytics/rakuten.js",
+      "/custom-block-1",
+      "/custom-block-2",
+      "/bnf2.png",
+      "/control.png",
+      "/favicon.ico"
+    ]
+  },
+  {
+    "name": "memory-fixture",
+    "value": {
+      "processCount": 5,
+      "workingBytes": 329572352,
+      "privateBytes": 156217344
+    }
+  },
+  {
+    "name": "memory-idle-stock",
+    "value": {
+      "processCount": 5,
+      "workingBytes": 330481664,
+      "privateBytes": 155226112
+    }
+  },
+  {
+    "name": "memory-final",
+    "value": {
+      "processCount": 5,
+      "workingBytes": 330481664,
+      "privateBytes": 155226112
+    }
+  }
+]

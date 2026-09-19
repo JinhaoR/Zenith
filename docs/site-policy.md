@@ -13,7 +13,7 @@ for the account-security boundary and `security-review.md` for current findings.
 
 ## 1.1 Development Policy and Migration
 
-Before initial password setup, the development application exposes a starter Site Policy snapshot for browser-mechanics testing. Its Whitelist entries are GitHub, ChatGPT, OpenAI, YouTube, Wikipedia, Reddit, Microsoft Learn, Google, Stack Overflow, GitLab, MDN Web Docs and Internet Archive. It has no Blacklist entries. Password setup persists these entries as the initial Vault policy. Later changes come only from confirmed Vault proposals.
+On a fresh installation, the development application persists its starter Vault policy without requiring a password. Its Whitelist entries are GitHub, ChatGPT, OpenAI, YouTube, Wikipedia, Reddit, Microsoft Learn, Google, Stack Overflow, GitLab, MDN Web Docs and Internet Archive. The starter catalog has no Blacklist entries; mandatory external Blacklist protection remains separate. Later changes come only from confirmed Vault proposals.
 
 The general evaluator directly permits transport-eligible targets whose normalized hostname matches an active Whitelist entry under its explicit subdomain scope. Other valid sites resolve to Greylist and require the Access Grant procedure below. Unsupported targets fail closed. Lookalike hosts do not inherit another site's classification.
 
@@ -21,7 +21,7 @@ Starter catalog launch URLs must match their configured entry using the same hos
 
 Navigation reads the active immutable snapshot through `ISitePolicySource` for every decision. The Vault service supplies a validated, revisioned snapshot from protected storage. If initialized policy cannot be read or validated, all navigation is denied as policy unavailable; the starter snapshot is not a recovery fallback. Confirming a Policy Change atomically advances the revision.
 
-Version-1 data migrates to the current version-4 envelope, retaining the existing password and pending Greylist requests. As explicitly requested for development testing, fresh setup and version-1 migration initialize all three timing values below to five seconds. Version-2 and version-3 migrations preserve existing Vault scopes, settings and pending proposal identities and deadlines. Data is validated before migration is written. Later launches never reset configured timings or replace saved policy with the starter catalog.
+Version-1 through version-4 data migrates once to the version-5 envelope. As explicitly requested on 2026-09-19, migration turns password protection off for existing profiles too, clears the active verifier and password retry delays, and preserves pending Greylist requests. Version-2 and later migrations preserve Vault scopes, settings, revisions and pending proposal identities/deadlines. Fresh setup and version-1 migration retain the previously requested five-second development timing defaults. A pending password proposal remains pending and can enable its proposed password only if explicitly confirmed. Data is validated before migration is written. Later launches never reset configured timings, overwrite the user's new password choice or replace saved policy with the starter catalog.
 
 ## 2. Classification
 
@@ -82,22 +82,24 @@ Direct navigation, top-level redirects, popups and new tabs continue to evaluate
 
 This compatibility choice applies to Whitelisted top-level pages; it does not authorize broadening a Greylisted page's temporary grant. For intercepted network documents, Core rechecks the top-level page and destination: otherwise-Greylisted frames are permitted under a currently Whitelisted top-level page, but a temporary Greylist page requires independent authorization for the embedded destination. An expired or unavailable top-level authorization denies further intercepted frame documents. This does not automatically terminate every previously opened connection.
 
+Native frame checks preserve embedded `about:blank` and `about:srcdoc` documents beneath a currently authorized top-level page. These have no destination hostname; Chromium determines their inherited or opaque origin. This narrowly scoped Core decision does not authorize other schemes or top-level navigation to these targets, nor grant any subsequent HTTP(S) frame destination access.
+
 ### Network-document enforcement checkpoint
 
 The account-security checkpoints disable HTTP cache use and bypass service-worker responses for each tab before document gating is ready. ADR 0016 additionally removes legacy service-worker registrations before browsing and denies native shared/service-worker request sources; this does not prevent all worker execution. Certificate errors are cancelled with no exception route. Login redirects receive the same independent hostname decisions as other redirects; signing into a service never authorizes its parent, sibling or identity-provider hosts automatically. Public HTTP is denied under the secure transport rule above.
 
-Each tab installs a request-stage document gate before becoming ready, in addition to the native navigation checks. It uses host-side CDP frame IDs to distinguish main requests from frames and re-evaluates intercepted redirect hops through Core. Initialization failure leaves browsing unavailable; a runtime protection-channel failure closes the browser window and disposes its controllers. There is no unrestricted fallback.
+Each tab installs native frame-document enforcement before becoming ready. Root frame-navigation events and recursively subscribed `CoreWebView2Frame.NavigationStarting` events adapt every applicable navigation and redirect into the same Core document decision, using the native top-level source for embedded-content authorization. Anything other than an explicit Allowed decision is cancelled. `FrameCreated` subscriptions cover nested frames across renderer processes and are tracked until destruction. Root-target CDP document interception remains additional request-stage protection, using host-side frame IDs and the same Core policy. Initialization failure leaves browsing unavailable; a runtime protection-channel failure closes the browser window and disposes its controllers. There is no unrestricted fallback.
 
-Loopback-server regressions verify absence of denied HTTP redirect/script requests, including in new tabs, while allowed redirects and nested widgets still load. Inherited documents, cache/worker paths, out-of-process target coverage and connection lifetime remain Phase 5 work. See ADR 0012 for the evidence, failure behavior and limits; this is not a guarantee of zero DNS or connection activity.
+Loopback-server regressions verify denied navigation, popup and frame behavior while allowed redirects and nested widgets still load. The [F02 fix validation](f02-fix-validation.md) verifies separate OOPIF renderer processes, denied document cancellation without execution, and no denied 307/308 POST-body delivery, including with root CDP interception disabled in the test. A denied GET can reach the server before native cancellation; this is not a guarantee of zero requests, DNS or connection activity. Inherited documents, cache/worker paths and connection lifetime retain the limits recorded in ADR 0012 and the security review.
 
 ## 4. Access Grants
 
 A Greylisted site may receive an Access Grant only after this sequence:
 
 1. The user requests access to the identified site.
-2. The first password challenge succeeds.
+2. The user explicitly starts the wait, authenticating if password protection is enabled.
 3. The configured Greylist cooldown elapses.
-4. The second password challenge succeeds.
+4. The user explicitly confirms the visit, authenticating again if password protection is enabled.
 5. Zenith issues an Access Grant with explicit scope and expiry.
 
 An Access Grant:
@@ -112,14 +114,14 @@ Cooldown state must not be bypassed by reopening the URL or restarting Zenith. T
 
 ### Current grant and authentication rules
 
-- One password is configured during initial setup and used for both challenges. Setup requires confirmation and 15–128 characters; setup itself does not start a cooldown or issue access.
-- A successful first challenge captures the current Greylist wait and visit duration for the normalized hostname. The development defaults are **5 seconds of waiting** and **5 seconds of access**. Both are Vault-editable between 5 seconds and 24 hours. Reopening another URL on that hostname reuses the same pending request and cannot skip or restart its wait.
-- After eligibility, a successful second challenge issues the captured visit duration. Access never starts automatically when the wait ends. Existing requests keep their captured deadline and duration when settings change; migration preserves the earlier 30-minute wait and 60-minute visit values for legacy requests.
+- Password protection is optional and off by default. No password setup is required for temporary access or Vault changes. Settings → Vault can stage a shared password of 15–128 characters with repeated entry; it takes effect only after the existing Vault wait and confirmation.
+- Starting a request captures the current Greylist wait and visit duration for the normalized hostname. The development defaults are **5 seconds of waiting** and **5 seconds of access**. Both are Vault-editable between 5 seconds and 24 hours. Reopening another URL on that hostname reuses the same pending request and cannot skip or restart its wait.
+- After eligibility, explicit confirmation issues the captured visit duration. Access never starts automatically when the wait ends. Existing requests keep their captured deadline and duration when settings change; migration preserves the earlier 30-minute wait and 60-minute visit values for legacy requests.
 - The grant covers the **exact normalized hostname across tabs**. Scheme, port and path follow the existing site-identity rules; parent domains and subdomains are not included implicitly. Redirects to another hostname receive their own policy decision.
-- Cooldowns persist across restarts, including time spent with Zenith closed. Grants are held only in memory and end at expiry or Zenith exit. The second challenge consumes its pending request before issuing access, so reopening Zenith cannot reuse a completed wait to recreate that grant.
-- Failed password attempts introduce a persisted five-second retry delay. Neither failed authentication nor failed persistence can advance the access procedure.
-- Password and timing changes require the protected Vault procedure below. Forgotten-password recovery is not implemented and has no immediate reset route. Missing or corrupt initialized protected data does not offer fresh setup.
-- A confirmed Vault revision invalidates existing session grants on the next authorization check. Pending Greylist requests remain saved, and any later challenge uses the then-current password.
+- Cooldowns persist across restarts, including time spent with Zenith closed. Grants are held only in memory and end at expiry or Zenith exit. Confirmation consumes its pending request before issuing access, so reopening Zenith cannot reuse a completed wait to recreate that grant.
+- When password protection is enabled, failed password attempts introduce a persisted five-second retry delay. Neither failed authentication nor failed persistence can advance the access procedure. Cooldown-only operation skips credential verification, not policy, time, persistence or expiry checks.
+- Enabling, replacing or disabling a password and changing timings require the Vault procedure below. Disabling an enabled password requires the current password at both stages. Forgotten-password recovery is not implemented; the one-time user-authorized migration is not a reusable reset. Missing or corrupt initialized protected data does not offer fresh setup or default to passwordless operation.
+- A confirmed Vault revision invalidates existing session grants on the next authorization check. Pending Greylist requests remain saved, and later confirmations use the then-current authentication setting.
 
 Core checks grants with an inclusive start and exclusive expiry. Each navigation rechecks classification, the exact hostname, protected access-state health and time. Blacklist and unsupported-target decisions take precedence; a grant-source failure denies navigation. A grant never changes the site's Access Class or adds it to Sphere discovery/bookmarks.
 
@@ -137,11 +139,11 @@ Offline progress uses UTC deadlines. Without trusted external time, changes made
 
 An access-affecting Vault edit is a Policy Change, not an immediate mutation.
 
-1. The user authenticates and proposes the exact change.
+1. The user proposes the exact change, authenticating if password protection is enabled.
 2. Zenith records the proposal and the policy revision on which it is based.
 3. A long waiting period begins.
 4. The existing policy remains active.
-5. After the waiting period, the user re-authenticates and confirms the unchanged proposal.
+5. After the waiting period, the user confirms the unchanged proposal, re-authenticating if password protection is enabled.
 6. Zenith applies the Policy Change atomically.
 
 Changing a pending proposal restarts its waiting period. An unconfirmed, expired or conflicting proposal does not take effect. Cancellation may remove a pending proposal without weakening the active policy.
@@ -149,10 +151,10 @@ Changing a pending proposal restarts its waiting period. An unconfirmed, expired
 ### Current Vault rules
 
 - The development Vault wait defaults to **5 seconds**, adjustable between 5 seconds and 30 days. These short values are explicitly for testing, not an authentication bypass. All changes, including stricter ones, follow the full process; there is no immediate-apply exception.
-- One pending proposal can combine a password replacement, timing edits and multiple hostname additions, scope updates and removals (at most 1,000 site operations). Removals are evaluated first, then additions, and the resulting policy applies atomically. This permits replacing a broad parent scope with selected services in one proposal. Duplicate or invalid selections reject the whole proposal. Staging authenticates with the current shared password and records a unique proposal ID, the current policy revision and an eligibility deadline computed using the **old, active Vault wait**.
+- One pending proposal can combine a password setting change, timing edits and multiple hostname additions, scope updates and removals (at most 1,000 site operations). Removals are evaluated first, then additions, and the resulting policy applies atomically. This permits replacing a broad parent scope with selected services in one proposal. Duplicate or invalid selections reject the whole proposal. Staging authenticates with the current shared password only when enabled and records a unique proposal ID, the current policy revision and an eligibility deadline computed using the **old, active Vault wait**.
 - Reducing the Vault wait cannot shorten its own proposal. Replacing a proposal starts the full currently active wait again, with a new ID. Cancellation immediately discards only the pending proposal; it never modifies active policy or credentials.
-- Confirmation must name the unchanged pending proposal and authenticate with the current password after eligibility. A stale, conflicting, cancelled or already-consumed proposal cannot apply. Eligible proposals remain pending until explicit confirmation, replacement or cancellation; they do not auto-apply.
-- Password replacements require 15–128 characters and repeated entry. Only a salted verifier is staged. The old password remains active until confirmation atomically replaces the credential, policy revision and pending state. A failed write cannot partially change credentials or policy. This procedure requires knowledge of the current password and is not recovery.
+- Confirmation must name the unchanged pending proposal after eligibility and authenticate with the current password when enabled. A stale, conflicting, cancelled or already-consumed proposal cannot apply. Eligible proposals remain pending until explicit confirmation, replacement or cancellation; they do not auto-apply.
+- Enabling/replacing a password requires 15–128 characters and repeated entry. Only a salted verifier is staged. The old authentication setting remains active until confirmation atomically replaces the credential, password-enabled flag, policy revision and pending state. Disabling clears the active verifier; disabling and replacing in one proposal is invalid. A failed write cannot partially change credentials or policy. When protection is already enabled, this procedure requires the current password and is not recovery.
 - New Vault additions default to the exact selected hostname. Including subdomains is an explicit per-service option. The hostname is always the boundary: `scholar.google.com`, even with subdomains included, never permits `google.com`, `www.google.com` or `mail.google.com`. A broad `google.com` entry does permit those children, so it must be removed when replacing it with selected services. Zenith never infers a registrable parent, a `www.` alias, unrelated domains or permission for login redirects. Embedded-content compatibility remains separate. Review provides expandable normalized addresses and scopes; friendly display names are metadata only.
 - Existing Whitelist scopes may be expanded or narrowed only through the full staged Policy Change. A hostname already covered by a broader Whitelist entry is rejected as redundant unless the broader scope is removed in the same batch. Confirming a new broader parent entry consolidates redundant Whitelist children; overlapping Blacklist entries remain intact and continue to win. Narrowing an existing entry does not delete separately stored child entries. Invalid hosts, credentials, paths and wildcard strings are rejected. Existing saved scopes are never narrowed automatically by this UI change.
 - A removal must name an independent stored Whitelist scope. It remains active throughout review and waiting. Confirming removal of a host-and-subdomains scope atomically removes that Whitelist entry and its covered redundant Whitelist children. It never removes or weakens overlapping Blacklist entries. A child still covered by a broader parent cannot be removed independently because that would be an ineffective policy change; the broader scope must be removed instead.

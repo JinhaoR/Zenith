@@ -1,0 +1,298 @@
+[
+  {
+    "name": "startup",
+    "value": {
+      "runtime": "152.0.4191.66",
+      "milliseconds": 355,
+      "mode": "basic",
+      "extension": "build/ubolite-experiment/edge"
+    }
+  },
+  {
+    "name": "memory-initial",
+    "value": {
+      "processCount": 5,
+      "workingBytes": 235438080,
+      "privateBytes": 87789568
+    }
+  },
+  {
+    "name": "extensions-before",
+    "value": [
+      {
+        "Id": "dgiklkfkllikcanfonkcabmbdfmgleag",
+        "Name": "Microsoft Clipboard Extension",
+        "IsEnabled": true
+      },
+      {
+        "Id": "mhjfbmdgcfjbbpaeojofohoefgiehjai",
+        "Name": "Microsoft Edge PDF Viewer",
+        "IsEnabled": true
+      }
+    ]
+  },
+  {
+    "name": "installed",
+    "value": {
+      "Id": "nnmkioolanpfhcjajnnnojialjelbpoc",
+      "Name": "uBlock Origin Lite",
+      "IsEnabled": true,
+      "milliseconds": 428
+    }
+  },
+  {
+    "name": "dashboard-navigation",
+    "value": {
+      "success": true,
+      "error": "Unknown",
+      "milliseconds": 612,
+      "scheme": "chrome-extension",
+      "dom": {
+        "bodyCharacters": 1428,
+        "navigation": [
+          {
+            "domContentLoaded": 92.39999999850988,
+            "load": 92.69999999925494
+          }
+        ],
+        "ready": "complete",
+        "resources": 0,
+        "title": "uBO Lite \u2014 Dashboard"
+      }
+    }
+  },
+  {
+    "name": "extension-api",
+    "value": {
+      "dnr": "object",
+      "id": "nnmkioolanpfhcjajnnnojialjelbpoc",
+      "offscreen": "object",
+      "permissions": {
+        "origins": [
+          "\u003Call_urls\u003E"
+        ],
+        "permissions": [
+          "activeTab",
+          "alarms",
+          "storage",
+          "unlimitedStorage",
+          "declarativeNetRequest",
+          "scripting",
+          "offscreen",
+          "userScripts"
+        ]
+      },
+      "scripting": "object",
+      "update": "function",
+      "userScripts": "undefined"
+    }
+  },
+  {
+    "name": "dashboard-state",
+    "value": {
+      "enabled": [
+        "ublock-filters",
+        "easylist",
+        "easyprivacy",
+        "pgl",
+        "ublock-badware",
+        "urlhaus-full"
+      ],
+      "hasOmnipotence": true,
+      "mode": 2,
+      "supportsCompiledFilters": true,
+      "supportsUserScripts": false
+    }
+  },
+  {
+    "name": "persistence-marker",
+    "value": {}
+  },
+  {
+    "name": "mode-configured",
+    "value": 1
+  },
+  {
+    "name": "test-rules",
+    "value": [
+      "ublock-filters",
+      "easylist",
+      "easyprivacy",
+      "pgl",
+      "ublock-badware",
+      "urlhaus-full",
+      "ubol-tests"
+    ]
+  },
+  {
+    "name": "custom-list-import",
+    "value": null
+  },
+  {
+    "name": "custom-scriptlet",
+    "value": null
+  },
+  {
+    "name": "registered-scripts",
+    "value": []
+  },
+  {
+    "name": "user-scripts",
+    "value": {
+      "error": "Cannot read properties of undefined (reading \u0027getScripts\u0027)"
+    }
+  },
+  {
+    "name": "extension-update-check",
+    "value": {
+      "status": "no_update",
+      "version": ""
+    }
+  },
+  {
+    "name": "dashboard-dom",
+    "value": {
+      "bodyCharacters": 1428,
+      "frames": 0,
+      "title": "uBO Lite \u2014 Dashboard"
+    }
+  },
+  {
+    "name": "fixture-navigation",
+    "value": {
+      "success": true,
+      "error": "Unknown",
+      "milliseconds": 1090,
+      "scheme": "http",
+      "dom": {
+        "bodyCharacters": 48,
+        "navigation": [
+          {
+            "domContentLoaded": 317.19999999925494,
+            "load": 573.1999999992549
+          }
+        ],
+        "ready": "complete",
+        "resources": 8,
+        "title": "Zenith extension fixture"
+      }
+    }
+  },
+  {
+    "name": "fixture-dom",
+    "value": {
+      "control": "block",
+      "custom": "block",
+      "customScriptlet": null,
+      "generic": "block",
+      "scriptlet": "boolean",
+      "specific": "inline"
+    }
+  },
+  {
+    "name": "fixture-server",
+    "value": [
+      "/filters.txt",
+      "/page",
+      "/custom-block-2",
+      "/control.png",
+      "/favicon.ico"
+    ]
+  },
+  {
+    "name": "memory-fixture",
+    "value": {
+      "processCount": 6,
+      "workingBytes": 483880960,
+      "privateBytes": 296636416
+    }
+  },
+  {
+    "name": "simulate-list-expiry",
+    "value": true
+  },
+  {
+    "name": "custom-list-update",
+    "value": null
+  },
+  {
+    "name": "dynamic-rules",
+    "value": {
+      "count": 167,
+      "custom": [
+        {
+          "action": {
+            "type": "block"
+          },
+          "condition": {
+            "urlFilter": "||localhost^*/custom-block-2"
+          },
+          "id": 9000000,
+          "priority": 10
+        }
+      ]
+    }
+  },
+  {
+    "name": "disabled",
+    "value": {
+      "IsEnabled": false
+    }
+  },
+  {
+    "name": "disabled-fixture",
+    "value": {
+      "success": true,
+      "error": "Unknown",
+      "milliseconds": 3283,
+      "scheme": "http",
+      "dom": {
+        "bodyCharacters": 48,
+        "navigation": [
+          {
+            "domContentLoaded": 2776.300000000745,
+            "load": 2776.699999999255
+          }
+        ],
+        "ready": "complete",
+        "resources": 8,
+        "title": "Zenith extension fixture"
+      }
+    }
+  },
+  {
+    "name": "disabled-dom",
+    "value": {
+      "generic": "block",
+      "scriptlet": "boolean"
+    }
+  },
+  {
+    "name": "disabled-server",
+    "value": [
+      "/filters.txt",
+      "/page",
+      "/custom-block-2",
+      "/control.png",
+      "/favicon.ico",
+      "/filters.txt",
+      "/page-disabled",
+      "/bnf1.js",
+      "/xpopup/xpopup.js",
+      "/analytics/rakuten.js",
+      "/custom-block-1",
+      "/custom-block-2",
+      "/bnf2.png",
+      "/control.png",
+      "/favicon.ico"
+    ]
+  },
+  {
+    "name": "memory-final",
+    "value": {
+      "processCount": 6,
+      "workingBytes": 432906240,
+      "privateBytes": 255668224
+    }
+  }
+]

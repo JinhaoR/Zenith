@@ -141,7 +141,7 @@ The following names describe responsibilities; they do not require one class per
 | Site identity and URI normalizer | Core | Canonicalize HTTP(S) targets and produce the hostname identity used by policy. |
 | Policy evaluator | Core | Read the active revisioned snapshot, resolve Whitelist, Blacklist or Greylist and return a fail-closed navigation decision. |
 | Site Policy source | Core interface, App adapter | Expose one validated active snapshot without coupling classification to its eventual persistence format. |
-| Access Grant service | Core | Manage the password–cooldown–password state machine and validate Access Grants. |
+| Access Grant service | Core | Manage request–cooldown–confirmation with optional password protection and validate Access Grants. |
 | Vault service | Core | Expose the active policy and create, confirm, cancel or reject Policy Changes. |
 | Permission evaluator | Core | Decide website capabilities independently from navigation access. |
 | Policy store | App adapter | Persist active Vault policy and revisions atomically. |
@@ -156,7 +156,7 @@ The following names describe responsibilities; they do not require one class per
 
 `GreylistAccessService` implements `IAccessGrantSource` and owns both authentication transitions, cooldown/retry eligibility, state validation, clock checks and in-memory grants. It depends on `IAccessAuthenticator`, `IAccessStateStore`, `ISitePolicySource` and an injectable `TimeProvider`. State writes must succeed before transitions or grant issuance become observable.
 
-The App composition root supplies `ProtectedAccessStore` for authentication, temporal persistence and `IVaultStore`. Version 4 of the Windows DPAPI envelope holds the password verifier, cooldown snapshot, active Vault policy, presentation names and pending batch proposal. Atomic file replacement retains a protected previous envelope; a lifetime exclusive file lease serializes supported application instances. An initialization marker distinguishes missing initialized state from fresh setup. Older supported versions migrate after validation, preserving existing credentials, deadlines and saved Vault scopes. Missing mandatory current-schema fields fail closed rather than acquiring development defaults. See ADRs 0007, 0008 and 0013.
+The App composition root supplies `ProtectedAccessStore` for authentication, temporal persistence and `IVaultStore`, initializing fresh installations without a password. Version 5 of the Windows DPAPI envelope holds the explicit password-enabled flag, optional verifier, cooldown snapshot, active Vault policy, presentation names and pending batch proposal. Atomic file replacement retains a protected previous envelope; a lifetime exclusive file lease serializes supported application instances. An initialization marker distinguishes missing initialized state from fresh setup. The user-authorized migration turns legacy password protection off once while preserving deadlines and saved Vault scopes. Missing mandatory current-schema fields fail closed rather than acquiring development defaults. See ADRs 0007, 0008, 0013 and 0019.
 
 `SitePolicyNavigationEvaluator` checks classification before consulting the grant source and independently checks the returned `AccessGrant` against exact site identity and time. Allowed decisions retain the Core-resolved `AccessClass`, so App can distinguish Whitelist discovery from temporary Greylist authorization without duplicating classification logic. The optional source preserves fail-closed behavior for callers without temporary access.
 
@@ -165,6 +165,14 @@ MainWindow re-evaluates retained tab targets on a one-second dispatcher tick and
 ### Active Vault policy
 
 The follow-up account-security checkpoint (ADR 0015) adds native HTML file-input cancellation to `BrowserCapabilityGuard` and explicit exception denial to the Core resource policy and its WebView2 adapter. `FaviconDecoder` accepts only bounded PNG streams obtained from WebView2; no icon URL is resolved by WPF. The shell stores decoded images per tab and rejects stale async results.
+
+ADR 0018 corrects the chooser's root-only target coverage. `BrowserCapabilityGuard`
+owns `FileChooserGuard`, which applies Core's fixed file-selection decision through
+WebView2 CDP sessions. Recursive iframe auto-attachment pauses new OOPIF targets;
+chooser enforcement and descendant attachment are configured before resuming them.
+Policy/setup failures invoke controller disposal. No native frame chooser event
+exists in the installed SDK, and no new capability grant or native file path is
+introduced. Allowed adapter decisions retain Chromium's user-controlled chooser.
 
 Account security remains separate from the Vault (ADR 0014). `BrowserCapabilityGuard` installs renderer security defaults and authentication/certificate guards; `DocumentRequestGuard` controls document interception and cache/worker-response bypass. `MainWindow.Security` owns native identity presentation, runtime-update notices and the confirmed dispose-clear-close profile lifecycle. Cleanup uses WebView2's profile API, never the policy store. Core normalizes website identity and supplies capability decisions.
 
@@ -224,20 +232,20 @@ The App must not reinterpret the decision. A denied or failed evaluation cannot 
 
 1. A Greylist decision causes App to present the native Greylist gate.
 2. Credential input is sent to the authentication adapter, never to web content.
-3. Core records the first successful challenge and begins the cooldown.
+3. Core validates the request, authenticating only when enabled, and begins the cooldown.
 4. The cooldown is persisted and evaluated through the Core time abstraction.
-5. After eligibility, App presents the second challenge.
-6. Core issues the scoped Access Grant after successful verification.
+5. After eligibility, App presents explicit confirmation, with a password field only when enabled.
+6. Core issues the scoped Access Grant after the required checks and durable request consumption.
 7. The original navigation is submitted through the normal policy evaluator again.
 
 An Access Grant never bypasses the evaluator and never modifies durable classification.
 
 ### Vault Policy Change
 
-1. The native Vault UI submits an authenticated proposal to Core.
+1. The native Vault UI submits a proposal to Core, authenticating when password protection is enabled.
 2. Core creates an immutable pending Policy Change tied to the active policy revision.
 3. App persists the proposal while the existing policy remains active.
-4. After the long waiting period, the user re-authenticates and confirms the exact proposal.
+4. After the long waiting period, the user confirms the exact proposal, re-authenticating when password protection is enabled.
 5. Core verifies its eligibility and revision.
 6. The policy store applies the new revision atomically.
 
@@ -253,14 +261,17 @@ Views and ViewModels never write Vault policy directly.
 
 ### Resource and cosmetic filtering
 
-`DocumentRequestGuard` is a separate per-tab request-stage CDP adapter, installed
-before the tab is ready. Main/embedded document identity comes from CDP frame IDs,
-not the ad-filter metadata heuristic. `NavigationCoordinator` delegates network
-document authorization to Core's `DocumentRequestPolicy`, reusing the ordinary
-site evaluator and the agreed embedded-content scope. Native navigation events
-still drive policy boundaries. Protocol failure has no allow fallback; runtime
-failure closes the window and disposes controllers. ADR 0012 records the
-independent loopback-server evidence and remaining transport-coverage limits.
+`DocumentRequestGuard` is a per-tab native frame-navigation adapter with additional
+root-target CDP request interception, installed before the tab is ready. Native
+`FrameCreated` subscriptions recurse across nested and out-of-process frames;
+every frame navigation/redirect requests Core's document decision against the
+native top-level source. CDP frame IDs distinguish intercepted main/embedded
+requests, not the ad-filter metadata heuristic. `NavigationCoordinator` delegates
+authorization to Core's `DocumentRequestPolicy`, reusing the ordinary site evaluator
+and agreed embedded-content scope. Protocol/subscription failure has no allow
+fallback; runtime failure closes the window and disposes controllers. ADR 0017
+records the F02 correction and its request-timing limits; ADR 0012 retains the
+original request-stage design and evidence.
 
 `ResourceFilteringPolicy` in Core composes mandatory host protection before the
 replaceable `IResourceFilterEngine`. `ResourceDocumentContext` normalizes native

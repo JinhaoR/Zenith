@@ -22,8 +22,8 @@
                     <TextBlock x:Name="PendingDetails" Style="{StaticResource Description}" Margin="0,8,0,0" />
                 </Expander>
                 <TextBlock x:Name="Countdown" Foreground="{DynamicResource ZenithAccentBrush}" Margin="0,16,0,0" FontWeight="SemiBold" AutomationProperties.LiveSetting="Polite" />
-                <TextBlock Text="Nothing changes automatically. Return and confirm this exact proposal with your current password." Style="{StaticResource Description}" Margin="0,8,0,12" />
-                <Label Content="Current password" Target="{Binding ElementName=ConfirmPassword}" Foreground="{DynamicResource ZenithTextBrush}" Padding="0,0,0,8" />
+                <TextBlock Text="Nothing changes automatically. Return and confirm this exact proposal when the wait ends." Style="{StaticResource Description}" Margin="0,8,0,12" />
+                <Label x:Name="ConfirmPasswordLabel" Content="Current password" Target="{Binding ElementName=ConfirmPassword}" Foreground="{DynamicResource ZenithTextBrush}" Padding="0,0,0,8" />
                 <PasswordBox x:Name="ConfirmPassword" AutomationProperties.Name="Current password to confirm proposal" />
                 <WrapPanel Margin="0,16,0,0">
                     <Button x:Name="ConfirmButton" Style="{StaticResource PrimaryButton}" Content="Confirm and apply" Click="Confirm_OnClick" Margin="0,0,10,10" />
@@ -101,13 +101,15 @@
                     <Button x:Name="ClearRemovalButton" Content="Clear removal selection" HorizontalAlignment="Left" Margin="0,12,0,0" Click="ClearRemoval_OnClick" />
                 </StackPanel></Border>
                 <Border Style="{StaticResource Card}"><StackPanel>
-                    <CheckBox x:Name="ChangePassword" Content="Change my password" Foreground="{DynamicResource ZenithTextBrush}" FontSize="18" />
+                    <TextBlock x:Name="PasswordStatus" Style="{StaticResource Description}" Margin="0,0,0,12" />
+                    <CheckBox x:Name="ChangePassword" Content="Set or replace a password" Foreground="{DynamicResource ZenithTextBrush}" FontSize="18" />
+                    <CheckBox x:Name="DisablePassword" Content="Turn off password protection" Foreground="{DynamicResource ZenithTextBrush}" Margin="0,12,0,0" />
                     <StackPanel>
                         <StackPanel.Style><Style TargetType="StackPanel">
                             <Setter Property="Visibility" Value="Collapsed" />
                             <Style.Triggers><DataTrigger Binding="{Binding IsChecked, ElementName=ChangePassword}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers>
                         </Style></StackPanel.Style>
-                    <TextBlock Text="Optional: enter and repeat a new password of 15–128 characters. Your old password remains active until you confirm after the wait. This is not forgotten-password recovery." Style="{StaticResource Description}" Margin="0,12,0,14" />
+                    <TextBlock Text="Optional: enter and repeat a password of 15–128 characters. It will protect both temporary access and Vault changes after this proposal is confirmed. If protection is already on, use the current password until then." Style="{StaticResource Description}" Margin="0,12,0,14" />
                     <Label Content="New password" Target="{Binding ElementName=NewPassword}" Foreground="{DynamicResource ZenithTextBrush}" Padding="0,0,0,8" />
                     <PasswordBox x:Name="NewPassword" AutomationProperties.Name="Proposed new password" />
                     <Label Content="Repeat new password" Target="{Binding ElementName=RepeatPassword}" Foreground="{DynamicResource ZenithTextBrush}" Padding="0,14,0,8" />
@@ -122,7 +124,7 @@
                         <TextBlock x:Name="ReviewDetails" Style="{StaticResource Description}" Margin="0,8,0,0" />
                     </Expander>
                     <TextBlock Text="Staging replaces any pending proposal and starts the full current Vault wait again. Existing Greylist waits keep their recorded deadlines." Style="{StaticResource Description}" Margin="0,0,0,14" />
-                    <Label Content="Current password" Target="{Binding ElementName=StagePassword}" Foreground="{DynamicResource ZenithTextBrush}" Padding="0,0,0,8" />
+                    <Label x:Name="StagePasswordLabel" Content="Current password" Target="{Binding ElementName=StagePassword}" Foreground="{DynamicResource ZenithTextBrush}" Padding="0,0,0,8" />
                     <PasswordBox x:Name="StagePassword" AutomationProperties.Name="Current password to stage proposal" />
                     <Button x:Name="StageButton" Style="{StaticResource PrimaryButton}" Content="Authenticate and start wait" Click="Stage_OnClick" HorizontalAlignment="Left" Margin="0,16,0,0" />
                 </StackPanel></Border>

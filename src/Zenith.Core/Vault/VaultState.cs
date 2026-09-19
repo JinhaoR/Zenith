@@ -16,7 +16,7 @@ public sealed record VaultSite(string Host, AccessClass AccessClass, bool Includ
 public sealed record VaultSiteAddition(string Host, bool IncludeSubdomains = false, string? DisplayName = null);
 public sealed record VaultEdit(int? GreylistSeconds = null, int? GrantSeconds = null, int? VaultSeconds = null,
     string? AddHost = null, bool IncludeSubdomains = false, bool ChangePassword = false, string? RemoveHost = null,
-    IReadOnlyList<VaultSiteAddition>? AddSites = null, IReadOnlyList<string>? RemoveSites = null)
+    IReadOnlyList<VaultSiteAddition>? AddSites = null, IReadOnlyList<string>? RemoveSites = null, bool DisablePassword = false)
 {
     public IEnumerable<VaultSiteAddition> Additions() => AddSites ??
         (string.IsNullOrWhiteSpace(AddHost) ? [] : [new VaultSiteAddition(AddHost, IncludeSubdomains)]);
@@ -26,7 +26,7 @@ public sealed record VaultEdit(int? GreylistSeconds = null, int? GrantSeconds = 
 public sealed record PendingPolicyChange(Guid Id, long BaseRevision, DateTimeOffset ProposedAt,
     DateTimeOffset EligibleAt, VaultEdit Edit, string? PasswordVerifier);
 public sealed record VaultState(long Revision, VaultSettings Settings, VaultSite[] Sites,
-    DateTimeOffset LastObservedUtc, DateTimeOffset RetryAfter, PendingPolicyChange? Pending = null)
+    DateTimeOffset LastObservedUtc, DateTimeOffset RetryAfter, PendingPolicyChange? Pending = null, bool PasswordRequired = false)
 {
     public static VaultState CreateDevelopment(DateTimeOffset now) => new(0, new(),
         DevelopmentStarterPolicy.Snapshot.Entries.Select(entry =>

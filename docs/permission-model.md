@@ -59,17 +59,18 @@ No explicit capability grants are implemented yet. Core denies WebView2 permissi
 
 Before a tab is ready, previously stored non-default renderer permission settings are reset so old grants cannot bypass the default-deny handler. Device client certificates and browser-level HTTP authentication are denied; ordinary website form login remains subject to navigation policy. Host objects, developer tools, default context menus and default JavaScript dialogs are disabled. The renderer cannot invoke privileged host services; its optional cosmetic message bridge is bounded and has no policy authority.
 
-HTML file-input choosers in the root target and tested same-origin frames are natively intercepted and cancelled before a tab becomes ready, and external drag-and-drop is disabled on initial and later WPF controllers. No upload permission or selected file is returned. Unsupported required interception fails tab initialization. Browser tests exercise top-level and same-origin nested file-input cancellation with a user gesture.
+HTML file-input choosers use Core's fixed file-selection decision in the root target and recursively auto-attached iframe targets. Before an OOPIF target resumes, the App adapter configures its CDP chooser interception and recursive attachment. New targets must be paused for setup; initialization or runtime protection failure leaves no unrestricted fallback and disposes the browser controllers. Core currently denies selection, so no upload permission or file is returned. External drag-and-drop remains disabled on initial and later WPF controllers. Native tests cover top-level, ordinary/nested and verified out-of-process frames, including allowed adapter positive controls without introducing production grants. See ADR 0018 and the [F06 chooser validation](f06-file-chooser-validation.md).
 
-These hooks are not complete enforcement of every category above. The focused validation below resolves tested File System Access/persisted-handle cases and identifies the OOPIF picker and screen-capture gaps. Fullscreen, background activity and other untested paths remain outside that validation. Configurable permission grants remain Phase 6 work. See ADRs 0014 and 0015 for account-security checkpoints. Disabling HTML file selection also prevents ordinary attachment uploads until an explicit capability flow is designed.
+These hooks are not complete enforcement of every category above. The focused validation below resolves tested File System Access/persisted-handle cases; the reproduced OOPIF HTML picker gap is now locally fixed and screen-capture hardening remains separate. Fullscreen, background activity and other untested paths remain outside that validation. Configurable permission grants remain Phase 6 work. See ADRs 0014 and 0015 for the original account-security checkpoints. Disabling HTML file selection also prevents ordinary attachment uploads until an explicit capability flow is designed.
 
 ## 7. Focused Account-Boundary Validation (2026-09-13)
 
 [The F02/F06 investigation](account-boundary-validation.md) confirmed an OOPIF HTML
 picker-policy gap: the root-target interception does not prevent that frame from
-opening a native chooser. No file was selected or silently exposed. This requires
-implementation work to meet the existing no-selection policy; it is not an
-approved new permission flow. ScreenCaptureStarting also remains uncancelled by
+opening a native chooser. No file was selected or silently exposed. The
+[2026-09-14 correction](f06-file-chooser-validation.md) closes that reproduced gap
+and is locally regression-tested; it adds no new permission flow.
+ScreenCaptureStarting remains uncancelled by
 production, retaining the browser's native consent boundary rather than enforcing
 blanket denial. The test deliberately stopped before the screen chooser.
 

@@ -1,0 +1,255 @@
+[
+  {
+    "name": "startup",
+    "value": {
+      "runtime": "152.0.4191.66",
+      "milliseconds": 402,
+      "mode": "reinstall",
+      "extension": "build/ubolite-experiment/update-stable"
+    }
+  },
+  {
+    "name": "memory-initial",
+    "value": {
+      "processCount": 5,
+      "workingBytes": 288239616,
+      "privateBytes": 122503168
+    }
+  },
+  {
+    "name": "extensions-before",
+    "value": [
+      {
+        "Id": "dgiklkfkllikcanfonkcabmbdfmgleag",
+        "Name": "Microsoft Clipboard Extension",
+        "IsEnabled": true
+      },
+      {
+        "Id": "gfajbnpfgoeebmpoffjbpjblcoiigahi",
+        "Name": "uBlock Origin Lite",
+        "IsEnabled": true
+      },
+      {
+        "Id": "mhjfbmdgcfjbbpaeojofohoefgiehjai",
+        "Name": "Microsoft Edge PDF Viewer",
+        "IsEnabled": true
+      }
+    ]
+  },
+  {
+    "name": "installed",
+    "value": {
+      "Id": "gfajbnpfgoeebmpoffjbpjblcoiigahi",
+      "Name": "uBlock Origin Lite",
+      "IsEnabled": true,
+      "milliseconds": 480
+    }
+  },
+  {
+    "name": "dashboard-navigation",
+    "value": {
+      "success": true,
+      "error": "Unknown",
+      "milliseconds": 601,
+      "scheme": "chrome-extension",
+      "dom": {
+        "bodyCharacters": 0,
+        "navigation": [
+          {
+            "domContentLoaded": 64.89999999850988,
+            "load": 65.10000000149012
+          }
+        ],
+        "ready": "complete",
+        "resources": 0,
+        "title": "uBO Lite \u2014 Dashboard"
+      }
+    }
+  },
+  {
+    "name": "extension-api",
+    "value": {
+      "dnr": "object",
+      "id": "gfajbnpfgoeebmpoffjbpjblcoiigahi",
+      "offscreen": "object",
+      "permissions": {
+        "origins": [
+          "\u003Call_urls\u003E"
+        ],
+        "permissions": [
+          "activeTab",
+          "alarms",
+          "storage",
+          "unlimitedStorage",
+          "declarativeNetRequest",
+          "scripting",
+          "offscreen",
+          "userScripts"
+        ]
+      },
+      "scripting": "object",
+      "update": "function",
+      "userScripts": "undefined"
+    }
+  },
+  {
+    "name": "dashboard-state",
+    "value": {
+      "enabled": [
+        "ublock-filters",
+        "easylist",
+        "easyprivacy",
+        "pgl",
+        "ublock-badware",
+        "urlhaus-full",
+        "ubol-tests",
+        "http://localhost:52119/filters.txt"
+      ],
+      "hasOmnipotence": true,
+      "mode": 3,
+      "supportsCompiledFilters": true,
+      "supportsUserScripts": false
+    }
+  },
+  {
+    "name": "persistence-marker",
+    "value": {
+      "zenithExperimentMarker": "isolated-fixture"
+    }
+  },
+  {
+    "name": "dashboard-dom",
+    "value": {
+      "bodyCharacters": 1428,
+      "frames": 0,
+      "title": "uBO Lite \u2014 Dashboard"
+    }
+  },
+  {
+    "name": "fixture-navigation",
+    "value": {
+      "success": true,
+      "error": "Unknown",
+      "milliseconds": 1288,
+      "scheme": "http",
+      "dom": {
+        "bodyCharacters": 25,
+        "navigation": [
+          {
+            "domContentLoaded": 774.8999999985099,
+            "load": 780.7999999970198
+          }
+        ],
+        "ready": "complete",
+        "resources": 9,
+        "title": "Zenith extension fixture"
+      }
+    }
+  },
+  {
+    "name": "fixture-dom",
+    "value": {
+      "control": "block",
+      "custom": "block",
+      "customScriptlet": null,
+      "generic": "none",
+      "scriptlet": "undefined",
+      "specific": "none"
+    }
+  },
+  {
+    "name": "fixture-server",
+    "value": [
+      "/page",
+      "/bnf3.js",
+      "/custom-block-1",
+      "/control.png",
+      "/favicon.ico"
+    ]
+  },
+  {
+    "name": "memory-fixture",
+    "value": {
+      "processCount": 6,
+      "workingBytes": 534933504,
+      "privateBytes": 318341120
+    }
+  },
+  {
+    "name": "simulate-list-expiry",
+    "value": true
+  },
+  {
+    "name": "custom-list-update",
+    "value": null
+  },
+  {
+    "name": "dynamic-rules",
+    "value": {
+      "count": 166,
+      "custom": []
+    }
+  },
+  {
+    "name": "disabled",
+    "value": {
+      "IsEnabled": false
+    }
+  },
+  {
+    "name": "disabled-fixture",
+    "value": {
+      "success": true,
+      "error": "Unknown",
+      "milliseconds": 1405,
+      "scheme": "http",
+      "dom": {
+        "bodyCharacters": 48,
+        "navigation": [
+          {
+            "domContentLoaded": 626.7000000029802,
+            "load": 888.3000000044703
+          }
+        ],
+        "ready": "complete",
+        "resources": 9,
+        "title": "Zenith extension fixture"
+      }
+    }
+  },
+  {
+    "name": "disabled-dom",
+    "value": {
+      "generic": "block",
+      "scriptlet": "boolean"
+    }
+  },
+  {
+    "name": "disabled-server",
+    "value": [
+      "/page",
+      "/bnf3.js",
+      "/custom-block-1",
+      "/control.png",
+      "/favicon.ico",
+      "/page-disabled",
+      "/bnf1.js",
+      "/bnf3.js",
+      "/xpopup/xpopup.js",
+      "/analytics/rakuten.js",
+      "/custom-block-1",
+      "/custom-block-2",
+      "/bnf2.png",
+      "/control.png",
+      "/favicon.ico"
+    ]
+  },
+  {
+    "name": "memory-final",
+    "value": {
+      "processCount": 6,
+      "workingBytes": 471818240,
+      "privateBytes": 270614528
+    }
+  }
+]

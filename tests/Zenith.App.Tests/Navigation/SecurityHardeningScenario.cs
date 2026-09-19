@@ -66,7 +66,7 @@ internal static class SecurityHardeningScenario
 
             await core.Profile.SetPermissionStateAsync(CoreWebView2PermissionKind.Geolocation,
                 site.Origin, CoreWebView2PermissionState.Allow);
-            using (var guard = new BrowserCapabilityGuard(core, new BrowserCapabilityPolicy(), _ => { }))
+            using (var guard = new BrowserCapabilityGuard(core, new BrowserCapabilityPolicy(), _ => { }, () => browser.Dispose()))
                 await guard.InitializeAsync(false);
             Assert.DoesNotContain(await core.Profile.GetNonDefaultPermissionSettingsAsync(),
                 permission => permission.PermissionState == CoreWebView2PermissionState.Allow);

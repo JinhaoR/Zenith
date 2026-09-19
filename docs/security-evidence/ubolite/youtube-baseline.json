@@ -1,0 +1,134 @@
+[
+  {
+    "name": "startup",
+    "value": {
+      "runtime": "152.0.4191.66",
+      "milliseconds": 354,
+      "mode": "baseline",
+      "extension": "none"
+    }
+  },
+  {
+    "name": "memory-initial",
+    "value": {
+      "processCount": 5,
+      "workingBytes": 253595648,
+      "privateBytes": 87568384
+    }
+  },
+  {
+    "name": "extensions-before",
+    "value": [
+      {
+        "Id": "dgiklkfkllikcanfonkcabmbdfmgleag",
+        "Name": "Microsoft Clipboard Extension",
+        "IsEnabled": true
+      },
+      {
+        "Id": "mhjfbmdgcfjbbpaeojofohoefgiehjai",
+        "Name": "Microsoft Edge PDF Viewer",
+        "IsEnabled": true
+      }
+    ]
+  },
+  {
+    "name": "fixture-navigation",
+    "value": {
+      "success": true,
+      "error": "Unknown",
+      "milliseconds": 1499,
+      "scheme": "http",
+      "dom": {
+        "bodyCharacters": 48,
+        "navigation": [
+          {
+            "domContentLoaded": 672.1000000014901,
+            "load": 978.8999999985099
+          }
+        ],
+        "ready": "complete",
+        "resources": 9,
+        "title": "Zenith extension fixture"
+      }
+    }
+  },
+  {
+    "name": "fixture-dom",
+    "value": {
+      "control": "block",
+      "custom": "block",
+      "customScriptlet": null,
+      "generic": "block",
+      "scriptlet": "boolean",
+      "specific": "inline"
+    }
+  },
+  {
+    "name": "fixture-server",
+    "value": [
+      "/page",
+      "/bnf1.js",
+      "/bnf3.js",
+      "/xpopup/xpopup.js",
+      "/analytics/rakuten.js",
+      "/custom-block-1",
+      "/custom-block-2",
+      "/bnf2.png",
+      "/control.png",
+      "/favicon.ico"
+    ]
+  },
+  {
+    "name": "memory-fixture",
+    "value": {
+      "processCount": 5,
+      "workingBytes": 328081408,
+      "privateBytes": 155152384
+    }
+  },
+  {
+    "name": "youtube-initial",
+    "value": {
+      "success": true,
+      "error": "Unknown",
+      "milliseconds": 2898,
+      "scheme": "https",
+      "dom": {
+        "bodyCharacters": 0,
+        "navigation": [
+          {
+            "domContentLoaded": 0,
+            "load": 0
+          }
+        ],
+        "ready": "loading",
+        "resources": 15,
+        "title": "YouTube"
+      }
+    }
+  },
+  {
+    "name": "youtube-settled",
+    "value": {
+      "bodyCharacters": 1749,
+      "consent": false,
+      "navigation": [
+        {
+          "domContentLoaded": 1810.7999999970198,
+          "load": 2853.10000000149
+        }
+      ],
+      "ready": "complete",
+      "title": "YouTube",
+      "videoCount": 1
+    }
+  },
+  {
+    "name": "memory-final",
+    "value": {
+      "processCount": 7,
+      "workingBytes": 714854400,
+      "privateBytes": 528781312
+    }
+  }
+]

@@ -50,7 +50,8 @@ public partial class AccessWindow : Window
         var duration = timing is null ? "the configured duration" : DurationText.Format(timing.GrantSeconds);
         ScopeText.Text = $"Exact hostname only · {duration} for new requests · until Zenith closes";
         ConfirmationPanel.Visibility = _phase == AccessPhase.SetupRequired ? Visibility.Visible : Visibility.Collapsed;
-        PasswordPanel.Visibility = _phase is AccessPhase.SetupRequired or AccessPhase.FirstChallenge or AccessPhase.SecondChallenge
+        PasswordPanel.Visibility = _phase == AccessPhase.SetupRequired ||
+            (_service.PasswordRequired && _phase is AccessPhase.FirstChallenge or AccessPhase.SecondChallenge)
             ? Visibility.Visible : Visibility.Collapsed;
         SubmitButton.Visibility = _phase is AccessPhase.SetupRequired or AccessPhase.FirstChallenge or AccessPhase.SecondChallenge or AccessPhase.Granted
             ? Visibility.Visible : Visibility.Collapsed;
@@ -60,11 +61,15 @@ public partial class AccessWindow : Window
         var (heading, explanation, button) = _phase switch
         {
             AccessPhase.SetupRequired => ("Set your access password", "Create the password you will use for both challenges. Setup alone does not start a wait or grant access.", "Save password"),
-            AccessPhase.FirstChallenge => ("Begin a deliberate visit", $"Enter your password to start a wait of {wait}. After that, enter the same password again to receive temporary access.", $"Start wait: {wait}"),
+            AccessPhase.FirstChallenge => ("Begin a deliberate visit", _service.PasswordRequired
+                ? $"Enter your password to start a wait of {wait}. After that, enter the same password again to receive temporary access."
+                : $"Start a wait of {wait}. When it finishes, confirm that you still want to visit. No password is needed.", $"Start wait: {wait}"),
             AccessPhase.Cooldown => ("Give it a little time", "Your request is saved. You can keep browsing your Sphere or close Zenith; the waiting period survives a restart.", "Continue"),
-            AccessPhase.SecondChallenge => ("Ready when you are", "The waiting period is complete. Enter your password again to confirm you still want this visit.", "Confirm and open"),
+            AccessPhase.SecondChallenge => ("Ready when you are", _service.PasswordRequired
+                ? "The waiting period is complete. Enter your password again to confirm you still want this visit."
+                : "The waiting period is complete. Confirm that you still want this visit.", "Confirm and open"),
             AccessPhase.Granted when _target is not null => ("Your visit is ready", "Temporary access is active for this hostname until the recorded expiry or when Zenith closes.", "Open this destination"),
-            AccessPhase.Granted => ("Your password is set", "When you deliberately request a site outside your Sphere, choose temporary access to begin the two-challenge process.", "Done"),
+            AccessPhase.Granted => ("Temporary access is ready", "Request a site outside your Sphere to begin a wait. Optional password protection is available in the Vault.", "Done"),
             AccessPhase.ClockInvalid => ("Check your system clock", "A clock change was detected. Temporary access is paused. Correct the system clock and restart Zenith; saved waits are retained.", "Continue"),
             AccessPhase.NotEligible => ("This request has changed", "This destination is no longer eligible for the temporary-access procedure. Return to browsing and request it again.", "Continue"),
             _ => ("Temporary access is unavailable", "Protected state could not be read or saved, or another Zenith instance is using it. Unreadable durable policy also prevents browsing. Existing credentials cannot be reset here.", "Continue")
@@ -75,13 +80,13 @@ public partial class AccessWindow : Window
         SubmitButton.IsEnabled = !_busy && (state.RetryAfter is null || state.RetryAfter <= DateTimeOffset.UtcNow);
         if (_phase is AccessPhase.Cooldown or AccessPhase.SecondChallenge)
         {
-            ProgressText.Text = _phase == AccessPhase.Cooldown ? "First challenge complete" : "Second challenge";
+            ProgressText.Text = _phase == AccessPhase.Cooldown ? "Request saved" : "Confirm your visit";
             TimingText.Text = $"Eligible at {state.EligibleAt?.ToLocalTime():G}. Access does not begin automatically.";
         }
         else
         {
-            ProgressText.Text = _target is null ? "Password configured" : "Access active";
-            TimingText.Text = state.ExpiresAt is { } expiry ? $"Ends at {expiry.ToLocalTime():G}, or when Zenith closes." : "One password, two deliberate confirmations.";
+            ProgressText.Text = _target is null ? "Access settings ready" : "Access active";
+            TimingText.Text = state.ExpiresAt is { } expiry ? $"Ends at {expiry.ToLocalTime():G}, or when Zenith closes." : "Request, wait, then confirm.";
         }
     }
 
@@ -116,7 +121,7 @@ public partial class AccessWindow : Window
             }
             else if (_target is not null)
             {
-                var result = await Task.Run(() => _service.SubmitPassword(_target.AbsoluteUri, password));
+                var result = await Task.Run(() => _service.SubmitRequest(_target.AbsoluteUri, password));
                 if (!_closed)
                 {
                     ErrorText.Text = result.Result switch

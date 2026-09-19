@@ -40,7 +40,7 @@ public partial class VaultPanel : UserControl
         {
             unit.SelectionChanged += DraftInput_OnChanged;
         }
-        foreach (var option in new[] { IncludeSubdomains, ChangePassword })
+        foreach (var option in new[] { IncludeSubdomains, ChangePassword, DisablePassword })
         {
             option.Checked += DraftInput_OnChanged;
             option.Unchecked += DraftInput_OnChanged;
@@ -84,13 +84,21 @@ public partial class VaultPanel : UserControl
             VaultPhase.SetupRequired => "First, configure the password shared by the Vault and temporary access. Setup does not authorize a policy change.",
             VaultPhase.ClockInvalid => "A clock change was detected. Correct the system clock and restart Zenith before changing policy.",
             VaultPhase.Unavailable or null => "Protected policy is unavailable or in use by another Zenith instance. No reset or fallback is offered here.",
-            _ => "Authenticate, wait, then confirm. Your current rules remain active throughout."
+            _ => state?.PasswordRequired == true
+                ? "Authenticate, wait, then confirm. Your current rules remain active throughout."
+                : "Propose, wait, then confirm. No password is required. Your current rules remain active throughout."
         };
         ActiveSummary.Text = state is null ? "Unable to read active policy." :
             $"Greylist wait: {DurationText.Format(state.Settings.GreylistSeconds)}\nVisit duration: {DurationText.Format(state.Settings.GrantSeconds)}\nVault wait: {DurationText.Format(state.Settings.VaultSeconds)} · Revision {state.Revision}";
         TestingNotice.Visibility = state is not null && (state.Settings.GreylistSeconds == 5 || state.Settings.GrantSeconds == 5 || state.Settings.VaultSeconds == 5)
             ? Visibility.Visible : Visibility.Collapsed;
         if (state is null) return;
+        var passwordVisibility = state.PasswordRequired ? Visibility.Visible : Visibility.Collapsed;
+        StagePassword.Visibility = StagePasswordLabel.Visibility = passwordVisibility;
+        ConfirmPassword.Visibility = ConfirmPasswordLabel.Visibility = passwordVisibility;
+        DisablePassword.Visibility = passwordVisibility;
+        PasswordStatus.Text = state.PasswordRequired ? "Password protection is on." : "Password protection is off. Cooldowns and explicit confirmation still apply.";
+        StageButton.Content = state.PasswordRequired ? "Authenticate and start wait" : "Start wait";
         if (_displayedRevision != state.Revision)
         {
             _displayedRevision = state.Revision;
@@ -135,6 +143,7 @@ public partial class VaultPanel : UserControl
             foreach (var item in RemoveSite.Items.Cast<SiteChoice>())
                 if (edit?.Removals().Contains(item.Host) == true) RemoveSite.SelectedItems.Add(item);
             ChangePassword.IsChecked = edit?.ChangePassword == true;
+            DisablePassword.IsChecked = edit?.DisablePassword == true;
             ClearPasswords();
         }
         finally { _suppressDraftChanges = false; }
@@ -152,7 +161,8 @@ public partial class VaultPanel : UserControl
             if (!string.IsNullOrWhiteSpace(SiteHost.Text))
                 additions.Add(ReadSiteInput());
             var review = _service.Review(new(grey, grant, vault, ChangePassword: ChangePassword.IsChecked == true,
-                AddSites: additions, RemoveSites: RemoveSite.SelectedItems.Cast<SiteChoice>().Select(site => site.Host).ToArray()));
+                AddSites: additions, RemoveSites: RemoveSite.SelectedItems.Cast<SiteChoice>().Select(site => site.Host).ToArray(),
+                DisablePassword: DisablePassword.IsChecked == true));
             if (review.Edit.ChangePassword && (NewPassword.Password.Length is < 15 or > 128 || NewPassword.Password != RepeatPassword.Password))
             {
                 ShowValidationError("Enter matching new passwords of 15–128 characters before reviewing.");
@@ -167,7 +177,7 @@ public partial class VaultPanel : UserControl
         ReviewCard.Visibility = Visibility.Visible;
         StageButton.IsEnabled = true;
         ReviewCard.BringIntoView();
-        StagePassword.Focus();
+        if (StagePassword.IsVisible) StagePassword.Focus(); else StageButton.Focus();
         OutcomeText.Text = string.Empty;
     }
 
@@ -267,7 +277,8 @@ public partial class VaultPanel : UserControl
                 ? $"Remove {NameFor(host, scope.DisplayName)} and its covered services. Selected additions will be kept."
                 : $"Remove {NameFor(host, scope?.DisplayName)}.");
         }
-        if (edit.ChangePassword) lines.Add("Replace the shared Vault and temporary-access password. Confirm using the old password.");
+        if (edit.ChangePassword) lines.Add("Enable password protection with the new shared Vault and temporary-access password.");
+        if (edit.DisablePassword) lines.Add("Turn off password protection. Keep cooldowns and explicit confirmation.");
         return lines.Count == 0 ? "No changes selected." : string.Join("\n", lines);
     }
 

@@ -24,7 +24,7 @@ flowchart TD
 
     Classify -->|Blacklist| Block["Block"]
 
-    Classify -->|Greylist| Gate["Password → cooldown → password"]
+    Classify -->|Greylist| Gate["Request → cooldown → confirmation"]
 
     Gate --> Grant["Access Grant issued"]
     Grant --> OpenTemp["Open temporarily"]
@@ -55,7 +55,7 @@ The existing policy remains active until confirmation. This prevents an immediat
 
 Zenith is in early development and is not yet ready for everyday use. Phases 1–4 are complete as development checkpoints: the browser shell uses normalized hostname identity, Core-owned site classification and temporary access, native navigation explanations, safe native-surface lifecycle handling, a searchable Sphere directory and protected Vault policy editing. Broader security hardening remains ahead.
 
-Settings saves startup sidebar layout and default page zoom, provides a filterable Sphere directory, and supports password setup and resuming pending temporary-access requests. Settings → Vault stages password changes, timing changes and additions to your Sphere. Every proposal waits through the current Vault delay and requires confirmation with the current password.
+Settings saves startup sidebar layout and default page zoom, provides a filterable Sphere directory, and resumes pending temporary-access requests. Password protection is optional and off by default. Settings → Vault stages password enable/disable/replacement, timing changes and additions to your Sphere. Every proposal waits through the current Vault delay and requires explicit confirmation, with the current password only when protection is enabled.
 
 For development testing, Greylist wait, visit duration and Vault wait initially use **five seconds**. Increase them in the Vault using seconds, minutes, hours or days. Shortening a delay still follows the old delay, and existing requests keep their recorded deadlines. Cooldowns and Vault proposals survive restart; grants do not. See [Site Policy](docs/site-policy.md) and [ADR 0008](docs/decisions/0008-staged-vault-policy.md) for migration rules and security limits. Testing values are not production-ready defaults.
 
@@ -88,7 +88,7 @@ dotnet build Zenith.slnx
 dotnet test Zenith.slnx
 ~~~
 
-The default suite skips the renderer integration test. With the WebView2 runtime installed, run it explicitly to exercise first-open navigation, settings, both password challenges and grant expiry across actual WPF/WebView2 tabs. It uses invisible windows, a temporary browser profile, local test page responses and a fake clock without changing production waiting periods:
+The default suite skips the renderer integration test. With the WebView2 runtime installed, run it explicitly to exercise first-open navigation, settings, cooldown-only access, optional password challenges, cancelled redirects and grant expiry across actual WPF/WebView2 tabs. It uses invisible windows, a temporary browser profile, local test page responses and a fake clock without changing production waiting periods:
 
 ~~~powershell
 $env:ZENITH_WEBVIEW_TESTS = '1'
@@ -115,7 +115,7 @@ for the new document gate and its remaining coverage limits.
 dotnet run --project src/Zenith.App/Zenith.App.csproj
 ~~~
 
-The development build initially opens its starter Whitelist directly. For another valid destination, deliberately enter its full address and choose the secondary temporary-access action. Initial password setup is available under Settings → Temporary access or Vault. Keep that password safe: changing it through the Vault requires the current password; forgotten-password recovery is not implemented. Unsupported targets and unreadable initialized policy fail closed.
+The development build initially opens its starter Whitelist directly. For another valid destination, enter its address and choose temporary access, wait, then confirm. No password is needed by default. Optional password protection is available under Settings → Vault. Once enabled, changing or disabling it requires the current password and the Vault wait. Existing profiles migrate once to passwordless operation while preserving rules and saved waits. Unsupported targets and unreadable initialized policy fail closed.
 
 ## Documentation
 

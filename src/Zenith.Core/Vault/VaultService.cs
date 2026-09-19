@@ -137,7 +137,8 @@ public sealed class VaultService : ISitePolicySource, IAccessRulesSource
                 ValidateMandatoryBlacklist(edit);
                 var sites = VaultProposalRules.ApplySites(state, edit);
                 var next = state with { Revision = checked(state.Revision + 1), Settings = VaultProposalRules.ApplySettings(state.Settings, edit),
-                    Sites = sites, Pending = null, LastObservedUtc = now, RetryAfter = DateTimeOffset.MinValue };
+                    Sites = sites, Pending = null, LastObservedUtc = now, RetryAfter = DateTimeOffset.MinValue,
+                    PasswordRequired = edit.ChangePassword || (!edit.DisablePassword && state.PasswordRequired) };
                 _store.SaveVault(next, pending.PasswordVerifier);
                 return new(VaultResult.Applied, "Changes applied. Your new rules are now active.");
             }
@@ -183,7 +184,7 @@ public sealed class VaultService : ISitePolicySource, IAccessRulesSource
         var now = Observe(state);
         if (_clockInvalid) return Unavailable();
         if (now < state.RetryAfter) return new(VaultResult.RetryLater, "Wait five seconds before trying your password again.");
-        if (_store.Verify(password)) return null;
+        if (!state.PasswordRequired || _store.Verify(password)) return null;
         now = Observe(state);
         if (_clockInvalid) return Unavailable();
         _store.SaveVault(state with { LastObservedUtc = now, RetryAfter = now.AddSeconds(5) });

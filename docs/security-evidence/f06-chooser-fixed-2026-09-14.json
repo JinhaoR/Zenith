@@ -1,0 +1,109 @@
+{
+    "date":  "2026-09-14",
+    "appSha256":  "B8E05761E630A1E7F180486770BA6B17727CC2791741268DE91524E0750DFAB4",
+    "testsSha256":  "B60F0E8F5174CA1DC541531E74678D5CF1DCF0FF67235CCE7525B5B5F694BFE7",
+    "strictNativeResults":  [
+                                "F06 allowed=False, runtime=152.0.4191.66, renderer PIDs root=19296, oopif=22052, nested-oopif=22304",
+                                "F06 root: no native chooser; cancelled; no selection/path/upload",
+                                "F06 same: no native chooser; cancelled; no selection/path/upload",
+                                "F06 nested: no native chooser; cancelled; no selection/path/upload",
+                                "F06 oopif: no native chooser; cancelled; no selection/path/upload",
+                                "F06 nested-oopif: no native chooser; cancelled; no selection/path/upload",
+                                "F06 allowed=False: frame recreation and renderer process swaps passed",
+                                "F06 allowed=True, runtime=152.0.4191.66, renderer PIDs root=3900, oopif=19936, nested-oopif=24620",
+                                "F06 root: native chooser selected fixture; upload observed; real path hidden",
+                                "F06 same: native chooser selected fixture; upload observed; real path hidden",
+                                "F06 nested: native chooser selected fixture; upload observed; real path hidden",
+                                "F06 oopif: native chooser selected fixture; upload observed; real path hidden",
+                                "F06 nested-oopif: native chooser selected fixture; upload observed; real path hidden",
+                                "F06 allowed=True: frame recreation and renderer process swaps passed",
+                                "F06 policy unavailable: failed closed; controller disposed before child script resumed",
+                                "F06 policy null: failed closed; controller disposed before child script resumed",
+                                "F06 policy invalid: failed closed; controller disposed before child script resumed"
+                            ],
+    "originalReproduction":  [
+                                 {
+                                     "test":  "candidate",
+                                     "observed":  {
+                                                      "runtime":  "152.0.4191.66",
+                                                      "sdk":  "1.0.4129.50",
+                                                      "flags":  "--no-proxy-server --host-resolver-rules=\"MAP blocked.zenith.test 127.0.0.4\" --use-fake-device-for-media-stream",
+                                                      "webMessages":  true,
+                                                      "hostObjects":  false
+                                                  }
+                                 },
+                                 {
+                                     "test":  "frame-processes",
+                                     "observed":  [
+                                                      {
+                                                          "pid":  12208,
+                                                          "Source":  "http://127.0.0.2:61337/child",
+                                                          "FrameId":  2,
+                                                          "parent":  1
+                                                      },
+                                                      {
+                                                          "pid":  2292,
+                                                          "Source":  "http://127.0.0.1:61336/frames",
+                                                          "FrameId":  1,
+                                                          "parent":  null
+                                                      }
+                                                  ]
+                                 },
+                                 {
+                                     "test":  "html-picker",
+                                     "observed":  {
+                                                      "context":  "root",
+                                                      "gesture":  false,
+                                                      "dialogs":  [
+
+                                                                  ],
+                                                      "result":  {
+                                                                     "cancelled":  false,
+                                                                     "files":  0
+                                                                 }
+                                                  }
+                                 },
+                                 {
+                                     "test":  "html-picker",
+                                     "observed":  {
+                                                      "context":  "root",
+                                                      "gesture":  true,
+                                                      "dialogs":  [
+
+                                                                  ],
+                                                      "result":  {
+                                                                     "cancelled":  true,
+                                                                     "files":  0
+                                                                 }
+                                                  }
+                                 },
+                                 {
+                                     "test":  "html-picker",
+                                     "observed":  {
+                                                      "context":  "oopif",
+                                                      "gesture":  false,
+                                                      "dialogs":  [
+
+                                                                  ],
+                                                      "result":  {
+                                                                     "cancelled":  false,
+                                                                     "files":  0
+                                                                 }
+                                                  }
+                                 },
+                                 {
+                                     "test":  "html-picker",
+                                     "observed":  {
+                                                      "context":  "oopif",
+                                                      "gesture":  true,
+                                                      "dialogs":  [
+
+                                                                  ],
+                                                      "result":  {
+                                                                     "cancelled":  true,
+                                                                     "files":  0
+                                                                 }
+                                                  }
+                                 }
+                             ]
+}

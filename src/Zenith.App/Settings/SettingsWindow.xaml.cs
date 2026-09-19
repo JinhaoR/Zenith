@@ -216,12 +216,13 @@ public partial class SettingsWindow : Window
         var configuration = _accessService?.ConfigurationState;
         var timing = _accessService?.Timing;
         var timingDescription = timing is null ? "Timing rules are unavailable." :
-            $"Wait {DurationText.Format(timing.CooldownSeconds)}, then confirm with the same password for {DurationText.Format(timing.GrantSeconds)} of access. Exact hostname across tabs; access ends when Zenith closes.";
+            $"Wait {DurationText.Format(timing.CooldownSeconds)}, then confirm for {DurationText.Format(timing.GrantSeconds)} of access. Exact hostname across tabs; access ends when Zenith closes.";
         SetupPasswordButton.Visibility = configuration == AccessConfigurationState.NeedsSetup ? Visibility.Visible : Visibility.Collapsed;
         AccessStatusText.Text = configuration switch
         {
             AccessConfigurationState.NeedsSetup => $"First, create your shared access and Vault password. {timingDescription}",
-            AccessConfigurationState.Ready => $"Your password is configured. {timingDescription} Change these rules through the Vault.",
+            AccessConfigurationState.Ready => (_accessService!.PasswordRequired ? "Password protection is on. " : "No password is required. ") +
+                $"{timingDescription} Optional password protection and timing rules are in the Vault.",
             AccessConfigurationState.Unavailable => "Protected data is unreadable or in use by another Zenith instance. If durable policy cannot be read, browsing is unavailable too. No password reset is offered here.",
             _ => "Temporary access is not available in this window."
         };

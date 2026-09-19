@@ -14,7 +14,85 @@ public sealed class VaultStoreTests
     private const string NewPassword = "replacement vault test password";
 
     [Fact]
-    public void VersionOneMigratesOncePreservingPasswordAndOldWaits()
+    public void VersionFourTurnsOffPromptsWithoutResettingPolicyOrSavedWaits()
+    {
+        var folder = Directory.CreateTempSubdirectory("Zenith-VaultV4-");
+        var clock = new Clock();
+        try
+        {
+            using (var store = new ProtectedAccessStore(folder.FullName))
+            {
+                store.Initialize(Password, clock.Now);
+                store.SaveVault(store.LoadVault() with { Settings = new(60, 120, 300), Revision = 7 });
+                var vault = new VaultService(store, clock);
+                var access = new GreylistAccessService(vault, store, store, clock);
+                Assert.Equal(AccessPhase.Cooldown, access.SubmitRequest("https://outside.example/", Password).Status.Phase);
+                Assert.Equal(VaultResult.Staged, vault.Stage(new(AddHost: "pending.example"), Password).Result);
+                var original = store.LoadVault();
+                var requests = store.Load().Requests;
+                var path = Path.Combine(folder.FullName, "access.bin");
+                var plaintext = ProtectedData.Unprotect(File.ReadAllBytes(path), null, DataProtectionScope.CurrentUser);
+                try
+                {
+                    var data = JsonNode.Parse(plaintext)!;
+                    data["Version"] = 4;
+                    data["Vault"]!.AsObject().Remove("PasswordRequired");
+                    data["Vault"]!["Pending"]!["Edit"]!.AsObject().Remove("DisablePassword");
+                    File.WriteAllBytes(path, ProtectedData.Protect(JsonSerializer.SerializeToUtf8Bytes(data), null, DataProtectionScope.CurrentUser));
+                }
+                finally { CryptographicOperations.ZeroMemory(plaintext); }
+                Assert.False(store.PasswordRequired);
+                Assert.False(store.Verify(Password));
+                Assert.Equal(original.Settings, store.LoadVault().Settings);
+                Assert.Equal(original.Revision, store.LoadVault().Revision);
+                Assert.Equal(original.Sites, store.LoadVault().Sites);
+                Assert.Equal(original.Pending, store.LoadVault().Pending);
+                Assert.Equal(requests, store.Load().Requests);
+            }
+            using var reopened = new ProtectedAccessStore(folder.FullName);
+            Assert.False(reopened.PasswordRequired);
+            Assert.Equal(7, reopened.LoadVault().Revision);
+            Assert.Single(reopened.Load().Requests);
+        }
+        finally { folder.Delete(true); }
+    }
+
+    [Fact]
+    public void FreshCooldownOnlyStorageCanOptIntoPasswordAndCannotDefaultMissingMode()
+    {
+        var folder = Directory.CreateTempSubdirectory("Zenith-OptionalPassword-");
+        var clock = new Clock();
+        try
+        {
+            using var store = new ProtectedAccessStore(folder.FullName);
+            store.InitializeWithoutPassword(clock.Now);
+            Assert.Equal(AccessConfigurationState.Ready, store.ConfigurationState);
+            Assert.False(store.PasswordRequired);
+            var vault = new VaultService(store, clock);
+            Assert.Equal(VaultResult.Staged, vault.Stage(new(ChangePassword: true), "", NewPassword).Result);
+            var id = store.LoadVault().Pending!.Id;
+            clock.Advance(5);
+            Assert.Equal(VaultResult.Applied, vault.Confirm(id, "").Result);
+            Assert.True(store.PasswordRequired);
+            Assert.True(store.Verify(NewPassword));
+            var path = Path.Combine(folder.FullName, "access.bin");
+            var plaintext = ProtectedData.Unprotect(File.ReadAllBytes(path), null, DataProtectionScope.CurrentUser);
+            try
+            {
+                var data = JsonNode.Parse(plaintext)!;
+                data["Vault"]!.AsObject().Remove("PasswordRequired");
+                File.WriteAllBytes(path, ProtectedData.Protect(JsonSerializer.SerializeToUtf8Bytes(data), null, DataProtectionScope.CurrentUser));
+            }
+            finally { CryptographicOperations.ZeroMemory(plaintext); }
+            Assert.Equal(AccessConfigurationState.Unavailable, store.ConfigurationState);
+            Assert.False(vault.TryGetActivePolicy(out _));
+            Assert.Throws<InvalidOperationException>(() => store.InitializeWithoutPassword(clock.Now));
+        }
+        finally { folder.Delete(true); }
+    }
+
+    [Fact]
+    public void VersionOneMigratesOnceToCooldownOnlyPreservingOldWaits()
     {
         var folder = Directory.CreateTempSubdirectory("Zenith-VaultMigration-");
         var now = DateTimeOffset.UtcNow;
@@ -31,7 +109,7 @@ public sealed class VaultStoreTests
                 JsonSerializer.SerializeToUtf8Bytes(legacy), null, DataProtectionScope.CurrentUser));
             using (var store = new ProtectedAccessStore(folder.FullName))
             {
-                Assert.True(store.Verify(Password));
+                Assert.False(store.PasswordRequired);
                 Assert.Equal(new VaultSettings(5, 5, 5), store.LoadVault().Settings);
                 var pending = Assert.Single(store.Load().Requests);
                 Assert.Equal(now.AddMinutes(30), pending.EligibleAt);
@@ -41,7 +119,7 @@ public sealed class VaultStoreTests
             }
             using var reopened = new ProtectedAccessStore(folder.FullName);
             Assert.Equal(new VaultSettings(60, 120, 300), reopened.LoadVault().Settings);
-            Assert.True(reopened.Verify(Password));
+            Assert.False(reopened.PasswordRequired);
             Assert.True(File.Exists(Path.Combine(folder.FullName, "access.bin.previous")));
         }
         finally { folder.Delete(true); }
@@ -112,7 +190,7 @@ public sealed class VaultStoreTests
             try
             {
                 var migrated = JsonNode.Parse(migratedPlaintext)!;
-                Assert.Equal(4, migrated["Version"]!.GetValue<int>());
+                Assert.Equal(5, migrated["Version"]!.GetValue<int>());
                 Assert.True(migrated["Vault"]!["Pending"]!["Edit"]!.AsObject().ContainsKey("RemoveHost"));
             }
             finally { CryptographicOperations.ZeroMemory(migratedPlaintext); }
@@ -228,7 +306,7 @@ public sealed class VaultStoreTests
             }
             finally { CryptographicOperations.ZeroMemory(plaintext); }
             Assert.Equal(pending, store.LoadVault().Pending);
-            Assert.True(store.Verify(Password));
+            Assert.False(store.PasswordRequired);
             clock.Advance(5);
             Assert.Equal(VaultResult.Applied, new VaultService(store, clock).Confirm(pending.Id, Password).Result);
             Assert.True(Assert.Single(store.LoadVault().Sites, site => site.Host == "legacy.example").IncludeSubdomains);

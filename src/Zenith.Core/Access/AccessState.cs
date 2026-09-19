@@ -22,6 +22,7 @@ public interface IAccessStateStore
 public interface IAccessAuthenticator
 {
     AccessConfigurationState ConfigurationState { get; }
+    bool PasswordRequired => true;
     void Initialize(string password, DateTimeOffset now);
     bool Verify(string password);
 }
