@@ -204,7 +204,7 @@ public sealed class GreylistAccessService : IAccessGrantSource
                 _store.Save(state);
                 if (existing >= 0)
                 {
-                    _grants[normalized!.Site] = new(normalized.Site, now, now.AddSeconds(grantSeconds));
+                    _grants[normalized!.Site] = new(normalized.Site, now, now.AddSeconds(grantSeconds), includeWwwAlias: true);
                 }
                 return new(AccessSubmissionResult.Accepted, Describe(normalized!, state, now));
             }
@@ -229,14 +229,24 @@ public sealed class GreylistAccessService : IAccessGrantSource
                 }
                 throw new InvalidOperationException("Temporary access state is unavailable.");
             }
-            if (_grants.TryGetValue(site, out var current) && current.Covers(site, now))
-            {
-                grant = current;
-                return true;
-            }
-            _grants.Remove(site);
-            return false;
+            return TryFindGrant(site, now, out grant);
         }
+    }
+
+    private bool TryFindGrant(SiteIdentity site, DateTimeOffset now, out AccessGrant? grant)
+    {
+        grant = null;
+        foreach (var expired in _grants.Where(pair => !pair.Value.Covers(pair.Key, now)).Select(pair => pair.Key).ToArray())
+            _grants.Remove(expired);
+        try
+        {
+            if (!_policy.TryGetActivePolicy(out var policy) || policy is null ||
+                policy.Classify(site) != AccessClass.Greylist) return false;
+            grant = _grants.Values.FirstOrDefault(candidate => candidate.Covers(site, now) &&
+                policy.Classify(candidate.Site) == AccessClass.Greylist);
+            return grant is not null;
+        }
+        catch (Exception) { return false; }
     }
 
     private bool TryReadState(out AccessStateSnapshot? state, out DateTimeOffset now, out AccessStatus failure)
@@ -285,13 +295,9 @@ public sealed class GreylistAccessService : IAccessGrantSource
 
     private AccessStatus Describe(NormalizedNavigationTarget target, AccessStateSnapshot state, DateTimeOffset now)
     {
-        if (_grants.TryGetValue(target.Site, out var grant))
+        if (TryFindGrant(target.Site, now, out var grant))
         {
-            if (grant.Covers(target.Site, now))
-            {
-                return new(AccessPhase.Granted, ExpiresAt: grant.ExpiresAt);
-            }
-            _grants.Remove(target.Site);
+            return new(AccessPhase.Granted, ExpiresAt: grant!.ExpiresAt);
         }
         var pending = state.Requests.FirstOrDefault(request => HostOf(request.Target) == target.Site);
         return pending is null

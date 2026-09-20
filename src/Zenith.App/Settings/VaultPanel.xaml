@@ -58,8 +58,8 @@
                 <Border Style="{StaticResource Card}"><StackPanel>
                     <TextBlock Text="Add to your Sphere" FontSize="18" FontWeight="SemiBold" />
                     <TextBlock Text="Choose the services you want. Each choice allows only that service by default. You can add several before reviewing." Style="{StaticResource Description}" Margin="0,10,0,14" />
-                    <Label Content="Find a service" Target="{Binding ElementName=KnownSiteFilter}" Foreground="{DynamicResource ZenithTextBrush}" Padding="0,0,0,8" />
-                    <TextBox x:Name="KnownSiteFilter" AutomationProperties.Name="Find a service to add" TextChanged="KnownSiteFilter_OnChanged" Margin="0,0,0,8" ToolTip="Filter the service choices by name" />
+                    <Label Content="Find a service or enter a hostname" Target="{Binding ElementName=KnownSiteFilter}" Foreground="{DynamicResource ZenithTextBrush}" Padding="0,0,0,8" />
+                    <TextBox x:Name="KnownSiteFilter" AutomationProperties.Name="Find a service or hostname to add" TextChanged="KnownSiteFilter_OnChanged" Margin="0,0,0,8" ToolTip="Search by name or hostname. To add another site, enter its full hostname and choose Add to changes." />
                     <ComboBox x:Name="KnownSite" DisplayMemberPath="Name" IsTextSearchEnabled="True" AutomationProperties.Name="Choose a service" SelectionChanged="KnownSite_OnChanged" />
                     <TextBlock x:Name="AdditionFeedback" Style="{StaticResource Description}" Margin="0,8,0,0" AutomationProperties.LiveSetting="Polite" />
                     <Expander x:Name="CustomSiteExpander" Header="Add another website" Foreground="{DynamicResource ZenithMutedTextBrush}" Margin="0,12,0,0">
@@ -85,6 +85,8 @@
                 <Border Style="{StaticResource Card}"><StackPanel>
                     <TextBlock Text="Remove from your Sphere" FontSize="18" FontWeight="SemiBold" />
                     <TextBlock Text="Select any services to remove. A broad entry also removes its covered services; add back the ones you want to keep above. All changes apply together after confirmation." Style="{StaticResource Description}" Margin="0,10,0,14" />
+                    <Label Content="Find a service to remove" Target="{Binding ElementName=RemoveSiteFilter}" Foreground="{DynamicResource ZenithTextBrush}" Padding="0,0,0,8" />
+                    <TextBox x:Name="RemoveSiteFilter" AutomationProperties.Name="Find a service to remove" TextChanged="RemoveSiteFilter_OnChanged" Margin="0,0,0,8" ToolTip="Search by name or hostname. Searching keeps your removal selections." />
                     <ListBox x:Name="RemoveSite" SelectionMode="Multiple" SelectedValuePath="Host" MaxHeight="220"
                              ScrollViewer.CanContentScroll="False"
                              Background="{DynamicResource ZenithRaisedSurfaceBrush}" Foreground="{DynamicResource ZenithTextBrush}"
@@ -97,6 +99,7 @@
                             </CheckBox>
                         </DataTemplate></ListBox.ItemTemplate>
                     </ListBox>
+                    <TextBlock x:Name="NoRemovalMatches" Text="No services match your search." Style="{StaticResource Description}" Visibility="Collapsed" Margin="0,10,0,0" />
                     <TextBlock x:Name="RemovalSummary" Style="{StaticResource Description}" Margin="0,10,0,0" AutomationProperties.LiveSetting="Polite" />
                     <Button x:Name="ClearRemovalButton" Content="Clear removal selection" HorizontalAlignment="Left" Margin="0,12,0,0" Click="ClearRemoval_OnClick" />
                 </StackPanel></Border>

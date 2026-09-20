@@ -2,6 +2,11 @@
 
 Date: 2026-09-14. Status: technically viable pilot; not an adopted architecture.
 
+Historical experiment: initial bundled support was subsequently implemented on
+2026-09-20; see [the current integration](browser-extensions.md). Recommendations
+and adoption gates below describe the experiment's original assessment, not the
+current installation behavior. Remaining validation limits still apply.
+
 **uBO Lite works for useful content filtering in Zenith's current WebView2 environment.** Both official Edge and Chromium packages loaded. Packaged network rules, cosmetic filters and scriptlets worked, including alongside the existing Zenith guard adapters. This does not establish complete MV3 compatibility, authenticated-site compatibility, or safety of a production extension integration.
 
 Production code, Core policy and navigation enforcement were not changed by this experiment. Earlier security-task changes already in the working tree were preserved. The standalone [harness and reproduction instructions](../tools/experiments/ubolite/README.md) and [raw evidence](security-evidence/ubolite/) are the deliverables, alongside this assessment.

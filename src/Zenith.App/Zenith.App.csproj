@@ -21,4 +21,19 @@
     <Content Include="Filtering\Assets\*-NOTICES.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Include="Extensions\Bundled\*" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <Target Name="PrepareBundledExtensions" BeforeTargets="AssignTargetPaths">
+    <Unzip SourceFiles="Extensions\Bundled\uBOLite.edge.zip"
+           DestinationFolder="$(IntermediateOutputPath)BundledExtensions\uBOLite" SkipUnchangedFiles="true" />
+    <ItemGroup>
+      <_BundledExtensionFile Include="$(IntermediateOutputPath)BundledExtensions\uBOLite\**\*" />
+      <Content Include="@(_BundledExtensionFile)"
+               Link="BundledExtensions\uBOLite\%(_BundledExtensionFile.RecursiveDir)%(_BundledExtensionFile.Filename)%(_BundledExtensionFile.Extension)"
+               CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    </ItemGroup>
+  </Target>
+
 </Project>

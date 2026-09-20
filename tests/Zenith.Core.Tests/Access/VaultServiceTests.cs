@@ -9,6 +9,78 @@ public sealed class VaultServiceTests
     private const string Password = "the existing password";
     private const string Replacement = "the replacement password";
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void WhitelistBatchPreservesVaultWorkflowWithEitherPasswordMode(bool passwordRequired)
+    {
+        var f = new Fixture();
+        f.Store.Vault = f.Store.Vault with { PasswordRequired = passwordRequired, Sites = [] };
+        var review = f.Service.Review(new(AddSites: [new("mail.google.com"), new("account.google.com")], RemoveSites: []));
+        Assert.Equal(2, review.Edit.Additions().Count());
+        Assert.Equal(0, f.Store.Verifications);
+        Assert.Null(f.Store.Vault.Pending);
+        if (passwordRequired)
+        {
+            Assert.Equal(VaultResult.WrongPassword, f.Service.Stage(review.Edit, "").Result);
+            Assert.Null(f.Store.Vault.Pending);
+            f.Clock.Advance(5);
+        }
+        var password = passwordRequired ? Password : "";
+        Assert.Equal(VaultResult.Staged, f.Service.Stage(review.Edit, password, expectedRevision: review.Revision).Result);
+        var pending = f.Store.Vault.Pending!;
+        Assert.Equal(VaultResult.TooEarly, f.Service.Confirm(pending.Id, password).Result);
+        Assert.Empty(f.Store.Vault.Sites);
+        f.Clock.Advance(5);
+        Assert.Equal(VaultResult.Stale, f.Service.Confirm(Guid.NewGuid(), password).Result);
+        if (passwordRequired)
+        {
+            Assert.Equal(VaultResult.WrongPassword, f.Service.Confirm(pending.Id, "").Result);
+            Assert.Empty(f.Store.Vault.Sites);
+            f.Clock.Advance(5);
+        }
+        Assert.Equal(VaultResult.Applied, f.Service.Confirm(pending.Id, password).Result);
+        Assert.Equal(VaultResult.Stale, f.Service.Confirm(pending.Id, password).Result);
+        Assert.Equal(passwordRequired ? 4 : 0, f.Store.Verifications);
+        foreach (var host in new[] { "mail.google.com", "account.google.com" })
+            Assert.Equal(AccessClass.Whitelist, Classify(f.Service, host));
+        foreach (var host in new[] { "google.com", "www.google.com", "child.mail.google.com" })
+            Assert.Equal(AccessClass.Greylist, Classify(f.Service, host));
+        Assert.Equal(passwordRequired, f.Store.PasswordRequired);
+    }
+
+    [Fact]
+    public void PasswordDisabledVaultStillRejectsInvalidBlacklistPersistenceAndClockFailures()
+    {
+        var f = new Fixture();
+        f.Store.Vault = f.Store.Vault with { PasswordRequired = false, Sites = [] };
+        var original = f.Store.Vault;
+        var source = new BlacklistSource { Current = Zenith.Core.Filtering.HostsBlacklist.Parse("0.0.0.0 blocked.example") };
+        var service = new VaultService(f.Store, f.Clock, source);
+        foreach (var host in new[] { "*.example", "https://example.com/path", "user@example.com", "blocked.example" })
+        {
+            var invalid = new VaultEdit(AddSites: [new(host)], RemoveSites: []);
+            Assert.Throws<ArgumentException>(() => service.Review(invalid));
+            Assert.Equal(VaultResult.Invalid, service.Stage(invalid, "").Result);
+            Assert.Same(original, f.Store.Vault);
+        }
+        var edit = new VaultEdit(AddSites: [new("mail.google.com"), new("account.google.com")], RemoveSites: []);
+        f.Store.FailWrites = true;
+        Assert.Equal(VaultResult.Unavailable, service.Stage(edit, "").Result);
+        Assert.Same(original, f.Store.Vault);
+        f.Store.FailWrites = false;
+        Assert.Equal(VaultResult.Staged, service.Stage(edit, "").Result);
+        f.Clock.Advance(5);
+        f.Store.FailWrites = true;
+        Assert.Equal(VaultResult.Unavailable, service.Confirm(f.Store.Vault.Pending!.Id, "").Result);
+        Assert.Empty(f.Store.Vault.Sites);
+        f.Store.FailWrites = false;
+        f.Clock.JumpWall(-60);
+        Assert.Equal(VaultResult.Unavailable, service.Confirm(f.Store.Vault.Pending!.Id, "").Result);
+        Assert.Empty(f.Store.Vault.Sites);
+        Assert.Equal(0, f.Store.Verifications);
+    }
+
     [Fact]
     public void CooldownOnlyAccessPersistsWaitAndRequiresExplicitConfirmation()
     {

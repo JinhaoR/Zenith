@@ -22,6 +22,9 @@ public partial class VaultPanel : UserControl
     private readonly ObservableCollection<SiteChoice> _additions = [];
     private SiteChoice[] _knownSites = [];
     private bool _filteringKnownSites;
+    private SiteChoice[] _removalSites = [];
+    private readonly HashSet<string> _selectedRemovals = new(StringComparer.Ordinal);
+    private bool _filteringRemovalSites;
 
     public VaultPanel()
     {
@@ -45,7 +48,7 @@ public partial class VaultPanel : UserControl
             option.Checked += DraftInput_OnChanged;
             option.Unchecked += DraftInput_OnChanged;
         }
-        RemoveSite.SelectionChanged += DraftInput_OnChanged;
+        RemoveSite.SelectionChanged += RemoveSite_OnSelectionChanged;
         NewPassword.PasswordChanged += DraftInput_OnChanged;
         RepeatPassword.PasswordChanged += DraftInput_OnChanged;
         Loaded += (_, _) => _detached = false;
@@ -102,7 +105,7 @@ public partial class VaultPanel : UserControl
         if (_displayedRevision != state.Revision)
         {
             _displayedRevision = state.Revision;
-            RemoveSite.ItemsSource = state.GetIndependentWhitelistScopes()
+            _removalSites = state.GetIndependentWhitelistScopes()
                 .Select(site => new SiteChoice(site.Host, NameFor(site.Host, site.DisplayName), site.IncludeSubdomains)).ToArray();
             FillEditor(state.Settings, null);
             _editingPending = false;
@@ -139,9 +142,10 @@ public partial class VaultPanel : UserControl
             _additions.Clear();
             foreach (var addition in edit?.Additions() ?? [])
                 _additions.Add(new(addition.Host, NameFor(addition.Host, addition.DisplayName), addition.IncludeSubdomains));
-            RemoveSite.UnselectAll();
-            foreach (var item in RemoveSite.Items.Cast<SiteChoice>())
-                if (edit?.Removals().Contains(item.Host) == true) RemoveSite.SelectedItems.Add(item);
+            _selectedRemovals.Clear();
+            foreach (var host in edit?.Removals() ?? []) _selectedRemovals.Add(host);
+            RemoveSiteFilter.Clear();
+            RefreshRemovalFilter();
             ChangePassword.IsChecked = edit?.ChangePassword == true;
             DisablePassword.IsChecked = edit?.DisablePassword == true;
             ClearPasswords();
@@ -161,7 +165,7 @@ public partial class VaultPanel : UserControl
             if (!string.IsNullOrWhiteSpace(SiteHost.Text))
                 additions.Add(ReadSiteInput());
             var review = _service.Review(new(grey, grant, vault, ChangePassword: ChangePassword.IsChecked == true,
-                AddSites: additions, RemoveSites: RemoveSite.SelectedItems.Cast<SiteChoice>().Select(site => site.Host).ToArray(),
+                AddSites: additions, RemoveSites: _removalSites.Where(site => _selectedRemovals.Contains(site.Host)).Select(site => site.Host).ToArray(),
                 DisablePassword: DisablePassword.IsChecked == true));
             if (review.Edit.ChangePassword && (NewPassword.Password.Length is < 15 or > 128 || NewPassword.Password != RepeatPassword.Password))
             {
@@ -293,7 +297,7 @@ public partial class VaultPanel : UserControl
     private void DraftInput_OnChanged(object sender, RoutedEventArgs e)
     {
         if (RemovalSummary is not null)
-            RemovalSummary.Text = RemoveSite.SelectedItems.Count == 0 ? "No services selected for removal." : $"{RemoveSite.SelectedItems.Count} selected for removal. Nothing changes until you confirm.";
+            UpdateRemovalSummary();
         if (ScopeHint is not null)
             ScopeHint.Text = IncludeSubdomains.IsChecked == true
                 ? $"Includes addresses beneath {SiteHost.Text.Trim()}. Parent and sibling services remain separate."
@@ -303,9 +307,45 @@ public partial class VaultPanel : UserControl
 
     private void ClearRemoval_OnClick(object sender, RoutedEventArgs e)
     {
+        _selectedRemovals.Clear();
         RemoveSite.UnselectAll();
+        DraftInput_OnChanged(sender, e);
         RemoveSite.Focus();
     }
+
+    private void RemoveSite_OnSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_filteringRemovalSites) return;
+        foreach (var site in e.RemovedItems.Cast<SiteChoice>()) _selectedRemovals.Remove(site.Host);
+        foreach (var site in e.AddedItems.Cast<SiteChoice>()) _selectedRemovals.Add(site.Host);
+        DraftInput_OnChanged(sender, e);
+    }
+
+    private void RemoveSiteFilter_OnChanged(object sender, TextChangedEventArgs e)
+    {
+        if (RemoveSite is not null) RefreshRemovalFilter();
+    }
+
+    private void RefreshRemovalFilter()
+    {
+        var query = RemoveSiteFilter.Text.Trim();
+        _filteringRemovalSites = true;
+        try
+        {
+            RemoveSite.ItemsSource = _removalSites.Where(site =>
+                site.Name.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+                site.Host.Contains(query, StringComparison.OrdinalIgnoreCase)).ToArray();
+            foreach (var site in RemoveSite.Items.Cast<SiteChoice>())
+                if (_selectedRemovals.Contains(site.Host)) RemoveSite.SelectedItems.Add(site);
+        }
+        finally { _filteringRemovalSites = false; }
+        UpdateRemovalSummary();
+        NoRemovalMatches.Visibility = RemoveSite.Items.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void UpdateRemovalSummary() => RemovalSummary.Text = _selectedRemovals.Count == 0
+        ? "No services selected for removal."
+        : $"{_selectedRemovals.Count} selected for removal, including selections hidden by search. Nothing changes until you confirm.";
 
     private string NameFor(string host, string? name = null) => name ??
         _status?.State?.Sites.FirstOrDefault(site => site.Host == host)?.DisplayName ??
@@ -334,7 +374,8 @@ public partial class VaultPanel : UserControl
         _filteringKnownSites = true;
         try
         {
-            KnownSite.ItemsSource = _knownSites.Where(site => site.Name.Contains(query, StringComparison.OrdinalIgnoreCase)).ToArray();
+            KnownSite.ItemsSource = _knownSites.Where(site => site.Name.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+                site.Host.Contains(query, StringComparison.OrdinalIgnoreCase)).ToArray();
             if (selected is not null && KnownSite.Items.Contains(selected)) KnownSite.SelectedItem = selected;
             else if (selected is not null)
             {
@@ -344,12 +385,21 @@ public partial class VaultPanel : UserControl
             }
         }
         finally { _filteringKnownSites = false; }
-        AdditionFeedback.Text = KnownSite.Items.Count == 0 ? "No matching services. Use ‘Add another website’ below." : string.Empty;
+        AdditionFeedback.Text = KnownSite.Items.Count == 0 ? "No matching services. Enter a full hostname and choose ‘Add to changes’, or use ‘Add another website’ below." : string.Empty;
     }
 
-    private VaultSiteAddition ReadSiteInput()
+    private VaultSiteAddition ReadSiteInput(bool useSearch = false)
     {
-        if (!SiteIdentity.TryCreate(SiteHost.Text.Trim(), out var identity))
+        var host = SiteHost.Text.Trim();
+        if (host.Length == 0 && useSearch)
+        {
+            host = KnownSiteFilter.Text.Trim();
+            // Search terms are not implicitly single-label hostnames. A selected
+            // service or the custom address field still uses the normal path.
+            if (!host.Contains('.') && !System.Net.IPAddress.TryParse(host, out _))
+                throw new ArgumentException("Choose a service or enter a full hostname such as mail.google.com, then add it to your changes.");
+        }
+        if (!SiteIdentity.TryCreate(host, out var identity))
             throw new ArgumentException("Enter a website host such as scholar.google.com, without a path or password.");
         return new(identity.Host, IncludeSubdomains.IsChecked == true,
             string.IsNullOrWhiteSpace(SiteName.Text) ? NameFor(identity.Host) : SiteName.Text.Trim());
@@ -359,7 +409,7 @@ public partial class VaultPanel : UserControl
     {
         try
         {
-            var addition = ReadSiteInput();
+            var addition = ReadSiteInput(useSearch: true);
             var existing = _additions.FirstOrDefault(site => site.Host == addition.Host);
             if (existing is not null) _additions.Remove(existing);
             _additions.Add(new(addition.Host, addition.DisplayName!, addition.IncludeSubdomains));
@@ -367,6 +417,7 @@ public partial class VaultPanel : UserControl
             SiteHost.Clear();
             SiteName.Clear();
             IncludeSubdomains.IsChecked = false;
+            KnownSiteFilter.Clear();
             InvalidateReview();
             OutcomeText.Text = string.Empty;
             AdditionFeedback.Text = $"{addition.DisplayName} added to your changes. {_additions.Count} queued.";

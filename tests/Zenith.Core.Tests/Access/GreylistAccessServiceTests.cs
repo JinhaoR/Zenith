@@ -227,6 +227,72 @@ public sealed class GreylistAccessServiceTests
         return site;
     }
 
+    [Theory]
+    [InlineData("youtube.com", "www.youtube.com", false)]
+    [InlineData("google.com", "www.google.com", true)]
+    [InlineData("www.google.com", "google.com", false)]
+    public void CompletedRequestAuthorizesOriginalUriAndWwwRedirectWithOneExpiry(string host, string alias, bool passwordRequired)
+    {
+        var fixture = new Fixture();
+        fixture.State.PasswordRequired = passwordRequired;
+        var target = $"https://{host}/watch?v=test#section";
+        var redirect = $"https://{alias}/watch?v=test#section";
+        var evaluator = new SitePolicyNavigationEvaluator(fixture.Policy, fixture.Service, fixture.Clock);
+        Assert.Equal(AccessPhase.FirstChallenge, fixture.Service.GetStatus(target).Phase);
+        Assert.Equal(AccessPhase.Cooldown, fixture.Service.SubmitRequest(target, Password).Status.Phase);
+        Assert.Equal(target, Assert.Single(fixture.State.Snapshot.Requests).Target);
+        fixture.Clock.Advance(TimeSpan.FromMinutes(30));
+        Assert.Equal(AccessPhase.SecondChallenge, fixture.Service.GetStatus(target).Phase);
+        Assert.IsType<NavigationDecision.Denied>(evaluator.Evaluate(new(target, NavigationOrigin.AddressBar)));
+        Assert.IsType<NavigationDecision.Denied>(evaluator.Evaluate(new(redirect, NavigationOrigin.WebView)));
+        var completed = fixture.Service.SubmitRequest(target, Password);
+        Assert.Equal(AccessSubmissionResult.Accepted, completed.Result);
+        Assert.Equal(AccessPhase.Granted, completed.Status.Phase);
+        Assert.Empty(fixture.State.Snapshot.Requests);
+        Assert.Equal(new Uri(target), Assert.IsType<NavigationDecision.Allowed>(evaluator.Evaluate(new(target, NavigationOrigin.AddressBar))).Target);
+        Assert.IsType<NavigationDecision.Allowed>(evaluator.Evaluate(new(redirect, NavigationOrigin.WebView)));
+        Assert.Equal(completed.Status.ExpiresAt, fixture.Service.GetStatus(redirect).ExpiresAt);
+        Assert.Single(fixture.Service.GetActiveGrants());
+        Assert.Equal(passwordRequired ? 2 : 0, fixture.State.Verifications);
+        fixture.Clock.Advance(TimeSpan.FromHours(1));
+        Assert.IsType<NavigationDecision.Denied>(evaluator.Evaluate(new(redirect, NavigationOrigin.WebView)));
+        Assert.Equal(AccessPhase.FirstChallenge, fixture.Service.GetStatus(target).Phase);
+        Assert.Equal(AccessPhase.FirstChallenge, fixture.Service.GetStatus(redirect).Phase);
+    }
+
+    [Theory]
+    [InlineData("outside.example")]
+    [InlineData("www.outside.example")]
+    public void BlacklistingEitherEndOfThePairCannotReuseTheGrant(string blacklistedHost)
+    {
+        var fixture = new Fixture();
+        fixture.Service.SubmitPassword(Target, Password);
+        fixture.Clock.Advance(TimeSpan.FromMinutes(30));
+        fixture.Service.SubmitPassword(Target, Password);
+        fixture.Policy.Snapshot = new([new SitePolicyEntry(blacklistedHost, AccessClass.Blacklist)]);
+        var evaluator = new SitePolicyNavigationEvaluator(fixture.Policy, fixture.Service, fixture.Clock);
+        Assert.IsType<NavigationDecision.Denied>(evaluator.Evaluate(new("https://www.outside.example/", NavigationOrigin.WebView)));
+        Assert.NotEqual(AccessPhase.Granted, fixture.Service.GetStatus("https://www.outside.example/").Phase);
+    }
+
+    [Fact]
+    public void InvalidStateCannotCreateAliasGrantAndRecoveryRequiresBothConfirmations()
+    {
+        var fixture = new Fixture();
+        var original = fixture.State.Snapshot;
+        fixture.State.Snapshot = original with { Requests = [new(Target, fixture.Clock.Now, fixture.Clock.Now.AddSeconds(1))] };
+        Assert.Equal(AccessSubmissionResult.Unavailable, fixture.Service.SubmitRequest(Target, Password).Result);
+        fixture.State.Snapshot = original;
+        Assert.Equal(AccessPhase.Cooldown, fixture.Service.SubmitRequest(Target, Password).Status.Phase);
+        fixture.Clock.Advance(TimeSpan.FromMinutes(30));
+        Assert.Equal(AccessSubmissionResult.WrongPassword, fixture.Service.SubmitRequest(Target, "wrong").Result);
+        Assert.True(SiteIdentity.TryCreate("www.outside.example", out var alias));
+        Assert.False(fixture.Service.TryGetGrant(alias, out _));
+        fixture.Clock.Advance(TimeSpan.FromSeconds(5));
+        Assert.Equal(AccessPhase.Granted, fixture.Service.SubmitRequest(Target, Password).Status.Phase);
+        Assert.True(fixture.Service.TryGetGrant(alias, out _));
+    }
+
     [Fact]
     public void ActiveVisitsOnlyIncludeCurrentAuthorizedSessionGrants()
     {
@@ -292,6 +358,7 @@ public sealed class GreylistAccessServiceTests
 
     private sealed class MemoryState(DateTimeOffset now) : IAccessStateStore, IAccessAuthenticator
     {
+        public bool PasswordRequired { get; set; } = true;
         public AccessStateSnapshot Snapshot { get; set; } = new(now, DateTimeOffset.MinValue, []);
         public AccessConfigurationState ConfigurationState { get; set; } = AccessConfigurationState.Ready;
         public bool FailWrites { get; set; }

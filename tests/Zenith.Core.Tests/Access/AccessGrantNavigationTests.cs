@@ -91,10 +91,31 @@ public sealed class AccessGrantNavigationTests
         Assert.Throws<ArgumentException>(() => new AccessGrant(site, Start, Start.AddSeconds(-1)));
     }
 
+    [Fact]
+    public void MissingSiteCannotMatchAnAbsentAlias() => Assert.False(Grant().Covers(null!, Start));
+
     private static AccessGrant Grant()
     {
         Assert.True(SiteIdentity.TryCreate("example.com", out var site));
         return new AccessGrant(site, Start, Start.AddMinutes(30));
+    }
+
+    [Theory]
+    [InlineData("example.com", "www.example.com", true)]
+    [InlineData("www.example.com", "example.com", true)]
+    [InlineData("example.com", "mail.example.com", false)]
+    [InlineData("example.com", "www.www.example.com", false)]
+    [InlineData("www.www.example.com", "www.example.com", false)]
+    [InlineData("mail.example.com", "example.com", false)]
+    [InlineData("example.com", "www.example.com.evil.test", false)]
+    [InlineData("127.0.0.1", "www.127.0.0.1", false)]
+    [InlineData("www.127.0.0.1", "127.0.0.1", false)]
+    public void WwwCompatibilityIsASinglePairNotAWildcard(string host, string destination, bool allowed)
+    {
+        Assert.True(SiteIdentity.TryCreate(host, out var site));
+        var grant = new AccessGrant(site, Start, Start.AddMinutes(30), includeWwwAlias: true);
+        var evaluator = CreateEvaluator(new FixedGrantSource(grant), Start);
+        Assert.Equal(allowed, evaluator.Evaluate(new($"https://{destination}/", NavigationOrigin.WebView)) is NavigationDecision.Allowed);
     }
 
     private static SitePolicyNavigationEvaluator CreateEvaluator(IAccessGrantSource source,

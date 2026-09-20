@@ -41,6 +41,7 @@ internal static class GreylistOpenScenario
             var core = browser.CoreWebView2;
             core.Environment.BrowserProcessExited += (_, _) => exited.TrySetResult();
             await Until(() => (bool)(Field(host, "_activeTab")?.GetType().GetProperty("IsReady")?.GetValue(Field(host, "_activeTab")) ?? false));
+            await CheckWwwRedirectAsync(false);
             var target = new Uri(origin.Origin + "/redirect");
             Invoke(host, "RequestNavigation", target.AbsoluteUri, NavigationOrigin.AddressBar);
             Assert.Equal(Visibility.Visible, ((FrameworkElement)host.FindName("BoundarySurface")).Visibility);
@@ -60,7 +61,7 @@ internal static class GreylistOpenScenario
             await Until(() => access.GetStatus(target.AbsoluteUri).Phase == AccessPhase.Granted);
             await WaitForBoundary();
 
-            // Reproduce the youtube.com -> www.youtube.com exact-host transition.
+            // Unrelated destinations must still be denied after a temporary grant.
             // Native cancellation + host blank navigation can invalidate a Fetch
             // request while its event or command is still queued on the dispatcher.
             for (var attempt = 0; attempt < 20; attempt++)
@@ -103,7 +104,89 @@ internal static class GreylistOpenScenario
                 Assert.Equal(Visibility.Visible, ((FrameworkElement)panel.FindName("StagePassword")).Visibility);
             }
             finally { settings.Close(); }
+            await CheckWwwRedirectAsync(true);
             Console.WriteLine("Greylist open: cooldown-only UI, 21 denied redirects, retained controller, expiry and optional password settings passed");
+
+            async Task CheckWwwRedirectAsync(bool passwordRequired)
+            {
+                var bare = passwordRequired ? "confirmed-greylist.test" : "requested-greylist.test";
+                var requested = new Uri($"https://{bare}/watch?v=preserved");
+                var destination = new Uri($"https://www.{bare}/watch?v=preserved");
+                var observed = new List<string>();
+                var streams = new List<MemoryStream>();
+                var loaded = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                core.AddWebResourceRequestedFilter("https://*" + bare + "/*", CoreWebView2WebResourceContext.All,
+                    CoreWebView2WebResourceRequestSourceKinds.All);
+                core.WebResourceRequested += Respond;
+                core.NavigationCompleted += Completed;
+                try
+                {
+                    // Use the real Settings address parser and native confirmation window.
+                    Invoke(host, "OpenSettings", "Access");
+                    var accessSettings = (SettingsWindow)Field(host, "_settingsWindow")!;
+                    ((TextBox)accessSettings.FindName("AccessAddress")).Text = bare + "/watch?v=preserved";
+                    Click(accessSettings, "BeginAccessButton");
+                    var confirmation = (AccessWindow)Field(host, "_accessWindow")!;
+                    SetPassword(confirmation);
+                    Click(confirmation, "SubmitButton");
+                    await Until(() => access.GetStatus(requested.AbsoluteUri).Phase == AccessPhase.Cooldown &&
+                        ((Button)confirmation.FindName("SubmitButton")).Visibility == Visibility.Collapsed);
+                    Assert.Equal(requested.AbsoluteUri, Assert.Single(access.GetPendingRequests()).Target);
+                    Assert.Empty(observed);
+                    confirmation.Close();
+                    clock.Advance(5);
+                    Assert.Equal(AccessPhase.SecondChallenge, access.GetStatus(requested.AbsoluteUri).Phase);
+                    Assert.NotEqual(AccessPhase.Granted, access.GetStatus(destination.AbsoluteUri).Phase);
+                    Invoke(host, "OpenTemporaryAccess", requested);
+                    confirmation = (AccessWindow)Field(host, "_accessWindow")!;
+                    SetPassword(confirmation);
+                    Click(confirmation, "SubmitButton");
+                    await Until(() => !confirmation.IsVisible && core.Source == destination.AbsoluteUri);
+                    await Until(() => observed.Contains(destination.AbsoluteUri));
+                    await loaded.Task.WaitAsync(TimeSpan.FromSeconds(15));
+                    Assert.Equal(AccessPhase.Granted, access.GetStatus(destination.AbsoluteUri).Phase);
+                    Assert.Equal(access.GetStatus(requested.AbsoluteUri).ExpiresAt, access.GetStatus(destination.AbsoluteUri).ExpiresAt);
+                    Assert.Empty(access.GetPendingRequests());
+                    Assert.Contains(requested.AbsoluteUri, observed);
+                    Assert.Equal("\"Temporary visit loaded\"", await core.ExecuteScriptAsync("document.body.textContent"));
+                    clock.Advance(5);
+                    host.ValidateRetainedTabs();
+                    await Until(() => core.Source == "about:blank");
+                    Assert.NotEqual(AccessPhase.Granted, access.GetStatus(destination.AbsoluteUri).Phase);
+                    Assert.False(closed);
+                    Console.WriteLine($"Greylist www redirect: Settings address without www, full URI, both confirmations, native document and expiry passed (password={passwordRequired})");
+                }
+                finally
+                {
+                    core.WebResourceRequested -= Respond;
+                    core.NavigationCompleted -= Completed;
+                    foreach (var stream in streams) stream.Dispose();
+                }
+
+                void Completed(object? sender, CoreWebView2NavigationCompletedEventArgs e)
+                {
+                    if (e.IsSuccess && core.Source == destination.AbsoluteUri) loaded.TrySetResult();
+                }
+
+                void SetPassword(AccessWindow confirmation)
+                {
+                    Assert.Equal(passwordRequired ? Visibility.Visible : Visibility.Collapsed,
+                        ((FrameworkElement)confirmation.FindName("PasswordPanel")).Visibility);
+                    if (passwordRequired) ((PasswordBox)confirmation.FindName("Password")).Password = "optional native test password";
+                }
+
+                void Respond(object? sender, CoreWebView2WebResourceRequestedEventArgs e)
+                {
+                    var uri = new Uri(e.Request.Uri);
+                    if (uri.Host != bare && uri.Host != "www." + bare) return;
+                    observed.Add(e.Request.Uri);
+                    var redirect = uri.Host == bare;
+                    var stream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(redirect ? "" : "<html><body>Temporary visit loaded</body></html>"));
+                    streams.Add(stream);
+                    e.Response = core.Environment.CreateWebResourceResponse(stream, redirect ? 302 : 200,
+                        redirect ? "Found" : "OK", redirect ? $"Location: {destination.AbsoluteUri}\r\n" : "Content-Type: text/html\r\n");
+                }
+            }
 
             async Task WaitForBoundary()
             {

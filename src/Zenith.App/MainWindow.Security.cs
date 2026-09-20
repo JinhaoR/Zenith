@@ -1,6 +1,7 @@
 using System.Windows;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.Wpf;
+using Zenith.App.BrowserData;
 
 namespace Zenith.App;
 
@@ -14,8 +15,7 @@ public partial class MainWindow
     {
         try
         {
-            await core.Profile.ClearBrowsingDataAsync(CoreWebView2BrowsingDataKinds.ServiceWorkers)
-                .WaitAsync(TimeSpan.FromSeconds(30));
+            await new BrowserDataService(core.Profile).ClearServiceWorkersAsync();
         }
         catch (Exception)
         {
@@ -75,8 +75,9 @@ public partial class MainWindow
 
     // Called only after native Settings confirmation. Destroy all live pages before
     // clearing the shared renderer profile, so tabs cannot immediately recreate cookies.
-    internal async Task ClearBrowsingDataAndCloseAsync()
+    internal async Task ClearBrowsingDataAndCloseAsync(BrowserDataKind kind = BrowserDataKind.All)
     {
+        _ = BrowserDataService.DataKinds(kind);
         if (_clearingBrowsingData || _isClosing || _browserEnvironment is null)
             throw new InvalidOperationException("Browsing data is not available.");
         _clearingBrowsingData = true;
@@ -99,7 +100,8 @@ public partial class MainWindow
             var core = maintenance.CoreWebView2;
             core.Settings.AreHostObjectsAllowed = false;
             core.Settings.IsWebMessageEnabled = false;
-            await core.Profile.ClearBrowsingDataAsync(CoreWebView2BrowsingDataKinds.AllProfile).WaitAsync(TimeSpan.FromSeconds(60));
+            IBrowserDataService data = new BrowserDataService(core.Profile);
+            await data.ClearAsync(kind);
         }
         finally
         {
@@ -107,5 +109,17 @@ public partial class MainWindow
             // Success or failure: do not resume browsing with a partly cleared profile.
             Close();
         }
+    }
+
+    private string GetBrowserDataStatus()
+    {
+        try
+        {
+            var core = _tabs.FirstOrDefault(tab => tab.IsReady && !tab.ControllerDestroyed)?.Browser.CoreWebView2;
+            return core is null ? "Browser profile is not available yet." :
+                $"Profile: {core.Profile.ProfileName}\nUser data folder: {core.Environment.UserDataFolder}\nProfile folder: {core.Profile.ProfilePath}\n" +
+                "Tabs share this profile. Cookies and site data can survive restarts. These actions affect this profile only; they do not delete its folder.";
+        }
+        catch (Exception) { return "Browser profile information is unavailable."; }
     }
 }

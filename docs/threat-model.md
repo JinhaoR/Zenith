@@ -51,6 +51,11 @@ Threats include:
 - The Vault is the authority for durable policy.
 - External lists are untrusted input until validated.
 - The system clock alone must not be trusted to prove that a delay elapsed.
+- Bundled uBO Lite is a trusted content-processing dependency with access to web
+  pages, including authenticated content. It gains no WPF/Core policy authority
+  or native bridge. Package verification does not sandbox extension background
+  traffic or protect against a compromised upstream release. Its precise limits
+  are documented in [browser-extensions.md](browser-extensions.md).
 
 ## 4. Required Mitigations
 

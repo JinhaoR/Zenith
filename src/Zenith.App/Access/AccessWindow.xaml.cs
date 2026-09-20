@@ -48,7 +48,7 @@ public partial class AccessWindow : Window
         var timing = _service.Timing;
         var wait = timing is null ? "the configured wait" : DurationText.Format(timing.CooldownSeconds);
         var duration = timing is null ? "the configured duration" : DurationText.Format(timing.GrantSeconds);
-        ScopeText.Text = $"Exact hostname only · {duration} for new requests · until Zenith closes";
+        ScopeText.Text = $"Requested hostname and its www counterpart, where applicable · {duration} for new requests · until Zenith closes";
         ConfirmationPanel.Visibility = _phase == AccessPhase.SetupRequired ? Visibility.Visible : Visibility.Collapsed;
         PasswordPanel.Visibility = _phase == AccessPhase.SetupRequired ||
             (_service.PasswordRequired && _phase is AccessPhase.FirstChallenge or AccessPhase.SecondChallenge)

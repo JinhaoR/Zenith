@@ -71,7 +71,7 @@ access. It remains a limitation for ad-rule matching context only.
 
 Cosmetic filtering applies ordinary CSS hiding selectors and exceptions in HTTP(S) documents and nested frames, including dynamically inserted elements. Each frame requests rules using its actual WebView2 message-source URL. A fixed application script applies CSS through a constructed stylesheet without weakening the page's CSP. Its observer processes 500 elements per tick, queues at most 64 subtree walks, and collects at most 512 classes, 512 IDs and 128 link values per document. Tokens and input/output sizes are bounded; the native bridge limits both per-frame and per-tab work. Large documents may exceed these discovery limits. Page navigation resets the stylesheet and DOM hints; destroyed frames release native subscriptions without calling APIs on the destroyed frame.
 
-Only declarative hiding is enabled. Scriptlets, custom style actions, extended/procedural actions, response/HTML rewriting, CSP modification and resource replacement scripts are excluded. The lists never supply executable JavaScript. Network redirects/rewrite outputs are not followed; a matched blocking rule remains blocked. Query-parameter rewrite outputs are currently ignored.
+In this Ghostery adapter, only declarative hiding is enabled. Scriptlets, custom style actions, extended/procedural actions, response/HTML rewriting, CSP modification and resource replacement scripts are excluded. Its lists never supply executable JavaScript. Network redirects/rewrite outputs are not followed; a matched blocking rule remains blocked. Query-parameter rewrite outputs are currently ignored. The separately bundled uBO Lite extension has its own executable content-filtering functionality; see section 9.
 
 ### Updates and failure handling
 
@@ -98,3 +98,55 @@ This is not full uBlock Origin equivalence. Scriptlets, anti-adblock responses, 
 For a broken site, first distinguish a native site-policy boundary, a mandatory host response and an ad-resource response. Check Settings → About for failed updates and reload after a successful update. Report reproducible public filter-list issues to the EasyList maintainers; never include private URLs, tokens or account data. Upstream filter exceptions can repair resource-list false positives without overriding mandatory Blacklist. A Blacklist false positive needs correction in its upstream source, not a Vault exception.
 
 Engine updates require a reviewed application release and a reproducible bundle rebuild; list updates do not. See ADR 0011 and `tools/adblock/README.md` for dependencies, licenses and build instructions.
+
+## 8. Optional extension status in Settings
+
+Settings → Content Protection is an App-only, read-only snapshot of uBlock Origin
+Lite metadata from the active WebView2 profile. `ContentProtectionReader` uses
+[`GetBrowserExtensionsAsync`](https://learn.microsoft.com/en-us/dotnet/api/microsoft.web.webview2.core.corewebview2profile.getbrowserextensionsasync)
+on each refresh. It recognizes the exact browser-reported name `uBlock Origin Lite`
+for presentation only: a name is not a verified package identity, signature or
+authority to install or execute code. Duplicate matching records or invalid
+metadata are Unavailable. A single result displays Enabled or Disabled using the
+native flag; this does not prove that filtering is working on a particular page.
+No matching record displays Not installed in the current browser profile. An
+unready/disposed controller, API failure or five-second timeout displays
+Unavailable. Closing Settings during a refresh discards the late UI update.
+
+The native [`CoreWebView2BrowserExtension`](https://learn.microsoft.com/en-us/dotnet/api/microsoft.web.webview2.core.corewebview2browserextension)
+metadata provides ID, name and enabled state, but no version. Zenith does not read
+private Chromium profile files or query extension JavaScript to guess a version.
+Extension settings are not exposed: the raw experiment's `chrome-extension://`
+dashboard route would need a separately reviewed native integration; ordinary
+site navigation continues to reject that scheme.
+
+Production now enables extensions and installs the verified built-in uBO Lite
+package before browsing becomes ready (section 9). It offers no arbitrary
+extension management. An installation in the isolated experiment's user-data
+folder is not an installation in Zenith's profile.
+Microsoft documents that extension enumeration is empty when extension support is
+disabled; this view describes what the current environment exposes, not packages
+in other profiles or inactive private storage. Existing host/resource filtering
+and Core site policy remain independent.
+
+Validation includes enabled/disabled/missing/ambiguous metadata, errors and timeout
+unit tests, plus native WebView2 installation, enable/disable, removal and Settings
+refresh/close tests using an isolated, permission-free MV3 metadata fixture. The
+fixture is not uBO Lite and makes no filtering claim. The separate actual-extension
+compatibility evidence remains in `ubolite-webview2-experiment.md`.
+
+## 9. Built-in uBO Lite
+
+Zenith now bundles a pinned official Edge uBO Lite package using supported
+WebView2 extension APIs. This adds trusted upstream executable content filtering,
+including packaged scriptlets and resource replacements, alongside the existing
+Ghostery adapter. The data-only, last-known-good list-update contract above still
+applies to Zenith's own subscriptions; it is not an extension update guarantee.
+No imported lists, new dashboard route, or custom engine is added.
+
+Core and the existing native guards retain all site-access and capability
+decisions. uBO may add content/document denials, but cannot grant a Core-denied
+navigation. Full interception of extension background traffic is not promised.
+Package lifecycle, permissions, persistence, update limitations and current
+validation are defined in [browser-extensions.md](browser-extensions.md) and
+[ADR 0021](decisions/0021-bundled-webview2-extensions.md).

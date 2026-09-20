@@ -68,6 +68,8 @@ It must not decide site classification, Access Grant validity or Policy Change s
 
 App's `SettingsWindow` is a separate native owned window rather than a browser document. `BrowserPreferencesStore` atomically persists presentation preferences independently of policy and authentication data. MainWindow applies page zoom and consumes the saved startup sidebar preference. `AccessWindow` requests transitions from Core and never derives eligibility itself. Both windows share themed controls and native-frame coloring with the shell.
 
+`IBrowserDataService` / `BrowserDataService` in App owns WebView2 browsing-data scope mapping and clearing calls. Settings requests a confirmed action; MainWindow closes live controllers, invokes the service on a maintenance profile and closes the application. Startup worker cleanup shares the adapter without becoming optional. No browser-data database or Core policy responsibility is added. See `docs/browser-data.md` for storage and clearing scope.
+
 ### Zenith.Core
 
 The platform-independent domain and policy layer.
@@ -158,7 +160,7 @@ The following names describe responsibilities; they do not require one class per
 
 The App composition root supplies `ProtectedAccessStore` for authentication, temporal persistence and `IVaultStore`, initializing fresh installations without a password. Version 5 of the Windows DPAPI envelope holds the explicit password-enabled flag, optional verifier, cooldown snapshot, active Vault policy, presentation names and pending batch proposal. Atomic file replacement retains a protected previous envelope; a lifetime exclusive file lease serializes supported application instances. An initialization marker distinguishes missing initialized state from fresh setup. The user-authorized migration turns legacy password protection off once while preserving deadlines and saved Vault scopes. Missing mandatory current-schema fields fail closed rather than acquiring development defaults. See ADRs 0007, 0008, 0013 and 0019.
 
-`SitePolicyNavigationEvaluator` checks classification before consulting the grant source and independently checks the returned `AccessGrant` against exact site identity and time. Allowed decisions retain the Core-resolved `AccessClass`, so App can distinguish Whitelist discovery from temporary Greylist authorization without duplicating classification logic. The optional source preserves fail-closed behavior for callers without temporary access.
+`SitePolicyNavigationEvaluator` checks classification before consulting the grant source and independently checks the returned `AccessGrant` against its explicit hostname scope and time. `GreylistAccessService` issues the single `www` compatibility pair defined in site-policy.md; general site identity and Whitelist matching remain unchanged. Allowed decisions retain the Core-resolved `AccessClass`, so App can distinguish Whitelist discovery from temporary Greylist authorization without duplicating classification logic. The optional source preserves fail-closed behavior for callers without temporary access.
 
 MainWindow re-evaluates retained tab targets on a one-second dispatcher tick and before tab activation. Denials hide and unload the document through the existing native-surface lifecycle. All WebView2 tabs share the initial environment; no separate renderer instance becomes an authorization authority.
 
@@ -312,6 +314,15 @@ If no trustworthy policy can be established, Zenith enters a restricted recovery
 State writes must be atomic. Policy revisions, pending Policy Changes and cooldown records must be validated when loaded. Time anomalies must be handled conservatively and must not shorten a required delay.
 
 ## 9. Testing Boundaries
+
+`Zenith.App/Extensions/BundledExtensions` owns the hardcoded built-in extension
+package, pre-environment integrity verification and per-profile installation.
+MainWindow enables extension support consistently on its shared environment and
+waits for the verified uBO Lite package before opening tabs. No extension policy
+or configuration enters Core. Build/publish output includes the unpacked package;
+profile registration/state remains managed by WebView2. See
+[`docs/browser-extensions.md`](docs/browser-extensions.md) and ADR 0021 for lifecycle
+and trust limitations. Existing request/navigation/capability guards are unchanged.
 
 Settings wheel chaining and closed-dropdown protection live in App's `SettingsScrollBehavior`; they do not interpret policy. `MainWindow.Interaction` translates native tab/shortcut mouse gestures into existing lifecycle and Core-evaluated navigation paths. Tab-strip controls are retained across metadata refreshes rather than rebuilt underneath pointer and keyboard input. WPF interaction regressions exercise scroll boundaries, bounded menus, stable tab controls, background opening and compact-tab middle-click closure alongside the security suite.
 

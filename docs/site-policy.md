@@ -105,7 +105,7 @@ A Greylisted site may receive an Access Grant only after this sequence:
 An Access Grant:
 
 - Applies only to its recorded scope.
-- Must not silently include parent domains, subdomains or unrelated URLs.
+- Must not silently include parent domains, subdomains or unrelated URLs. The explicit `www` pair described below is the only hostname compatibility exception.
 - Must expire according to policy.
 - Does not reclassify the site.
 - Cannot override the Blacklist.
@@ -117,13 +117,13 @@ Cooldown state must not be bypassed by reopening the URL or restarting Zenith. T
 - Password protection is optional and off by default. No password setup is required for temporary access or Vault changes. Settings → Vault can stage a shared password of 15–128 characters with repeated entry; it takes effect only after the existing Vault wait and confirmation.
 - Starting a request captures the current Greylist wait and visit duration for the normalized hostname. The development defaults are **5 seconds of waiting** and **5 seconds of access**. Both are Vault-editable between 5 seconds and 24 hours. Reopening another URL on that hostname reuses the same pending request and cannot skip or restart its wait.
 - After eligibility, explicit confirmation issues the captured visit duration. Access never starts automatically when the wait ends. Existing requests keep their captured deadline and duration when settings change; migration preserves the earlier 30-minute wait and 60-minute visit values for legacy requests.
-- The grant covers the **exact normalized hostname across tabs**. Scheme, port and path follow the existing site-identity rules; parent domains and subdomains are not included implicitly. Redirects to another hostname receive their own policy decision.
+- The grant covers the **normalized requested hostname and its single `www` counterpart across tabs** (`example.com` ↔ `www.example.com`). Both share the original start and expiry; following a redirect does not renew access. This is not a wildcard: other children, siblings and unrelated hosts are excluded. IP addresses and nested `www.www` names receive no counterpart. A child such as `mail.example.com` can pair only with `www.mail.example.com`, never with `example.com`. Scheme, port and path follow existing site-identity rules. Every redirect still receives its own Core decision; neither hostname may use the grant against Blacklist precedence. Pending requests remain tied to the requested hostname. See ADR 0020.
 - Cooldowns persist across restarts, including time spent with Zenith closed. Grants are held only in memory and end at expiry or Zenith exit. Confirmation consumes its pending request before issuing access, so reopening Zenith cannot reuse a completed wait to recreate that grant.
 - When password protection is enabled, failed password attempts introduce a persisted five-second retry delay. Neither failed authentication nor failed persistence can advance the access procedure. Cooldown-only operation skips credential verification, not policy, time, persistence or expiry checks.
 - Enabling, replacing or disabling a password and changing timings require the Vault procedure below. Disabling an enabled password requires the current password at both stages. Forgotten-password recovery is not implemented; the one-time user-authorized migration is not a reusable reset. Missing or corrupt initialized protected data does not offer fresh setup or default to passwordless operation.
 - A confirmed Vault revision invalidates existing session grants on the next authorization check. Pending Greylist requests remain saved, and later confirmations use the then-current authentication setting.
 
-Core checks grants with an inclusive start and exclusive expiry. Each navigation rechecks classification, the exact hostname, protected access-state health and time. Blacklist and unsupported-target decisions take precedence; a grant-source failure denies navigation. A grant never changes the site's Access Class or adds it to Sphere discovery/bookmarks.
+Core checks grants with an inclusive start and exclusive expiry. Each navigation rechecks classification, the explicit grant scope, protected access-state health and time. Grant lookup also checks that the originally requested hostname remains Greylisted. Blacklist and unsupported-target decisions take precedence; a grant-source failure denies navigation. A grant never changes the site's Access Class or adds it to Sphere discovery/bookmarks.
 
 Temporary access settings obtain a read-only snapshot of active session grants from Core. Only unexpired grants for currently Greylisted hosts are listed; unavailable policy or access state yields no active entries. Listing grants does not extend, persist or issue access.
 

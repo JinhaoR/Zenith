@@ -113,7 +113,17 @@ internal static class NetworkEnforcementScenario
             await WaitAsync(() => grey.Requests.Contains("/nested-widget"));
             await core.ExecuteScriptAsync("const b = document.createElement('iframe'); b.src = " + JsonSerializer.Serialize(black.Origin + "/denied-frame") + "; document.body.appendChild(b);");
             await Task.Delay(500);
-            await ConnectionCoverageScenario.RunAsync(core, allowed, black);
+            // This historical adapter-coverage probe requires reachable positive
+            // controls (including beacons). uBO can independently suppress them;
+            // measure Zenith's coverage without crediting extension filtering.
+            var extension = Assert.Single(await core.Profile.GetBrowserExtensionsAsync(), e => e.Name == "uBlock Origin Lite");
+            await extension.EnableAsync(false);
+            try
+            {
+                await Open("/extension-independent-coverage");
+                await ConnectionCoverageScenario.RunAsync(core, allowed, black);
+            }
+            finally { await extension.EnableAsync(true); }
             var creation = (Task)typeof(MainWindow).GetMethod("CreateTabAsync", BindingFlags.Instance | BindingFlags.NonPublic)!
                 .Invoke(window, [new Uri(allowed.Origin + "/new-tab")])!;
             await creation;

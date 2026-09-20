@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Windows;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.Wpf;
+using Zenith.App.Extensions;
 using Zenith.App.Navigation;
 using Zenith.Core.Permissions;
 
@@ -81,7 +82,8 @@ internal static class FileChooserScenario
         var selectedPath = Path.Combine(folder.FullName, "selected-fixture.txt");
         const string contents = "Zenith synthetic selected file only";
         File.WriteAllText(selectedPath, contents);
-        var browser = new WebView2 { CreationProperties = new() { UserDataFolder = Path.Combine(folder.FullName, "Profile"), AdditionalBrowserArguments = "--no-proxy-server" } };
+        BundledExtensions.VerifyPackage();
+        var browser = new WebView2 { CreationProperties = new() { UserDataFolder = Path.Combine(folder.FullName, "Profile"), AdditionalBrowserArguments = "--no-proxy-server", AreBrowserExtensionsEnabled = true } };
         var host = new Window { Content = browser, Opacity = 0, ShowActivated = false, ShowInTaskbar = false };
         var exited = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         FileChooserGuard? guard = null;
@@ -104,6 +106,7 @@ internal static class FileChooserScenario
                 () => allowed ? new CapabilityDecision(true, "Synthetic allowed decision") : new BrowserCapabilityPolicy().Evaluate(BrowserCapability.FileSelection),
                 _ => { }, () => { failed = true; browser.Dispose(); });
             await guard.InitializeAsync();
+            await BundledExtensions.InstallAsync(core.Profile);
             core.Navigate(root.Origin + "/root");
             await Until(async () => await core.ExecuteScriptAsync("window.ready===true") == "true");
             await core.ExecuteScriptAsync(Frame("same", root.Origin + "/same") + Frame("cross", cross.Origin + "/cross"));

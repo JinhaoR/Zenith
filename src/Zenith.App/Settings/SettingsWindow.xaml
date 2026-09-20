@@ -31,6 +31,7 @@
                     <ListBoxItem Tag="Sphere" Content="Your Sphere" />
                     <ListBoxItem Tag="Access" Content="Temporary access" />
                     <ListBoxItem Tag="Vault" Content="Vault" />
+                    <ListBoxItem Tag="ContentProtection" Content="Content Protection" />
                     <ListBoxItem Tag="About" Content="About Zenith" />
                 </ListBox>
             </DockPanel>
@@ -49,8 +50,19 @@
                             <TextBlock Text="Public websites require HTTPS. Service-worker background/offline features and shared-worker network requests are disabled for now. Existing service workers are removed at startup; cookies, sign-ins and local storage are kept. These protections have no Vault override." Style="{StaticResource Description}" Margin="0,10,0,0" />
                             <TextBlock Text="New password saving and general autofill are disabled. Previously saved passwords may still fill; clear browsing data to remove them. Website cookies and sign-ins can persist until you sign out or clear browsing data. This is still a development browser." Style="{StaticResource Description}" Margin="0,10,0,12" />
                             <TextBlock x:Name="RuntimeStatusText" Style="{StaticResource Description}" Margin="0,0,0,12" />
-                            <Button x:Name="ClearBrowsingDataButton" Content="Clear browsing data…" HorizontalAlignment="Left" Click="ClearBrowsingData_OnClick" />
-                            <TextBlock Text="Closes tabs and Zenith. Your Sphere, Vault rules, waits and bookmarks are kept." Style="{StaticResource Description}" Margin="0,10,0,0" />
+                        </StackPanel></Border>
+                        <Border Style="{StaticResource Card}"><StackPanel>
+                            <TextBlock Text="Browser data" FontSize="18" FontWeight="SemiBold" />
+                            <TextBlock x:Name="BrowserDataStatusText" Style="{StaticResource Description}" Margin="0,12,0,0" />
+                            <TextBlock Text="Each action asks for confirmation, then closes all tabs and Zenith. Cookies and site data can contain sign-ins and offline work. Your Sphere, Vault rules, waits, preferences and bookmarks are kept." Style="{StaticResource Description}" Margin="0,12,0,0" />
+                            <WrapPanel x:Name="BrowserDataActions" Margin="0,14,0,0">
+                                <Button x:Name="ClearBrowsingDataButton" Content="Clear browsing data…" Tag="All" Click="ClearBrowsingData_OnClick" Margin="0,0,8,8" />
+                                <Button Content="Clear cookies…" Tag="Cookies" Click="ClearBrowsingData_OnClick" Margin="0,0,8,8" />
+                                <Button Content="Clear cache…" Tag="Cache" Click="ClearBrowsingData_OnClick" Margin="0,0,8,8" />
+                                <Button Content="Clear browsing history…" Tag="History" Click="ClearBrowsingData_OnClick" Margin="0,0,8,8" />
+                                <Button Content="Clear all site data…" Tag="SiteData" Click="ClearBrowsingData_OnClick" Margin="0,0,8,8" />
+                            </WrapPanel>
+                            <TextBlock Text="Cache clears the browser disk cache. All site data clears cookies and website storage; it keeps browsing history and disk cache. Clear browsing data includes both, plus browser profile settings and saved autofill data. Downloaded files and other profiles are not deleted." Style="{StaticResource Description}" Margin="0,6,0,0" />
                         </StackPanel></Border>
                         <Border Style="{StaticResource Card}">
                             <StackPanel>
@@ -85,6 +97,18 @@
                                 <TextBlock Text="Zenith’s calm, midnight palette. Windows High Contrast takes precedence automatically." Style="{StaticResource Description}" />
                             </StackPanel>
                         </Border>
+                    </StackPanel>
+                    <StackPanel x:Name="ContentProtectionPage" Visibility="Collapsed">
+                        <Border Style="{StaticResource Card}"><StackPanel>
+                            <TextBlock Text="uBlock Origin Lite" FontSize="18" FontWeight="SemiBold" />
+                            <TextBlock Text="Status" FontWeight="SemiBold" Margin="0,20,0,6" />
+                            <TextBlock x:Name="ProtectionStatusText" Text="Not checked" Style="{StaticResource Description}" AutomationProperties.LiveSetting="Polite" />
+                            <TextBlock Text="Version" FontWeight="SemiBold" Margin="0,16,0,6" />
+                            <TextBlock Text="Not provided by WebView2" Style="{StaticResource Description}" />
+                            <Button x:Name="RefreshProtectionButton" Content="Refresh status" HorizontalAlignment="Left" Margin="0,20,0,0" Click="RefreshProtection_OnClick" />
+                            <TextBlock Text="Shows the browser-reported extension state. Extension installation and settings are not available in Zenith yet." Style="{StaticResource Description}" Margin="0,16,0,0" />
+                            <TextBlock Text="Zenith’s site-access rules and existing resource filtering apply independently." Style="{StaticResource Description}" Margin="0,10,0,0" />
+                        </StackPanel></Border>
                     </StackPanel>
                     <StackPanel x:Name="SpherePage" Visibility="Collapsed">
                         <TextBox x:Name="SiteFilter" Padding="14,12" Margin="0,0,0,18" Background="{DynamicResource ZenithSurfaceBrush}" Foreground="{DynamicResource ZenithTextBrush}" BorderBrush="{DynamicResource ZenithBorderBrush}" CaretBrush="{DynamicResource ZenithAccentBrush}" AutomationProperties.Name="Filter sites in your Sphere" ToolTip="Filter by site name or hostname" TextChanged="SiteFilter_OnTextChanged" />

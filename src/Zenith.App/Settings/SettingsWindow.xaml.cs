@@ -6,6 +6,8 @@ using System.Windows.Threading;
 using Zenith.Core.Navigation;
 using Zenith.Core.Access;
 using Zenith.Core.Vault;
+using Zenith.App.Extensions;
+using Zenith.App.BrowserData;
 
 namespace Zenith.App.Settings;
 
@@ -25,17 +27,22 @@ public partial class SettingsWindow : Window
     private ActiveVisitItem[] _activeVisitItems = [];
     private readonly Func<string>? _blacklistStatus;
     private readonly Func<string>? _adblockStatus;
-    private readonly Func<Task>? _clearBrowsingData;
+    private readonly Func<BrowserDataKind, Task>? _clearBrowsingData;
+    private readonly Func<string>? _browserDataStatus;
     private readonly Func<string>? _runtimeStatus;
     private readonly Dictionary<string, double> _sectionOffsets = [];
     private string? _currentSection;
+    private readonly Func<Task<ContentProtectionStatus>>? _contentProtectionStatus;
+    private bool _refreshingProtection;
+    private bool _closed;
 
     internal SettingsWindow(BrowserPreferencesStore store, BrowserPreferences preferences,
         Action<BrowserPreferences> applyPreferences, IReadOnlyList<StarterWhitelistSite> sites, Action<Uri> openSite,
         GreylistAccessService? accessService = null, Action<Uri?>? openAccess = null,
         VaultService? vaultService = null, Func<IReadOnlyList<StarterWhitelistSite>>? siteSource = null, Action? policyChanged = null,
         Func<string>? blacklistStatus = null, Func<string>? adblockStatus = null,
-        Func<Task>? clearBrowsingData = null, Func<string>? runtimeStatus = null)
+        Func<BrowserDataKind, Task>? clearBrowsingData = null, Func<string>? runtimeStatus = null,
+        Func<Task<ContentProtectionStatus>>? contentProtectionStatus = null, Func<string>? browserDataStatus = null)
     {
         _store = store;
         _preferences = preferences;
@@ -45,13 +52,16 @@ public partial class SettingsWindow : Window
         _blacklistStatus = blacklistStatus;
         _adblockStatus = adblockStatus;
         _clearBrowsingData = clearBrowsingData;
+        _browserDataStatus = browserDataStatus;
         _runtimeStatus = runtimeStatus;
+        _contentProtectionStatus = contentProtectionStatus;
         _openSite = openSite;
         _accessService = accessService;
         _openAccess = openAccess;
         InitializeComponent();
         PreviewMouseWheel += SettingsScrollBehavior.HandleWheel;
-        ClearBrowsingDataButton.IsEnabled = _clearBrowsingData is not null;
+        BrowserDataActions.IsEnabled = _clearBrowsingData is not null;
+        BrowserDataStatusText.Text = _browserDataStatus?.Invoke() ?? "Browser profile information is unavailable.";
         RuntimeStatusText.Text = _runtimeStatus?.Invoke() ?? "Browser engine status is unavailable.";
         BlacklistStatusText.Text = _blacklistStatus?.Invoke() ?? "Blacklist status is unavailable in this window.";
         AdblockStatusText.Text = _adblockStatus?.Invoke() ?? "Resource-filter status is unavailable in this window.";
@@ -69,6 +79,7 @@ public partial class SettingsWindow : Window
         _accessTimer.Start();
         Closed += (_, _) =>
         {
+            _closed = true;
             _accessTimer.Stop();
             _accessTimer.Tick -= AccessTimer_OnTick;
             VaultEditor.Detach();
@@ -89,7 +100,7 @@ public partial class SettingsWindow : Window
 
         if (_currentSection is not null) _sectionOffsets[_currentSection] = PageScrollViewer.VerticalOffset;
         _currentSection = section;
-        foreach (var page in new[] { GeneralPage, SpherePage, AccessPage, VaultPage, AboutPage })
+        foreach (var page in new[] { GeneralPage, SpherePage, AccessPage, VaultPage, ContentProtectionPage, AboutPage })
         {
             page.Visibility = Visibility.Collapsed;
         }
@@ -98,6 +109,7 @@ public partial class SettingsWindow : Window
             "Sphere" => (SpherePage, "Your Sphere", "The places you can reach directly. Find a destination and open it."),
             "Access" => (AccessPage, "Temporary access", "Make room for an occasional, deliberate visit."),
             "Vault" => (VaultPage, "Vault", "The protected home for your long-term browsing choices."),
+            "ContentProtection" => (ContentProtectionPage, "Content Protection", "Content filtering in the current browser profile."),
             "About" => (AboutPage, "About Zenith", "A quieter way to find your way around the Internet."),
             _ => (GeneralPage, "Make Zenith yours", "Small preferences for comfortable, everyday browsing.")
         };
@@ -110,6 +122,35 @@ public partial class SettingsWindow : Window
         RuntimeStatusText.Text = _runtimeStatus?.Invoke() ?? "Browser engine status is unavailable.";
         if (section == "Vault") VaultEditor.Refresh();
         if (section == "Sphere") RefreshSites();
+        if (section == "ContentProtection") _ = RefreshContentProtectionAsync();
+        if (section == "General") BrowserDataStatusText.Text = _browserDataStatus?.Invoke() ?? "Browser profile information is unavailable.";
+    }
+
+    private async void RefreshProtection_OnClick(object sender, RoutedEventArgs e) => await RefreshContentProtectionAsync();
+
+    private async Task RefreshContentProtectionAsync()
+    {
+        if (_refreshingProtection || _closed) return;
+        _refreshingProtection = true;
+        RefreshProtectionButton.IsEnabled = false;
+        ProtectionStatusText.Text = "Checking…";
+        var status = ContentProtectionStatus.Unavailable;
+        try
+        {
+            if (_contentProtectionStatus is not null)
+                status = await _contentProtectionStatus().WaitAsync(TimeSpan.FromSeconds(5));
+        }
+        catch (Exception) { /* A closing or unavailable controller cannot provide a status. */ }
+        finally { _refreshingProtection = false; }
+        if (_closed) return;
+        ProtectionStatusText.Text = status switch
+        {
+            ContentProtectionStatus.Enabled => "Enabled",
+            ContentProtectionStatus.Disabled => "Disabled",
+            ContentProtectionStatus.NotInstalled => "Not installed in the current browser profile",
+            _ => "Unavailable — browser extension status could not be read"
+        };
+        RefreshProtectionButton.IsEnabled = true;
     }
 
     private void Preferences_OnChanged(object sender, RoutedEventArgs e)
@@ -122,15 +163,17 @@ public partial class SettingsWindow : Window
 
     private async void ClearBrowsingData_OnClick(object sender, RoutedEventArgs e)
     {
+        if (sender is not Button { Tag: string tag } || !Enum.TryParse<BrowserDataKind>(tag, out var kind) || !Enum.IsDefined(kind)) return;
         if (_clearBrowsingData is null || MessageBox.Show(this,
-            "This closes all tabs and Zenith, signs you out of websites, and removes cookies, site storage, browser history, cache and saved autofill data. Unsaved website work will be lost. Vault rules, waits, password and Zenith bookmarks are kept.\n\nClear browsing data?",
+            BrowserDataService.Description(kind) + "\n\nThis closes all tabs and Zenith. Unsaved website work will be lost. Vault rules, waits, password, preferences and Zenith bookmarks are kept.\n\nContinue?",
             "Clear browsing data — Zenith", MessageBoxButton.OKCancel, MessageBoxImage.Warning, MessageBoxResult.Cancel) != MessageBoxResult.OK) return;
-        ClearBrowsingDataButton.IsEnabled = false;
-        try { await _clearBrowsingData(); }
+        BrowserDataActions.IsEnabled = false;
+        try { await _clearBrowsingData(kind); }
         catch (Exception)
         {
-            MessageBox.Show("Browsing data could not be fully cleared. Zenith was stopped. Reopen it and retry; do not assume you have been signed out.",
+            MessageBox.Show("The selected browser data could not be fully cleared. Reopen Zenith and retry; do not assume the data was removed or that you have been signed out.",
                 "Zenith", MessageBoxButton.OK, MessageBoxImage.Warning);
+            if (!_closed) BrowserDataActions.IsEnabled = true;
         }
     }
 
@@ -216,7 +259,7 @@ public partial class SettingsWindow : Window
         var configuration = _accessService?.ConfigurationState;
         var timing = _accessService?.Timing;
         var timingDescription = timing is null ? "Timing rules are unavailable." :
-            $"Wait {DurationText.Format(timing.CooldownSeconds)}, then confirm for {DurationText.Format(timing.GrantSeconds)} of access. Exact hostname across tabs; access ends when Zenith closes.";
+            $"Wait {DurationText.Format(timing.CooldownSeconds)}, then confirm for {DurationText.Format(timing.GrantSeconds)} of access. Requested hostname and its www counterpart, where applicable, across tabs; access ends when Zenith closes.";
         SetupPasswordButton.Visibility = configuration == AccessConfigurationState.NeedsSetup ? Visibility.Visible : Visibility.Collapsed;
         AccessStatusText.Text = configuration switch
         {

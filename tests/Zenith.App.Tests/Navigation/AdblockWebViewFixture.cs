@@ -18,8 +18,8 @@ internal sealed class AdblockWebViewFixture : HttpMessageHandler
             github.com#@#.zenith-generic-ad
             embedded.example##.zenith-frame-ad
             github.com##.zenith-main-ad
-            ||ads.zenith-test.example^$script,image,subdocument,xmlhttprequest,third-party
-            @@||ads.zenith-test.example/allowed$xmlhttprequest
+            ||resource-fixture.zenith-test.example^$script,image,subdocument,xmlhttprequest,third-party
+            @@||resource-fixture.zenith-test.example/allowed$xmlhttprequest
             @@||blocked.example^
             """;
         return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { RequestMessage = request, Content = new StringContent(text) });

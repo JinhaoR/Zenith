@@ -44,6 +44,7 @@ public partial class MainWindow : Window
     private IInputElement? _noticeReturnFocus;
     private TabState? _activeTab;
     private bool _initializationStarted;
+    private bool _builtInExtensionsReady;
     private bool _isAddressEditing;
     private bool _isClosing;
     private bool _clearingBrowsingData;
@@ -78,9 +79,12 @@ public partial class MainWindow : Window
 
         public DocumentClearance? Clearance { get; set; }
         public bool ControllerDestroyed { get; set; }
+        public TabNavigationFailure? NavigationFailure { get; set; }
 
         public int LifecycleVersion { get; set; }
     }
+
+    private sealed record TabNavigationFailure(string Target, bool WasPolicyDenied);
 
     private sealed record SphereResult(
         string Title,
@@ -198,6 +202,10 @@ public partial class MainWindow : Window
 
         try
         {
+            // Keep any host-supplied UDF/runtime options, including isolated test profiles.
+            Extensions.BundledExtensions.VerifyPackage();
+            Browser.CreationProperties ??= new CoreWebView2CreationProperties();
+            Browser.CreationProperties.AreBrowserExtensionsEnabled = true;
             await Browser.EnsureCoreWebView2Async();
             _browserEnvironment = Browser.CoreWebView2.Environment;
             _browserEnvironment.NewBrowserVersionAvailable += BrowserVersionAvailable;
@@ -213,10 +221,10 @@ public partial class MainWindow : Window
             Browser.CoreWebView2.HistoryChanged += Browser_OnHistoryChanged;
             Browser.CoreWebView2.FaviconChanged += Browser_OnFaviconChanged;
             _tabs.First(tab => tab.Browser == Browser).CoreEventsAttached = true;
-            if (_activeTab is not null)
-            {
-                _activeTab.IsReady = true;
-            }
+            await Extensions.BundledExtensions.InstallAsync(Browser.CoreWebView2.Profile);
+            if (_isClosing) return;
+            _builtInExtensionsReady = true;
+            _tabs.First(tab => tab.Browser == Browser).IsReady = true;
             UpdateNavigationControls();
         }
         catch (Exception)
@@ -227,7 +235,15 @@ public partial class MainWindow : Window
             }
 
             ShowStartSurface();
-            ShowNotice("Page rendering isn’t available right now, so pages can’t open.");
+            ShowNotice("Browser initialization failed, including its required built-in extensions. Restart Zenith or repair its installation.");
+            // Installation can finish after a timeout. Do not keep its controller alive.
+            foreach (var tab in _tabs.ToArray())
+            {
+                DetachTabEvents(tab);
+                tab.Browser.Dispose();
+                tab.ControllerDestroyed = true;
+                tab.IsReady = false;
+            }
         }
     }
 
@@ -555,12 +571,22 @@ public partial class MainWindow : Window
                 _accessService, OpenTemporaryAccess, _vaultService, GetSphereSites, RefreshPolicyViews,
                 () => (_blacklist as Zenith.App.Filtering.BlacklistUpdater)?.Status ?? "No synchronized source is available in this test window.",
                 () => _adblock?.Status ?? "No resource-filter engine is available in this test window.",
-                ClearBrowsingDataAndCloseAsync, GetRuntimeStatus) { Owner = this };
+                ClearBrowsingDataAndCloseAsync, GetRuntimeStatus, GetContentProtectionStatusAsync, GetBrowserDataStatus) { Owner = this };
             _settingsWindow.Closed += (_, _) => _settingsWindow = null;
             _settingsWindow.Show();
         }
         _settingsWindow.SelectSection(section);
         _settingsWindow.Activate();
+    }
+
+    private async Task<Zenith.App.Extensions.ContentProtectionStatus> GetContentProtectionStatusAsync()
+    {
+        try
+        {
+            return await Zenith.App.Extensions.ContentProtectionReader.ReadAsync(
+                _activeTab is { IsReady: true } ? ActiveBrowser.CoreWebView2?.Profile : null);
+        }
+        catch (Exception) { return Zenith.App.Extensions.ContentProtectionStatus.Unavailable; }
     }
 
     private void ApplyPreferences(BrowserPreferences preferences)
@@ -840,6 +866,7 @@ public partial class MainWindow : Window
 
         if (decision is NavigationDecision.Allowed allowed)
         {
+            tab.NavigationFailure = null;
             tab.NavigationOperations.RecordExternal(e.NavigationId, allowed.Target);
             tab.CurrentUri = allowed.Target;
             tab.IsStartSurface = false;
@@ -857,9 +884,14 @@ public partial class MainWindow : Window
         }
 
         e.Cancel = true;
+        tab.NavigationFailure = new(e.Uri, WasPolicyDenied: true);
         if (tab == _activeTab)
         {
             ApplyNavigationDecision(decision, e.Uri);
+        }
+        else
+        {
+            ClearTabWebContent(tab);
         }
     }
 
@@ -944,13 +976,12 @@ public partial class MainWindow : Window
             }
         }
 
-        if (!e.IsSuccess && tab == _activeTab && browser.Visibility == Visibility.Visible)
+        if (!e.IsSuccess)
         {
             var target = completion.RequestedTarget?.AbsoluteUri ?? "Unknown destination";
-            ShowBoundarySurface(
-                "This destination couldn’t open",
-                target,
-                "The page couldn’t finish loading. Try the address again or return to your Sphere.");
+            tab.NavigationFailure = new(target, WasPolicyDenied: false);
+            if (tab == _activeTab) ShowTabNavigationFailure(tab.NavigationFailure);
+            else ClearTabWebContent(tab);
         }
 
         if (tab != _activeTab || browser.Visibility != Visibility.Visible)
@@ -1069,6 +1100,7 @@ public partial class MainWindow : Window
 
     private void QueueNavigation(TabState tab, Uri target)
     {
+        tab.NavigationFailure = null;
         var disposition = tab.NavigationOperations.PrepareExternal(target);
         if (disposition == ExternalNavigationDisposition.DeferUntilInternalClearCompletes)
         {
@@ -1089,7 +1121,10 @@ public partial class MainWindow : Window
             ShowBrowserSurface();
         }
         RefreshTabStrip();
-        tab.Browser.Source = target;
+        // A cancelled first load can leave WPF Source equal to this request while
+        // the native document is still blank. An explicit retry must navigate even
+        // when that dependency-property value has not changed.
+        tab.Browser.CoreWebView2.Navigate(target.AbsoluteUri);
     }
 
     private void RequestNavigation(string target, NavigationOrigin origin)
@@ -1109,7 +1144,7 @@ public partial class MainWindow : Window
 
     private async Task CreateTabCoreAsync(Uri? target, bool activate)
     {
-        if (_isClosing || _clearingBrowsingData)
+        if (_isClosing || _clearingBrowsingData || !_builtInExtensionsReady)
         {
             return;
         }
@@ -1164,7 +1199,11 @@ public partial class MainWindow : Window
         }
 
         _activeTab = tab;
-        if (tab.IsStartSurface || !tab.IsReady || tab.Clearance?.IsPending == true)
+        if (tab.NavigationFailure is { } failure)
+        {
+            ShowTabNavigationFailure(failure);
+        }
+        else if (tab.IsStartSurface || !tab.IsReady || tab.Clearance?.IsPending == true)
         {
             ShowStartSurface();
         }
@@ -1181,6 +1220,20 @@ public partial class MainWindow : Window
         UpdateBookmarkButton();
         OpenTabsPanel.UpdateLayout();
         OpenTabsPanel.Children.OfType<Grid>().FirstOrDefault(row => ReferenceEquals(row.Tag, tab))?.BringIntoView();
+    }
+
+    private void ShowTabNavigationFailure(TabNavigationFailure failure)
+    {
+        // Remember presentation state, never cached authorization. A policy change
+        // may now permit this destination, but only a fresh Core decision can open it.
+        var decision = _navigationCoordinator.EvaluateWebViewRequest(failure.Target);
+        if (failure.WasPolicyDenied || decision is not NavigationDecision.Allowed)
+        {
+            ApplyNavigationDecision(decision, failure.Target);
+            return;
+        }
+        ShowBoundarySurface("This destination couldn’t open", failure.Target,
+            "The page couldn’t finish loading. Try the address again or return to your Sphere.");
     }
 
     private TabState? FindTab(WebView2 browser) =>
@@ -1270,6 +1323,7 @@ public partial class MainWindow : Window
     {
         if (_activeTab is not null)
         {
+            _activeTab.NavigationFailure = null;
             ClearTabWebContent(_activeTab);
         }
         HideNotice();

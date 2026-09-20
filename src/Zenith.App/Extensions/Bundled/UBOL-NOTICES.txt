@@ -1,0 +1,22 @@
+uBlock Origin Lite 2026.907.2003 (official Edge target)
+Copyright (C) 2022-present Raymond Hill and contributors.
+Distributed without modification under GNU GPL version 3 or later.
+The complete license and source copyright notices are retained in the package;
+the unpacked license is BundledExtensions/uBOLite/LICENSE.txt.
+
+Package:
+https://github.com/uBlockOrigin/uBOL-home/releases/download/2026.907.2003/uBOLite_2026.907.2003.edge.zip
+SHA-256: 1FD67CAD123BF677AA23CC7E1EFB524B219EFAABCF586F211843850662B9B1D2
+
+Release repository and build workflow (including submodule references):
+https://github.com/uBlockOrigin/uBOL-home/tree/2026.907.2003
+Corresponding upstream uBlock source and build scripts:
+https://github.com/gorhill/uBlock/tree/7be44bfc813dbcd658cbdd7b7c981667fb1fe31d
+Build instructions: platform/mv3/README.md in that source tree.
+The ZIP also contains the extension's JavaScript, CSS, HTML, locales, and
+compiled filter data. See upstream source/assets for filter-list attribution.
+
+Zenith does not claim authorship or endorsement by the uBlock Origin project.
+For public distribution, provide corresponding source and dependencies with
+the release in accordance with the included license; do not ship only Zenith's
+executable or omit these notices and the extension license.

@@ -38,6 +38,30 @@ public sealed class WebViewNavigationTests
             {
                 try
                 {
+                    await BundledExtensionScenario.RunAsync();
+                    if (Environment.GetEnvironmentVariable("ZENITH_EXTENSION_TESTS_ONLY") == "1")
+                    {
+                        finished.TrySetResult();
+                        return;
+                    }
+                    await BrowserDataScenario.RunAsync();
+                    if (Environment.GetEnvironmentVariable("ZENITH_BROWSER_DATA_TESTS_ONLY") == "1")
+                    {
+                        finished.TrySetResult();
+                        return;
+                    }
+                    await TabRenderingScenario.RunAsync();
+                    if (Environment.GetEnvironmentVariable("ZENITH_RENDERING_TESTS_ONLY") == "1")
+                    {
+                        finished.TrySetResult();
+                        return;
+                    }
+                    await Zenith.App.Tests.Settings.VaultEditingScenario.RunAsync();
+                    if (Environment.GetEnvironmentVariable("ZENITH_VAULT_TESTS_ONLY") == "1")
+                    {
+                        finished.TrySetResult();
+                        return;
+                    }
                     await GreylistOpenScenario.RunAsync();
                     if (Environment.GetEnvironmentVariable("ZENITH_GREYLIST_TESTS_ONLY") == "1")
                     {
@@ -58,6 +82,7 @@ public sealed class WebViewNavigationTests
                     }
                     await DocumentClearingScenario.RunAsync();
                     await Zenith.App.Tests.Settings.SettingsInteractionScenario.RunAsync();
+                    await Zenith.App.Tests.Settings.ContentProtectionScenario.RunAsync();
                     await ExerciseWindowAsync();
                     await NetworkEnforcementScenario.RunAsync();
                     await SecurityHardeningScenario.RunAsync();
@@ -353,17 +378,17 @@ public sealed class WebViewNavigationTests
             await WaitForScriptAsync(nested.ExecuteScriptAsync, "getComputedStyle(document.getElementById('advert')).display === 'none'");
             Assert.Equal("true", await nested.ExecuteScriptAsync("getComputedStyle(document.getElementById('scoped')).display !== 'none'"));
             await core.ExecuteScriptAsync("""
-                fetch('https://ads.zenith-test.example/data').catch(() => {});
-                fetch('https://ads.zenith-test.example/allowed').catch(() => {});
+                fetch('https://resource-fixture.zenith-test.example/data').catch(() => {});
+                fetch('https://resource-fixture.zenith-test.example/allowed').catch(() => {});
                 fetch('https://blocked.example/ad-exception').catch(() => {});
-                const image = new Image(); image.src = 'https://ads.zenith-test.example/image.png'; document.body.appendChild(image);
-                const frame = document.createElement('iframe'); frame.src = 'https://ads.zenith-test.example/frame'; document.body.appendChild(frame);
+                const image = new Image(); image.src = 'https://resource-fixture.zenith-test.example/image.png'; document.body.appendChild(image);
+                const frame = document.createElement('iframe'); frame.src = 'https://resource-fixture.zenith-test.example/frame'; document.body.appendChild(frame);
                 """);
             Console.WriteLine("WebView regression: cosmetics and nested frames passed");
-            await WaitUntilAsync(() => filtered.Contains("https://ads.zenith-test.example/data") && filtered.Contains("https://ads.zenith-test.example/image.png")
-                && filtered.Contains("https://ads.zenith-test.example/frame") && filtered.Contains("https://blocked.example/ad-exception"));
-            Assert.DoesNotContain("https://ads.zenith-test.example/data", requested);
-            Assert.Contains("https://ads.zenith-test.example/allowed", requested);
+            await WaitUntilAsync(() => filtered.Contains("https://resource-fixture.zenith-test.example/data") && filtered.Contains("https://resource-fixture.zenith-test.example/image.png")
+                && filtered.Contains("https://resource-fixture.zenith-test.example/frame") && filtered.Contains("https://blocked.example/ad-exception"));
+            Assert.DoesNotContain("https://resource-fixture.zenith-test.example/data", requested);
+            Assert.Contains("https://resource-fixture.zenith-test.example/allowed", requested);
             var nextLoad = WaitForPageAsync(core, "https://github.com/after-filter-test");
             Request(window, "https://github.com/after-filter-test");
             await nextLoad;
@@ -666,7 +691,7 @@ public sealed class WebViewNavigationTests
         void Resource(object? sender, CoreWebView2WebResourceRequestedEventArgs e)
         {
             if (e.Request.Uri == "https://blocked.example/new-tab") blockedRequest.TrySetResult(e.Response?.StatusCode ?? 0);
-            if (e.Request.Uri == "https://ads.zenith-test.example/new-tab") adRequest.TrySetResult(e.Response?.StatusCode ?? 0);
+            if (e.Request.Uri == "https://resource-fixture.zenith-test.example/new-tab") adRequest.TrySetResult(e.Response?.StatusCode ?? 0);
         }
         newBrowser.CoreWebView2.WebResourceRequested += Resource;
         try
@@ -675,7 +700,7 @@ public sealed class WebViewNavigationTests
             newBrowser.CoreWebView2.Resume();
             await newBrowser.CoreWebView2.ExecuteScriptAsync("fetch('https://blocked.example/new-tab').catch(() => {});");
             Assert.Equal(403, await blockedRequest.Task.WaitAsync(TimeSpan.FromSeconds(15)));
-            await newBrowser.CoreWebView2.ExecuteScriptAsync("fetch('https://ads.zenith-test.example/new-tab').catch(() => {}); const ad = document.createElement('div'); ad.id = 'new-tab-ad'; ad.className = 'zenith-test-ad'; document.body.appendChild(ad);");
+            await newBrowser.CoreWebView2.ExecuteScriptAsync("fetch('https://resource-fixture.zenith-test.example/new-tab').catch(() => {}); const ad = document.createElement('div'); ad.id = 'new-tab-ad'; ad.className = 'zenith-test-ad'; document.body.appendChild(ad);");
             Assert.Equal(403, await adRequest.Task.WaitAsync(TimeSpan.FromSeconds(15)));
             await WaitForScriptAsync(newBrowser.CoreWebView2.ExecuteScriptAsync, "getComputedStyle(document.getElementById('new-tab-ad')).display === 'none'");
         }
