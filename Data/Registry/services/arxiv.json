@@ -1,0 +1,28 @@
+{
+  "id": "arxiv",
+  "name": "arXiv",
+  "category": "research",
+  "description": "Research preprints and scholarly articles.",
+  "capabilities": [
+    "research_search",
+    "document_reading"
+  ],
+  "domains": [
+    {
+      "hostname": "arxiv.org",
+      "purpose": "arXiv search, abstract pages and papers on the primary host.",
+      "required": true,
+      "dependencyType": "navigation",
+      "permissionApplicability": "required_navigation",
+      "provenance": {
+        "sourceType": "official_documentation",
+        "sourceReference": "https://info.arxiv.org/help/find.html",
+        "review": { "reviewedBy": "Zenith Phase 3 curation (Codex)", "reviewedAt": "2026-09-21T00:00:00Z" },
+        "explanation": "Reviewed the official search/abstract instructions and HTTPS primary site. Exact arxiv.org navigation is proposed; external help, account and linked publication hosts are not included. This is not a complete feature compatibility review."
+      }
+    }
+  ],
+  "requires": [],
+  "status": "initial",
+  "ecosystems": []
+}

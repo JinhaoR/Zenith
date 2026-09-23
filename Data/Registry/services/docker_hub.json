@@ -1,0 +1,19 @@
+{
+  "id": "docker_hub",
+  "name": "Docker Hub",
+  "category": "development",
+  "description": "Browse container images and publisher information.",
+  "capabilities": [
+    "package_discovery"
+  ],
+  "domains": [
+    {
+      "hostname": "hub.docker.com",
+      "purpose": "Primary service website or application.",
+      "required": true
+    }
+  ],
+  "requires": [],
+  "status": "initial",
+  "ecosystems": []
+}

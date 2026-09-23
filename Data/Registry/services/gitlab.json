@@ -1,0 +1,19 @@
+{
+  "id": "gitlab",
+  "name": "GitLab",
+  "category": "development",
+  "description": "Hosted code repositories and development collaboration.",
+  "capabilities": [
+    "code_hosting"
+  ],
+  "domains": [
+    {
+      "hostname": "gitlab.com",
+      "purpose": "Primary service website or application.",
+      "required": true
+    }
+  ],
+  "requires": [],
+  "status": "initial",
+  "ecosystems": []
+}

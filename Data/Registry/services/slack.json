@@ -1,0 +1,19 @@
+{
+  "id": "slack",
+  "name": "Slack",
+  "category": "communication",
+  "description": "Workspace messaging and collaboration; tenant-specific hosts are not enumerated.",
+  "capabilities": [
+    "messaging"
+  ],
+  "domains": [
+    {
+      "hostname": "app.slack.com",
+      "purpose": "Primary service website or application.",
+      "required": true
+    }
+  ],
+  "requires": [],
+  "status": "initial",
+  "ecosystems": []
+}

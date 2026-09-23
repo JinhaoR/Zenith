@@ -4,6 +4,8 @@ using System.Windows;
 using System.Windows.Controls;
 using Zenith.Core.Vault;
 using Zenith.Core.Navigation;
+using Zenith.Core.Registry;
+using Zenith.App.Registry;
 
 namespace Zenith.App.Settings;
 
@@ -35,7 +37,7 @@ public partial class VaultPanel : UserControl
             .Concat([new SiteChoice("mail.google.com", "Gmail", false)])
             .DistinctBy(site => site.Host).OrderBy(site => site.Name).ToArray();
         KnownSite.ItemsSource = _knownSites;
-        foreach (var input in new[] { GreySeconds, GrantSeconds, VaultSeconds, SiteHost, SiteName })
+        foreach (var input in new[] { GreySeconds, GrantSeconds, VaultSeconds, SiteHost, SiteName, LocalExtensionHost, LocalExtensionPurpose })
         {
             input.TextChanged += DraftInput_OnChanged;
         }
@@ -49,6 +51,7 @@ public partial class VaultPanel : UserControl
             option.Unchecked += DraftInput_OnChanged;
         }
         RemoveSite.SelectionChanged += RemoveSite_OnSelectionChanged;
+        LocalExtensionService.SelectionChanged += DraftInput_OnChanged;
         NewPassword.PasswordChanged += DraftInput_OnChanged;
         RepeatPassword.PasswordChanged += DraftInput_OnChanged;
         Loaded += (_, _) => _detached = false;
@@ -96,6 +99,7 @@ public partial class VaultPanel : UserControl
         TestingNotice.Visibility = state is not null && (state.Settings.GreylistSeconds == 5 || state.Settings.GrantSeconds == 5 || state.Settings.VaultSeconds == 5)
             ? Visibility.Visible : Visibility.Collapsed;
         if (state is null) return;
+        RefreshRegistryHistory(state);
         var passwordVisibility = state.PasswordRequired ? Visibility.Visible : Visibility.Collapsed;
         StagePassword.Visibility = StagePasswordLabel.Visibility = passwordVisibility;
         ConfirmPassword.Visibility = ConfirmPasswordLabel.Visibility = passwordVisibility;
@@ -115,6 +119,8 @@ public partial class VaultPanel : UserControl
         Editor.Visibility = state.Pending is null || _editingPending ? Visibility.Visible : Visibility.Collapsed;
         if (state.Pending is { } pending)
         {
+            EditButton.IsEnabled = !IsFrozenRegistryEdit(pending.Edit);
+            EditButton.ToolTip = EditButton.IsEnabled ? null : "Cancel this proposal and prepare a new review to change its scope.";
             PendingSummary.Text = Describe(state.Settings, pending.Edit);
             PendingDetails.Text = DescribeDetails(pending.Edit);
             var remaining = pending.EligibleAt - (_status!.Now ?? pending.ProposedAt);
@@ -185,6 +191,29 @@ public partial class VaultPanel : UserControl
         OutcomeText.Text = string.Empty;
     }
 
+    internal void ReviewServiceProposal(AccessProposal proposal) => ReviewFrozenProposal(ServiceVaultProposal.CreateEdit(proposal));
+
+    private void ReviewFrozenProposal(VaultEdit edit)
+    {
+        if (_service is null || _busy || _detached) return;
+        InvalidateReview();
+        try
+        {
+            Refresh();
+            if (_status?.State?.Pending is not null) { _editingPending = true; Refresh(); }
+            _review = _service.Review(edit);
+            ReviewSummary.Text = Describe(_review.ActiveSettings, _review.Edit) +
+                $"\nThis proposal must wait {DurationText.Format(_review.ActiveSettings.VaultSeconds)} before confirmation.";
+            ReviewDetails.Text = DescribeDetails(_review.Edit);
+            ReviewCard.Visibility = Visibility.Visible;
+            StageButton.IsEnabled = true;
+            OutcomeText.Text = string.Empty;
+            ReviewCard.BringIntoView();
+            if (StagePassword.IsVisible) StagePassword.Focus(); else StageButton.Focus();
+        }
+        catch (Exception) { InvalidateReview(); ShowValidationError("This proposal is stale, conflicting or unavailable. Prepare a new review."); }
+    }
+
     private async void Stage_OnClick(object sender, RoutedEventArgs e)
     {
         if (_review is not { } review || _service is null || _busy || _detached) return;
@@ -218,6 +247,7 @@ public partial class VaultPanel : UserControl
     private void Edit_OnClick(object sender, RoutedEventArgs e)
     {
         if (_status?.State is not { Pending: { } pending } state) return;
+        if (IsFrozenRegistryEdit(pending.Edit)) return;
         FillEditor(state.Settings, pending.Edit);
         InvalidateReview();
         _editingPending = true;
@@ -263,6 +293,8 @@ public partial class VaultPanel : UserControl
 
     private string Describe(VaultSettings current, VaultEdit edit)
     {
+        if (edit.ServiceProposal is { } proposal) return ServiceProposalPresentation.Summary(proposal);
+        if (edit.InfrastructureProposal is not null || edit.LocalExtensionProposal is not null) return RegistryProposalPresentation.Summary(edit);
         var lines = new List<string>();
         if (edit.GreylistSeconds is { } grey && grey != current.GreylistSeconds) lines.Add($"Greylist wait: {DurationText.Format(current.GreylistSeconds)} → {DurationText.Format(grey)}");
         if (edit.GrantSeconds is { } grant && grant != current.GrantSeconds) lines.Add($"Visit duration: {DurationText.Format(current.GrantSeconds)} → {DurationText.Format(grant)}");
@@ -351,7 +383,8 @@ public partial class VaultPanel : UserControl
         _status?.State?.Sites.FirstOrDefault(site => site.Host == host)?.DisplayName ??
         (host == "mail.google.com" ? "Gmail" : DevelopmentStarterPolicy.Sites.FirstOrDefault(site => site.Host == host)?.Name) ?? host;
 
-    private string DescribeDetails(VaultEdit edit) => string.Join("\n",
+    private string DescribeDetails(VaultEdit edit) => edit.ServiceProposal is { } proposal ? ServiceProposalPresentation.Details(proposal) :
+        edit.InfrastructureProposal is not null || edit.LocalExtensionProposal is not null ? RegistryProposalPresentation.Details(edit) : string.Join("\n",
         edit.Removals().Select(host => $"Remove: {host}" +
             (_status?.State?.Sites.FirstOrDefault(site => site.Host == host && site.AccessClass == AccessClass.Whitelist)?.IncludeSubdomains == true
                 ? " and covered subdomains" : " (exact address)"))

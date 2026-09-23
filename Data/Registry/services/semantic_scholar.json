@@ -1,0 +1,20 @@
+{
+  "id": "semantic_scholar",
+  "name": "Semantic Scholar",
+  "category": "research",
+  "description": "Discover scholarly papers and related research.",
+  "capabilities": [
+    "research_search",
+    "document_reading"
+  ],
+  "domains": [
+    {
+      "hostname": "www.semanticscholar.org",
+      "purpose": "Primary service website or application.",
+      "required": true
+    }
+  ],
+  "requires": [],
+  "status": "initial",
+  "ecosystems": []
+}

@@ -1,0 +1,19 @@
+{
+  "id": "crossref",
+  "name": "Crossref",
+  "category": "research",
+  "description": "Research metadata and scholarly identifier information.",
+  "capabilities": [
+    "research_search"
+  ],
+  "domains": [
+    {
+      "hostname": "www.crossref.org",
+      "purpose": "Primary service website or application.",
+      "required": true
+    }
+  ],
+  "requires": [],
+  "status": "initial",
+  "ecosystems": []
+}

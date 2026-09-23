@@ -1,0 +1,31 @@
+{
+  "infrastructure": [
+    {
+      "id": "google_identity",
+      "name": "Google Identity",
+      "description": "Reviewed shared Google sign-in infrastructure. Navigation endpoints require independent Vault activation; catalog membership grants no access.",
+      "domains": [
+        {
+          "hostname": "accounts.google.com",
+          "purpose": "Google account sign-in pages.",
+          "required": true,
+          "dependencyType": "authentication",
+          "permissionApplicability": "required_navigation",
+          "provenance": {
+            "sourceType": "official_documentation",
+            "sourceReference": "https://support.google.com/mail/answer/8494?hl=en-GB",
+            "review": { "reviewedBy": "Zenith Phase 3 curation (Codex)", "reviewedAt": "2026-09-21T00:00:00Z" },
+            "explanation": "The official Gmail browser sign-in link targets this exact hostname. Zenith proposes this reviewed sign-in endpoint in the independent infrastructure baseline; activation still requires Vault approval."
+          }
+        },
+        {
+          "hostname": "oauth2.googleapis.com",
+          "purpose": "OAuth token endpoint used by some integrations; not a verified requirement for every browser flow.",
+          "required": false,
+          "dependencyType": "api",
+          "permissionApplicability": "background_only"
+        }
+      ]
+    }
+  ]
+}

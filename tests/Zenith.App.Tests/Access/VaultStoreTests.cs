@@ -45,7 +45,7 @@ public sealed class VaultStoreTests
                 Assert.False(store.Verify(Password));
                 Assert.Equal(original.Settings, store.LoadVault().Settings);
                 Assert.Equal(original.Revision, store.LoadVault().Revision);
-                Assert.Equal(original.Sites, store.LoadVault().Sites);
+                Assert.Equal(original.ToPolicy().Entries, store.LoadVault().ToPolicy().Entries);
                 Assert.Equal(original.Pending, store.LoadVault().Pending);
                 Assert.Equal(requests, store.Load().Requests);
             }
@@ -190,7 +190,7 @@ public sealed class VaultStoreTests
             try
             {
                 var migrated = JsonNode.Parse(migratedPlaintext)!;
-                Assert.Equal(5, migrated["Version"]!.GetValue<int>());
+                Assert.Equal(8, migrated["Version"]!.GetValue<int>());
                 Assert.True(migrated["Vault"]!["Pending"]!["Edit"]!.AsObject().ContainsKey("RemoveHost"));
             }
             finally { CryptographicOperations.ZeroMemory(migratedPlaintext); }

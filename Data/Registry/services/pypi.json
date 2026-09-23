@@ -1,0 +1,21 @@
+{
+  "id": "pypi",
+  "name": "PyPI",
+  "category": "development",
+  "description": "Discover Python ecosystem packages.",
+  "capabilities": [
+    "package_discovery"
+  ],
+  "domains": [
+    {
+      "hostname": "pypi.org",
+      "purpose": "Primary service website or application.",
+      "required": true
+    }
+  ],
+  "requires": [],
+  "status": "initial",
+  "ecosystems": [
+    "python"
+  ]
+}

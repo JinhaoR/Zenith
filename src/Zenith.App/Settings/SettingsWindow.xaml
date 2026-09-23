@@ -32,6 +32,7 @@
                     <ListBoxItem Tag="Access" Content="Temporary access" />
                     <ListBoxItem Tag="Vault" Content="Vault" />
                     <ListBoxItem Tag="ContentProtection" Content="Content Protection" />
+                    <ListBoxItem Tag="Services" Content="Services" />
                     <ListBoxItem Tag="About" Content="About Zenith" />
                 </ListBox>
             </DockPanel>
@@ -167,6 +168,9 @@
                     </StackPanel>
                     <StackPanel x:Name="VaultPage" Visibility="Collapsed">
                         <settings:VaultPanel x:Name="VaultEditor" />
+                    </StackPanel>
+                    <StackPanel x:Name="ServicesPage" Visibility="Collapsed">
+                        <settings:ServicesPanel x:Name="ServicesBrowser" />
                     </StackPanel>
                     <StackPanel x:Name="AboutPage" Visibility="Collapsed">
                         <Border Style="{StaticResource Card}"><StackPanel>

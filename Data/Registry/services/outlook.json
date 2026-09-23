@@ -1,0 +1,25 @@
+{
+  "id": "outlook",
+  "name": "Outlook",
+  "category": "communication",
+  "description": "Microsoft Outlook web mail; personal and work accounts use different application hosts.",
+  "capabilities": [
+    "email",
+    "authentication"
+  ],
+  "domains": [
+    {
+      "hostname": "outlook.live.com",
+      "purpose": "Primary service website or application.",
+      "required": true
+    },
+    {
+      "hostname": "outlook.office.com",
+      "purpose": "Alternate service entry point; account or product variant may differ.",
+      "required": false
+    }
+  ],
+  "requires": [],
+  "status": "initial",
+  "ecosystems": []
+}

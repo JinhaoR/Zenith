@@ -80,6 +80,26 @@ Stronger tamper resistance may be considered later and must be documented as a s
 
 ## 6. Current Development Boundary
 
+The Service Registry prepares reviewed service entry points and independent
+infrastructure baselines; catalog membership never authorizes access. Local
+exceptions require explicit user Vault approval and are not claimed as curator
+verified. All three proposal paths freeze consequences and use existing policy
+revision, authentication, wait, confirmation and mandatory Blacklist checks.
+Infrastructure/local access is profile-wide, not service-context isolation.
+Confirmation never reloads the registry. Envelope version 8 preserves historical
+approvals and password choices while adding empty baseline/local receipt collections
+during migration. Missing current-schema metadata fails closed. Receipts never
+restore access. Unknown-authentication context is advisory only; no runtime observer
+is connected. Content hashes are not signatures; same-user code replacing the app
+or catalog remains outside this boundary. See ADR 0027.
+
+Registry Phase 4A binds new contributions to random permission-instance IDs, not
+hostname matches. Removing/recreating or replacing a rule cannot inherit old
+attribution. Historical instances never enter SitePolicy. Version-6 migration
+assigns conservative legacy attribution without inferring service bindings;
+failed migration leaves the original envelope intact. See ADR 0026 and the
+registry documentation for validation, atomicity and storage limits.
+
 The follow-up connection acceptance run confirmed a denied WebSocket handshake
 reaching a loopback receiver on WebView2 152.0.4191.66 (SEC-CONN-001). Ordinary
 resource interception must not be assumed to cover WebSockets. The strict

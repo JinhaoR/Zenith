@@ -1,0 +1,21 @@
+{
+  "id": "nuget",
+  "name": "NuGet",
+  "category": "development",
+  "description": "Discover .NET ecosystem packages.",
+  "capabilities": [
+    "package_discovery"
+  ],
+  "domains": [
+    {
+      "hostname": "www.nuget.org",
+      "purpose": "Primary service website or application.",
+      "required": true
+    }
+  ],
+  "requires": [],
+  "status": "initial",
+  "ecosystems": [
+    "dotnet"
+  ]
+}

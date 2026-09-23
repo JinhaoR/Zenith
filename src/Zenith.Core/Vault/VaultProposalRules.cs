@@ -9,6 +9,12 @@ internal static class VaultProposalRules
     public static VaultEdit Normalize(VaultState state, VaultEdit edit)
     {
         ArgumentNullException.ThrowIfNull(edit);
+        if ((edit.ServiceProposal is null ? 0 : 1) + (edit.InfrastructureProposal is null ? 0 : 1) +
+            (edit.LocalExtensionProposal is null ? 0 : 1) > 1)
+            throw new ArgumentException("Review service, infrastructure and local exception proposals separately.");
+        if (edit.ServiceProposal is not null) return ServiceVaultProposal.Normalize(state, edit);
+        if (edit.InfrastructureProposal is not null || edit.LocalExtensionProposal is not null)
+            return RegistryVaultProposal.Normalize(state, edit);
         if (edit.ChangePassword && edit.DisablePassword)
             throw new ArgumentException("Choose either password protection or cooldown-only access.");
         if (edit.DisablePassword && !state.PasswordRequired)
@@ -136,7 +142,9 @@ internal static class VaultProposalRules
             additions.Add(item);
             working = working with { Sites = ApplySites(working, new(AddSites: [item], RemoveSites: [])) };
         }
-        if (working.Sites.ToHashSet().SetEquals(state.Sites) &&
+        // Identity is allocated at confirmation, not during this policy-only preview.
+        if (working.Sites.Select(s => s with { PermissionInstanceId = Guid.Empty }).ToHashSet()
+                .SetEquals(state.Sites.Select(s => s with { PermissionInstanceId = Guid.Empty })) &&
             ApplySettings(state.Settings, edit) == state.Settings && !edit.ChangePassword && !edit.DisablePassword)
             throw new ArgumentException("Choose at least one change before creating a proposal.");
         // Copy the caller's collections so edits after review cannot change the proposal.
@@ -159,7 +167,10 @@ internal static class VaultProposalRules
             if (exact >= 0) sites[exact] = sites[exact] with
             {
                 IncludeSubdomains = addition.IncludeSubdomains,
-                DisplayName = addition.DisplayName ?? sites[exact].DisplayName
+                DisplayName = addition.DisplayName ?? sites[exact].DisplayName,
+                PermissionInstanceId = sites[exact].IncludeSubdomains == addition.IncludeSubdomains
+                    ? sites[exact].PermissionInstanceId : Guid.Empty,
+                ServiceOriginId = edit.ServiceProposal?.ProposalId
             };
             else
             {
@@ -167,7 +178,7 @@ internal static class VaultProposalRules
                 if (addition.IncludeSubdomains)
                     sites.RemoveAll(site => site.AccessClass == AccessClass.Whitelist &&
                         SiteIdentity.TryCreate(site.Host, out var identity) && scope.Matches(identity));
-                sites.Add(new(addition.Host, AccessClass.Whitelist, addition.IncludeSubdomains, addition.DisplayName));
+                sites.Add(new(addition.Host, AccessClass.Whitelist, addition.IncludeSubdomains, addition.DisplayName, edit.ServiceProposal?.ProposalId));
             }
         }
         return sites.ToArray();

@@ -1,0 +1,20 @@
+{
+  "id": "proton_mail",
+  "name": "Proton Mail",
+  "category": "communication",
+  "description": "Proton email web application.",
+  "capabilities": [
+    "email",
+    "authentication"
+  ],
+  "domains": [
+    {
+      "hostname": "mail.proton.me",
+      "purpose": "Primary service website or application.",
+      "required": true
+    }
+  ],
+  "requires": [],
+  "status": "initial",
+  "ecosystems": []
+}

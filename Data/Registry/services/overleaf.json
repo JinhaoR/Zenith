@@ -1,0 +1,20 @@
+{
+  "id": "overleaf",
+  "name": "Overleaf",
+  "category": "research",
+  "description": "Collaborative LaTeX document editing.",
+  "capabilities": [
+    "document_reading",
+    "document_writing"
+  ],
+  "domains": [
+    {
+      "hostname": "www.overleaf.com",
+      "purpose": "Primary service website or application.",
+      "required": true
+    }
+  ],
+  "requires": [],
+  "status": "initial",
+  "ecosystems": []
+}

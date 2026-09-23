@@ -1,0 +1,19 @@
+{
+  "id": "orcid",
+  "name": "ORCID",
+  "category": "research",
+  "description": "Researcher identifiers and public research profiles.",
+  "capabilities": [
+    "research_identity"
+  ],
+  "domains": [
+    {
+      "hostname": "orcid.org",
+      "purpose": "Primary service website or application.",
+      "required": true
+    }
+  ],
+  "requires": [],
+  "status": "initial",
+  "ecosystems": []
+}

@@ -1,0 +1,21 @@
+{
+  "id": "mdn",
+  "name": "MDN",
+  "category": "development",
+  "description": "Documentation for web standards and web development.",
+  "capabilities": [
+    "document_reading"
+  ],
+  "domains": [
+    {
+      "hostname": "developer.mozilla.org",
+      "purpose": "Primary service website or application.",
+      "required": true
+    }
+  ],
+  "requires": [],
+  "status": "initial",
+  "ecosystems": [
+    "javascript"
+  ]
+}

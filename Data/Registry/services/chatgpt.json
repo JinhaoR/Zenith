@@ -1,0 +1,19 @@
+{
+  "id": "chatgpt",
+  "name": "ChatGPT",
+  "category": "ai",
+  "description": "Conversational AI assistance.",
+  "capabilities": [
+    "ai_assistance"
+  ],
+  "domains": [
+    {
+      "hostname": "chatgpt.com",
+      "purpose": "Primary service website or application.",
+      "required": true
+    }
+  ],
+  "requires": [],
+  "status": "initial",
+  "ecosystems": []
+}

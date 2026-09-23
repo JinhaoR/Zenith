@@ -1,0 +1,20 @@
+{
+  "id": "jstor",
+  "name": "JSTOR",
+  "category": "research",
+  "description": "Scholarly journals, books and primary-source collections.",
+  "capabilities": [
+    "research_search",
+    "document_reading"
+  ],
+  "domains": [
+    {
+      "hostname": "www.jstor.org",
+      "purpose": "Primary service website or application.",
+      "required": true
+    }
+  ],
+  "requires": [],
+  "status": "initial",
+  "ecosystems": []
+}

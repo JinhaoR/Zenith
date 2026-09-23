@@ -1,0 +1,79 @@
+{
+  "capabilities": [
+    {
+      "id": "authentication",
+      "name": "Authentication",
+      "description": "Signing in to a service; does not permit HTTP authentication, certificate exceptions or native credentials."
+    },
+    {
+      "id": "email",
+      "name": "Email",
+      "description": "Reading and composing email within a service."
+    },
+    {
+      "id": "file_storage",
+      "name": "File storage",
+      "description": "Managing cloud files; does not grant local file access, uploads or downloads."
+    },
+    {
+      "id": "code_hosting",
+      "name": "Code hosting",
+      "description": "Browsing and collaborating on source code repositories."
+    },
+    {
+      "id": "document_reading",
+      "name": "Document reading",
+      "description": "Reading web documents and technical material."
+    },
+    {
+      "id": "document_writing",
+      "name": "Document writing",
+      "description": "Editing documents within a service; does not authorize local filesystem writes."
+    },
+    {
+      "id": "video_streaming",
+      "name": "Video streaming",
+      "description": "Viewing web video; does not grant device or screen capture permissions."
+    },
+    {
+      "id": "research_search",
+      "name": "Research search",
+      "description": "Finding scholarly literature, citations and research metadata."
+    },
+    {
+      "id": "research_identity",
+      "name": "Research identity",
+      "description": "Maintaining or looking up researcher identities."
+    },
+    {
+      "id": "community_discussion",
+      "name": "Community discussion",
+      "description": "Reading and participating in topic-based discussions."
+    },
+    {
+      "id": "package_discovery",
+      "name": "Package discovery",
+      "description": "Browsing package or container catalogs; does not grant download or execution permissions."
+    },
+    {
+      "id": "messaging",
+      "name": "Messaging",
+      "description": "Text conversations within a service."
+    },
+    {
+      "id": "meetings",
+      "name": "Meetings",
+      "description": "A service offers online meetings; camera, microphone and capture permissions remain separate."
+    },
+    {
+      "id": "calendar",
+      "name": "Calendar",
+      "description": "Viewing and managing schedules and events."
+    },
+    {
+      "id": "ai_assistance",
+      "name": "AI assistance",
+      "description": "Using conversational and generative AI services."
+    }
+  ]
+}

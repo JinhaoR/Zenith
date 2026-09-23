@@ -1,0 +1,21 @@
+{
+  "id": "crates_io",
+  "name": "crates.io",
+  "category": "development",
+  "description": "Discover Rust ecosystem packages.",
+  "capabilities": [
+    "package_discovery"
+  ],
+  "domains": [
+    {
+      "hostname": "crates.io",
+      "purpose": "Primary service website or application.",
+      "required": true
+    }
+  ],
+  "requires": [],
+  "status": "initial",
+  "ecosystems": [
+    "rust"
+  ]
+}

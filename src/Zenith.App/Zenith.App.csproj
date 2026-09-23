@@ -23,6 +23,8 @@
 
   <ItemGroup>
     <Content Include="Extensions\Bundled\*" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\..\Data\Registry\**\*.json" Link="Data\Registry\%(RecursiveDir)%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
   <Target Name="PrepareBundledExtensions" BeforeTargets="AssignTargetPaths">

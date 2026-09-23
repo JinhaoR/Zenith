@@ -21,7 +21,7 @@ Starter catalog launch URLs must match their configured entry using the same hos
 
 Navigation reads the active immutable snapshot through `ISitePolicySource` for every decision. The Vault service supplies a validated, revisioned snapshot from protected storage. If initialized policy cannot be read or validated, all navigation is denied as policy unavailable; the starter snapshot is not a recovery fallback. Confirming a Policy Change atomically advances the revision.
 
-Version-1 through version-4 data migrates once to the version-5 envelope. As explicitly requested on 2026-09-19, migration turns password protection off for existing profiles too, clears the active verifier and password retry delays, and preserves pending Greylist requests. Version-2 and later migrations preserve Vault scopes, settings, revisions and pending proposal identities/deadlines. Fresh setup and version-1 migration retain the previously requested five-second development timing defaults. A pending password proposal remains pending and can enable its proposed password only if explicitly confirmed. Data is validated before migration is written. Later launches never reset configured timings, overwrite the user's new password choice or replace saved policy with the starter catalog.
+Version-1 through version-4 data retains the earlier version-5 password migration and is now stored in a version-8 envelope. As explicitly requested on 2026-09-19, that older migration turns password protection off for existing profiles too, clears the active verifier and password retry delays, and preserves pending Greylist requests. Version-2 and later migrations preserve Vault scopes, settings, revisions and pending proposal identities/deadlines. Fresh setup and version-1 migration retain the previously requested five-second development timing defaults. A pending password proposal remains pending and can enable its proposed password only if explicitly confirmed. The earlier version-5 to version-6 migration adds empty service attribution without resetting password choices or waits. Version 7 adds permission identities and conservative legacy attribution while preserving those choices and pending proposals; see service-registry.md. Version 8 adds empty infrastructure/local-exception history while preserving all existing approval contents and scopes. Data is validated before migration is written. Later launches never reset configured timings, overwrite the user's new password choice or replace saved policy with the starter catalog.
 
 ## 2. Classification
 
@@ -162,6 +162,20 @@ Changing a pending proposal restarts its waiting period. An unconfirmed, expired
 - The store permits one supported writer at a time and validates initialized state. It retains a protected previous envelope for future controlled recovery but never silently restores an older policy or password after corruption. Current local-user/offline-time limitations remain documented in the threat model and ADR 0008.
 
 ## 6. Required Guarantees
+
+New service proposals prepare only reviewed visible entry points. Shared
+infrastructure is activated independently; local exceptions record explicit user
+choices. All paths create ordinary exact-host permissions through the same Vault
+review, optional authentication, active wait, revision checks and confirmation.
+Existing manual scopes are never broadened by these proposals. Service,
+infrastructure and local-exception proposals cannot mix with each other or with
+timing, password, removal or broader-scope edits. Blacklist is rechecked for every
+selected host, including existing access, through confirmation. Infrastructure and
+local exceptions are profile-wide permissions, not contextual service permissions.
+Policy and receipts commit atomically in version-8 storage; confirmation never
+consults the registry. Historical expanded proposals retain their frozen scope.
+Neither receipts, advisory context nor catalog updates authorize or restore access.
+See `service-registry.md` and ADR 0027.
 
 - Website content cannot create an Access Grant or Policy Change.
 - A blocked-navigation surface cannot reclassify a site.

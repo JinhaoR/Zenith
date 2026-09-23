@@ -1,0 +1,21 @@
+{
+  "id": "microsoft_learn",
+  "name": "Microsoft Learn",
+  "category": "development",
+  "description": "Microsoft technical documentation and learning resources.",
+  "capabilities": [
+    "document_reading"
+  ],
+  "domains": [
+    {
+      "hostname": "learn.microsoft.com",
+      "purpose": "Primary service website or application.",
+      "required": true
+    }
+  ],
+  "requires": [],
+  "status": "initial",
+  "ecosystems": [
+    "dotnet"
+  ]
+}

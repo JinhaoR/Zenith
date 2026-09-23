@@ -12,11 +12,15 @@ public sealed record VaultSettings(int GreylistSeconds = 5, int GrantSeconds = 5
     }
 }
 
-public sealed record VaultSite(string Host, AccessClass AccessClass, bool IncludeSubdomains, string? DisplayName = null);
+public sealed record VaultSite(string Host, AccessClass AccessClass, bool IncludeSubdomains, string? DisplayName = null,
+    string? ServiceOriginId = null, Guid PermissionInstanceId = default);
 public sealed record VaultSiteAddition(string Host, bool IncludeSubdomains = false, string? DisplayName = null);
 public sealed record VaultEdit(int? GreylistSeconds = null, int? GrantSeconds = null, int? VaultSeconds = null,
     string? AddHost = null, bool IncludeSubdomains = false, bool ChangePassword = false, string? RemoveHost = null,
-    IReadOnlyList<VaultSiteAddition>? AddSites = null, IReadOnlyList<string>? RemoveSites = null, bool DisablePassword = false)
+    IReadOnlyList<VaultSiteAddition>? AddSites = null, IReadOnlyList<string>? RemoveSites = null, bool DisablePassword = false,
+    Registry.AccessProposal? ServiceProposal = null,
+    Registry.InfrastructureBaselineProposal? InfrastructureProposal = null,
+    Registry.LocalServiceExtensionProposal? LocalExtensionProposal = null)
 {
     public IEnumerable<VaultSiteAddition> Additions() => AddSites ??
         (string.IsNullOrWhiteSpace(AddHost) ? [] : [new VaultSiteAddition(AddHost, IncludeSubdomains)]);
@@ -28,9 +32,29 @@ public sealed record PendingPolicyChange(Guid Id, long BaseRevision, DateTimeOff
 public sealed record VaultState(long Revision, VaultSettings Settings, VaultSite[] Sites,
     DateTimeOffset LastObservedUtc, DateTimeOffset RetryAfter, PendingPolicyChange? Pending = null, bool PasswordRequired = false)
 {
-    public static VaultState CreateDevelopment(DateTimeOffset now) => new(0, new(),
+    public IReadOnlyList<ServiceApproval> ServiceApprovals { get; init; } = Array.Empty<ServiceApproval>();
+    public IReadOnlyList<PermissionInstance> PermissionInstances { get; init; } = Array.Empty<PermissionInstance>();
+    public IReadOnlyList<PermissionAttribution> PermissionAttributions { get; init; } = Array.Empty<PermissionAttribution>();
+    public IReadOnlyList<InfrastructureActivation> InfrastructureActivations { get; init; } = Array.Empty<InfrastructureActivation>();
+    public IReadOnlyList<LocalServiceExtension> LocalServiceExtensions { get; init; } = Array.Empty<LocalServiceExtension>();
+
+    // Presentation only. Neither history collection contributes to ToPolicy().
+    public IReadOnlyList<string> GetInfrastructureCreatedHosts()
+    {
+        var ids = InfrastructureActivations.SelectMany(a => a.CreatedPermissionIds).ToHashSet();
+        return Array.AsReadOnly(Sites.Where(s => ids.Contains(s.PermissionInstanceId)).Select(s => s.Host).ToArray());
+    }
+
+    public IReadOnlyList<LocalServiceExtension> GetActiveLocalExtensions()
+    {
+        var ids = Sites.Select(s => s.PermissionInstanceId).ToHashSet();
+        return Array.AsReadOnly(LocalServiceExtensions.Where(e => ids.Contains(e.PermissionInstanceId)).ToArray());
+    }
+
+    public static VaultState CreateDevelopment(DateTimeOffset now) => VaultPermissionLedger.Initialize(new(0, new(),
         DevelopmentStarterPolicy.Snapshot.Entries.Select(entry =>
-            new VaultSite(entry.Identity.Host, entry.AccessClass, entry.IncludeSubdomains)).ToArray(), now, DateTimeOffset.MinValue);
+            new VaultSite(entry.Identity.Host, entry.AccessClass, entry.IncludeSubdomains)).ToArray(), now, DateTimeOffset.MinValue),
+        PermissionAttributionSource.InitialPolicy);
 
     public SitePolicySnapshot ToPolicy() => new(Sites.Select(site => new SitePolicyEntry(site.Host, site.AccessClass, site.IncludeSubdomains, site.DisplayName)), Revision);
 
@@ -50,6 +74,13 @@ public sealed record VaultState(long Revision, VaultSettings Settings, VaultSite
 
     public void Validate()
     {
+        ValidateLegacy();
+        VaultPermissionLedger.Validate(this);
+        RegistryVaultProposal.ValidateHistory(this);
+    }
+
+    internal void ValidateLegacy()
+    {
         if (Revision < 0 || Settings is null || Sites is null || Sites.Length > 1000 ||
             LastObservedUtc < DateTimeOffset.UnixEpoch || RetryAfter > LastObservedUtc.AddSeconds(5))
             throw new InvalidOperationException("Invalid Vault state.");
@@ -62,6 +93,22 @@ public sealed record VaultState(long Revision, VaultSettings Settings, VaultSite
             throw new InvalidOperationException("Invalid site display name.");
         if (Sites.Select(site => (site.Host, site.AccessClass)).Distinct().Count() != Sites.Length)
             throw new InvalidOperationException("Duplicate Vault entries.");
+        if (ServiceApprovals is null || ServiceApprovals.Count > 1000 || ServiceApprovals.Any(a => a is null))
+            throw new InvalidOperationException("Invalid service approvals.");
+        foreach (var approval in ServiceApprovals)
+        {
+            approval.Validate();
+            if (approval.AppliedPolicyRevision > Revision || approval.ApprovedAt > LastObservedUtc)
+                throw new InvalidOperationException("Service approval is newer than policy state.");
+        }
+        if (ServiceApprovals.Select(a => a.VaultProposalId).Distinct().Count() != ServiceApprovals.Count ||
+            ServiceApprovals.Select(a => a.Proposal.ProposalId).Distinct().Count() != ServiceApprovals.Count)
+            throw new InvalidOperationException("Duplicate service approval.");
+        foreach (var site in Sites.Where(s => s.ServiceOriginId is not null))
+            if (site.AccessClass != AccessClass.Whitelist || site.IncludeSubdomains || !ServiceApprovals.Any(a =>
+                a.Proposal.ProposalId == site.ServiceOriginId && a.Proposal.ProposedDomains.Any(d =>
+                    d.Hostname == site.Host && d.AccessState == Registry.ProposalAccessState.NewAccess)))
+                throw new InvalidOperationException("Invalid hostname creation provenance.");
         if (Pending is { } pending)
         {
             if (pending.Id == Guid.Empty || pending.BaseRevision != Revision || pending.Edit is null ||

@@ -32,6 +32,29 @@
                 </WrapPanel>
             </StackPanel></Border>
             <StackPanel x:Name="Editor">
+                <Border Style="{StaticResource Card}">
+                    <Expander x:Name="RegistryOptions" Header="Shared infrastructure and local exceptions" Expanded="RegistryOptions_OnExpanded" Foreground="{DynamicResource ZenithTextBrush}">
+                        <StackPanel Margin="0,12,0,0">
+                            <TextBlock x:Name="RegistryStatus" Style="{StaticResource Description}" Text="Open to load the local catalog. This does not change access." />
+                            <Button Content="Reload catalog" Click="ReloadRegistry_OnClick" HorizontalAlignment="Left" Margin="0,10,0,14" />
+                            <TextBlock Text="Trusted infrastructure" FontSize="18" FontWeight="SemiBold" />
+                            <TextBlock Text="Review shared sign-in endpoints independently of services. Activation requires the normal Vault wait and confirmation. New catalog hosts are never activated automatically." Style="{StaticResource Description}" Margin="0,8,0,10" />
+                            <TextBlock x:Name="InfrastructureHistory" Style="{StaticResource Description}" />
+                            <Button x:Name="InfrastructureReviewButton" Content="Review infrastructure baseline" Click="ReviewInfrastructure_OnClick" IsEnabled="False" HorizontalAlignment="Left" Margin="0,12,0,20" />
+                            <TextBlock Text="Local service exception" FontSize="18" FontWeight="SemiBold" />
+                            <TextBlock Text="For an institution or company endpoint you deliberately choose. The service must already have an entry point in your Sphere. This grants profile-wide exact-host access, not service-only access." Style="{StaticResource Description}" Margin="0,8,0,10" />
+                            <Label Content="Related service" Target="{Binding ElementName=LocalExtensionService}" Foreground="{DynamicResource ZenithTextBrush}" />
+                            <ComboBox x:Name="LocalExtensionService" DisplayMemberPath="Name" AutomationProperties.Name="Related service for local exception" />
+                            <Label Content="Exact hostname" Target="{Binding ElementName=LocalExtensionHost}" Foreground="{DynamicResource ZenithTextBrush}" />
+                            <TextBox x:Name="LocalExtensionHost" MaxLength="253" AutomationProperties.Name="Local exception hostname" />
+                            <Label Content="Reason" Target="{Binding ElementName=LocalExtensionPurpose}" Foreground="{DynamicResource ZenithTextBrush}" />
+                            <TextBox x:Name="LocalExtensionPurpose" MaxLength="500" AutomationProperties.Name="Local exception reason" />
+                            <Button x:Name="LocalExtensionReviewButton" Content="Review local exception" Click="ReviewLocalExtension_OnClick" IsEnabled="False" HorizontalAlignment="Left" Margin="0,12,0,14" />
+                            <TextBlock x:Name="LocalExtensionHistory" Style="{StaticResource Description}" />
+                            <TextBlock Text="To remove infrastructure or a local exception, select its hostname under Remove from your Sphere. Removal follows Vault; historical approvals remain and never restore access." Style="{StaticResource Description}" Margin="0,10,0,0" />
+                        </StackPanel>
+                    </Expander>
+                </Border>
                 <Border Style="{StaticResource Card}"><StackPanel>
                     <TextBlock Text="Waiting periods &amp; visit duration" FontSize="18" FontWeight="SemiBold" />
                     <TextBlock Text="Greylist waits and visits can range from 5 seconds to 24 hours. Vault waits can range from 5 seconds to 30 days. Changing a wait must still follow your current Vault rules." Style="{StaticResource Description}" Margin="0,10,0,16" />

@@ -1,0 +1,19 @@
+{
+  "id": "claude",
+  "name": "Claude",
+  "category": "ai",
+  "description": "Conversational AI assistance.",
+  "capabilities": [
+    "ai_assistance"
+  ],
+  "domains": [
+    {
+      "hostname": "claude.ai",
+      "purpose": "Primary service website or application.",
+      "required": true
+    }
+  ],
+  "requires": [],
+  "status": "initial",
+  "ecosystems": []
+}

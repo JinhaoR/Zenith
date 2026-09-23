@@ -1,0 +1,19 @@
+{
+  "id": "stack_overflow",
+  "name": "Stack Overflow",
+  "category": "development",
+  "description": "Programming questions and answers.",
+  "capabilities": [
+    "community_discussion"
+  ],
+  "domains": [
+    {
+      "hostname": "stackoverflow.com",
+      "purpose": "Primary service website or application.",
+      "required": true
+    }
+  ],
+  "requires": [],
+  "status": "initial",
+  "ecosystems": []
+}

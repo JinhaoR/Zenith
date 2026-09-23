@@ -45,6 +45,21 @@ The interface should reflect how often and how intentionally each part of Zenith
 
 Prominence must not change policy strength. A less visible Greylist or Vault entry point remains accessible to a deliberate user, including through keyboard and assistive technology.
 
+Settings > Services is a secondary catalog, separate from Your Sphere and Vault.
+Results do not imply access or approved service intent. Reviewed services can
+prepare an Add to Sphere review, then transfer the frozen proposal to Vault's
+existing authentication, waiting and confirmation workflow. Other services remain
+read-only. There are no launch actions. Names, descriptions and visible entry points
+come first; technical information is expandable. Search is local. Incomplete
+coverage must not be presented as a guarantee that every service feature works.
+
+Shared infrastructure is reviewed separately in Vault, not presented as a user
+service. Its activation uses the existing wait and confirmation. Vault also offers
+explicit local exceptions with a service label and reason; the review explains that
+these are profile-wide hostname permissions. Newly infrastructure-created hosts do
+not populate generated Sphere service listings, but remain inspectable/removable
+in Vault. Existing manual entries and user-created bookmarks retain their meaning.
+
 ---
 
 ## 4. The Start Surface

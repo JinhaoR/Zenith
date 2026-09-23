@@ -681,9 +681,10 @@ public partial class MainWindow : Window
     {
         if (_vaultService is null) return DevelopmentStarterPolicy.Sites.Where(site => IsTargetInSphere(site.Target)).ToArray();
         if (!_vaultService.TryGetActivePolicy(out var policy)) return [];
+        var infrastructureHosts = _vaultService.GetInfrastructureCreatedHosts();
         var visibleEntries = policy.Entries
             .Where(entry => entry.AccessClass == AccessClass.Whitelist &&
-                policy.Classify(entry.Identity) == AccessClass.Whitelist)
+                policy.Classify(entry.Identity) == AccessClass.Whitelist && !infrastructureHosts.Contains(entry.Identity.Host))
             .Where(entry => !policy.Entries.Any(parent =>
                 parent.AccessClass == AccessClass.Whitelist &&
                 parent != entry &&

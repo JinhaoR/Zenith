@@ -1,0 +1,19 @@
+{
+  "id": "youtube",
+  "name": "YouTube",
+  "category": "testing",
+  "description": "Experimental fixture service for extension support, uBO Lite and media behavior.",
+  "capabilities": [
+    "video_streaming"
+  ],
+  "domains": [
+    {
+      "hostname": "www.youtube.com",
+      "purpose": "Primary service website or application.",
+      "required": true
+    }
+  ],
+  "requires": [],
+  "status": "experimental",
+  "ecosystems": []
+}

@@ -1,0 +1,25 @@
+{
+  "id": "microsoft_teams",
+  "name": "Microsoft Teams",
+  "category": "communication",
+  "description": "Microsoft Teams web application; tenant and account dependencies are incomplete.",
+  "capabilities": [
+    "messaging",
+    "meetings"
+  ],
+  "domains": [
+    {
+      "hostname": "teams.cloud.microsoft",
+      "purpose": "Primary service website or application.",
+      "required": true
+    },
+    {
+      "hostname": "teams.microsoft.com",
+      "purpose": "Alternate service entry point; account or product variant may differ.",
+      "required": false
+    }
+  ],
+  "requires": [],
+  "status": "initial",
+  "ecosystems": []
+}

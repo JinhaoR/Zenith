@@ -4,12 +4,14 @@ using System.Text;
 using System.Text.Json;
 using Zenith.Core.Access;
 using Zenith.Core.Vault;
+using Zenith.Core.Registry;
 
 namespace Zenith.App.Access;
 
 public sealed class ProtectedAccessStore : IVaultStore, IDisposable
 {
     private const int Iterations = 600_000;
+    private static readonly JsonSerializerOptions JsonOptions = new() { RespectRequiredConstructorParameters = true };
     private static readonly byte[] Marker = Encoding.UTF8.GetBytes("Zenith access initialized v1");
     private readonly object _gate = new();
     private readonly string _statePath;
@@ -77,7 +79,7 @@ public sealed class ProtectedAccessStore : IVaultStore, IDisposable
             var verifier = password is null ? new byte[32] : Rfc2898DeriveBytes.Pbkdf2(password, salt, Iterations, HashAlgorithmName.SHA256, 32);
             try
             {
-                var envelope = new Envelope(5, Iterations, salt, verifier,
+                var envelope = new Envelope(8, Iterations, salt, verifier,
                     new(now, DateTimeOffset.MinValue, []), VaultState.CreateDevelopment(now) with { PasswordRequired = password is not null });
                 // A failed initial write leaves a marker and requires recovery; it must
                 // never silently offer fresh credential setup over missing state.
@@ -175,12 +177,15 @@ public sealed class ProtectedAccessStore : IVaultStore, IDisposable
         {
             using var document = JsonDocument.Parse(plaintext);
             var storedVersion = document.RootElement.GetProperty("Version").GetInt32();
-            if (storedVersion is 2 or 3 or 4 or 5)
+            if (storedVersion is 2 or 3 or 4 or 5 or 6 or 7 or 8)
             {
                 // Missing current-schema fields must not acquire constructor defaults,
                 // especially a shorter wait or a longer grant lifetime.
                 var vault = document.RootElement.GetProperty("Vault");
-                if (storedVersion == 5) _ = vault.GetProperty("PasswordRequired").GetBoolean();
+                if (storedVersion >= 5) _ = vault.GetProperty("PasswordRequired").GetBoolean();
+                if (storedVersion >= 6) ValidateServiceMetadata(vault);
+                if (storedVersion >= 7) ValidatePermissionMetadata(vault);
+                if (storedVersion >= 8) ValidateRegistryMetadata(vault);
                 foreach (var field in new[] { "Revision", "Settings", "Sites", "LastObservedUtc", "RetryAfter", "Pending" })
                     _ = vault.GetProperty(field);
                 foreach (var field in new[] { "GreylistSeconds", "GrantSeconds", "VaultSeconds" })
@@ -200,7 +205,7 @@ public sealed class ProtectedAccessStore : IVaultStore, IDisposable
                     if (storedVersion >= 4)
                     {
                         var edit = pending.GetProperty("Edit");
-                        if (storedVersion == 5) _ = edit.GetProperty("DisablePassword").GetBoolean();
+                        if (storedVersion >= 5) _ = edit.GetProperty("DisablePassword").GetBoolean();
                         var additions = edit.GetProperty("AddSites");
                         _ = edit.GetProperty("RemoveSites");
                         if (additions.ValueKind != JsonValueKind.Null)
@@ -219,8 +224,8 @@ public sealed class ProtectedAccessStore : IVaultStore, IDisposable
                         _ = request.GetProperty(field);
                 }
             }
-            var envelope = JsonSerializer.Deserialize<Envelope>(plaintext);
-            if (envelope is not { Version: 1 or 2 or 3 or 4 or 5, Iterations: Iterations, Salt.Length: 32, Verifier.Length: 32, State: not null })
+            var envelope = JsonSerializer.Deserialize<Envelope>(plaintext, JsonOptions);
+            if (envelope is not { Version: 1 or 2 or 3 or 4 or 5 or 6 or 7 or 8, Iterations: Iterations, Salt.Length: 32, Verifier.Length: 32, State: not null })
             {
                 throw new InvalidDataException("Invalid access envelope.");
             }
@@ -229,7 +234,14 @@ public sealed class ProtectedAccessStore : IVaultStore, IDisposable
                 envelope = envelope with { Vault = VaultState.CreateDevelopment(envelope.State.LastObservedUtc) };
             }
             if (envelope.Vault is null) throw new InvalidDataException("Missing initialized Vault policy.");
-            envelope.Vault.Validate();
+            if (storedVersion < 8 && (envelope.Vault.InfrastructureActivations.Count != 0 || envelope.Vault.LocalServiceExtensions.Count != 0 ||
+                envelope.Vault.Pending?.Edit.InfrastructureProposal is not null || envelope.Vault.Pending?.Edit.LocalExtensionProposal is not null))
+                throw new InvalidDataException("Unexpected registry activation data in a legacy envelope.");
+            // Validate and prepare the complete migration before the single replacement.
+            // No identity is exposed until that replacement succeeds.
+            if (storedVersion < 7)
+                envelope = envelope with { Vault = VaultPermissionLedger.MigrateLegacy(envelope.Vault) };
+            else envelope.Vault.Validate();
             if (envelope.Vault.Pending?.PasswordVerifier is { } pendingVerifier && Convert.FromBase64String(pendingVerifier).Length != 64)
                 throw new InvalidDataException("Invalid pending verifier.");
             if (storedVersion < 5)
@@ -239,6 +251,19 @@ public sealed class ProtectedAccessStore : IVaultStore, IDisposable
                 envelope = envelope with { Version = 5, Verifier = new byte[32],
                     State = envelope.State with { RetryAfter = DateTimeOffset.MinValue },
                     Vault = envelope.Vault with { PasswordRequired = false, RetryAfter = DateTimeOffset.MinValue } };
+            }
+            if (storedVersion < 6)
+            {
+                // No historical service intent is inferred. Version 5 password settings,
+                // pending proposals, revisions and timing survive this migration unchanged.
+                envelope = envelope with { Vault = envelope.Vault with { ServiceApprovals = Array.Empty<ServiceApproval>() } };
+            }
+            if (storedVersion < 8)
+            {
+                // Version 7 identities, frozen approvals and pending consequences stay
+                // intact. New collections start empty; no host overlap is reinterpreted.
+                envelope = envelope with { Version = 8 };
+                envelope.Vault.Validate();
                 WriteEnvelope(envelope, overwrite: true);
             }
             return envelope;
@@ -248,10 +273,11 @@ public sealed class ProtectedAccessStore : IVaultStore, IDisposable
 
     private void WriteEnvelope(Envelope envelope, bool overwrite)
     {
-        var plaintext = JsonSerializer.SerializeToUtf8Bytes(envelope);
+        var plaintext = JsonSerializer.SerializeToUtf8Bytes(envelope, JsonOptions);
         byte[] encrypted;
         try { encrypted = ProtectedData.Protect(plaintext, null, DataProtectionScope.CurrentUser); }
         finally { CryptographicOperations.ZeroMemory(plaintext); }
+        if (encrypted.Length > 1024 * 1024) throw new InvalidDataException("Access data exceeds its size limit; no change was saved.");
         var temporary = $"{_statePath}.{Guid.NewGuid():N}.tmp";
         try
         {
@@ -266,6 +292,82 @@ public sealed class ProtectedAccessStore : IVaultStore, IDisposable
         finally
         {
             if (File.Exists(temporary)) { File.Delete(temporary); }
+        }
+    }
+
+    private static void ValidateRegistryMetadata(JsonElement vault)
+    {
+        foreach (var activation in vault.GetProperty("InfrastructureActivations").EnumerateArray())
+        {
+            foreach (var field in new[] { "Proposal", "VaultOperationId", "ApprovedAt", "AppliedPolicyRevision", "CreatedPermissionIds" })
+                _ = activation.GetProperty(field);
+            ValidateInfrastructure(activation.GetProperty("Proposal"));
+        }
+        foreach (var extension in vault.GetProperty("LocalServiceExtensions").EnumerateArray())
+        {
+            foreach (var field in new[] { "Proposal", "VaultOperationId", "ApprovedAt", "AppliedPolicyRevision", "PermissionInstanceId" })
+                _ = extension.GetProperty(field);
+            ValidateLocal(extension.GetProperty("Proposal"));
+        }
+        if (vault.GetProperty("Pending") is { ValueKind: not JsonValueKind.Null } pending)
+        {
+            var edit = pending.GetProperty("Edit");
+            if (edit.GetProperty("InfrastructureProposal") is { ValueKind: not JsonValueKind.Null } baseline) ValidateInfrastructure(baseline);
+            if (edit.GetProperty("LocalExtensionProposal") is { ValueKind: not JsonValueKind.Null } local) ValidateLocal(local);
+        }
+        static void ValidateInfrastructure(JsonElement json)
+        {
+            var proposal = json.Deserialize<InfrastructureBaselineProposal>(JsonOptions) ?? throw new InvalidDataException("Missing infrastructure proposal.");
+            if (json.GetProperty("ProposalId").GetString() != proposal.ProposalId)
+                throw new InvalidDataException("Infrastructure proposal identity changed.");
+        }
+        static void ValidateLocal(JsonElement json)
+        {
+            var proposal = json.Deserialize<LocalServiceExtensionProposal>(JsonOptions) ?? throw new InvalidDataException("Missing local exception proposal.");
+            if (json.GetProperty("ProposalId").GetString() != proposal.ProposalId)
+                throw new InvalidDataException("Local exception proposal identity changed.");
+        }
+    }
+
+    private static void ValidatePermissionMetadata(JsonElement vault)
+    {
+        foreach (var site in vault.GetProperty("Sites").EnumerateArray())
+            _ = site.GetProperty("PermissionInstanceId").GetGuid();
+        foreach (var instance in vault.GetProperty("PermissionInstances").EnumerateArray())
+            foreach (var field in new[] { "Id", "Host", "AccessClass", "IncludeSubdomains", "CreatedPolicyRevision" })
+                _ = instance.GetProperty(field);
+        foreach (var attribution in vault.GetProperty("PermissionAttributions").EnumerateArray())
+        {
+            foreach (var field in new[] { "PermissionInstanceId", "Source", "RecordedPolicyRevision",
+                         "OriginatingVaultOperationId", "ServiceApprovalId", "Requirement" })
+                _ = attribution.GetProperty(field);
+            if (attribution.GetProperty("Requirement") is { ValueKind: not JsonValueKind.Null } requirement)
+            {
+                _ = requirement.GetProperty("Hostname");
+                _ = requirement.GetProperty("RelationshipIndex");
+            }
+        }
+    }
+
+    private static void ValidateServiceMetadata(JsonElement vault)
+    {
+        foreach (var site in vault.GetProperty("Sites").EnumerateArray()) _ = site.GetProperty("ServiceOriginId");
+        foreach (var approval in vault.GetProperty("ServiceApprovals").EnumerateArray())
+            ValidateProposal(approval.GetProperty("Proposal"));
+        if (vault.GetProperty("Pending") is { ValueKind: not JsonValueKind.Null } pending)
+        {
+            var proposal = pending.GetProperty("Edit").GetProperty("ServiceProposal");
+            if (proposal.ValueKind != JsonValueKind.Null) ValidateProposal(proposal);
+        }
+
+        static void ValidateProposal(JsonElement json)
+        {
+            foreach (var field in new[] { "SelectedService", "ProposedDomains", "RegistryFingerprint", "PolicyRevision", "ServiceName", "OptionalDomains", "Conflicts", "Warnings", "ProposalId" })
+                _ = json.GetProperty(field);
+            _ = json.GetProperty("SelectedService").GetProperty("OptionalHostnames");
+            var proposal = json.Deserialize<AccessProposal>(JsonOptions) ?? throw new InvalidDataException("Missing frozen service proposal.");
+            if (!proposal.CanStage || json.GetProperty("ProposalId").GetString() != proposal.ProposalId)
+                throw new InvalidDataException("Frozen service proposal identity is invalid.");
         }
     }
 

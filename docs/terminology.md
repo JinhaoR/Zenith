@@ -58,6 +58,21 @@ A staged request to alter durable policy held by the Vault.
 
 A Policy Change becomes effective only after its long waiting period has elapsed and the exact pending change is confirmed, with authentication if password protection is enabled. Until then, the previous policy remains active.
 
+## Service Registry
+
+The **Service Registry** is a descriptive catalog separate from Access
+Classes and the Vault. A **Service** names a user-recognizable application;
+**Trusted Infrastructure** records reviewed shared endpoints requiring independent
+Vault activation. A **Local Extension** records a user-specific endpoint exception
+with a service label for explanation, not service-only isolation;
+a **Domain Requirement** describes an exact hostname association. A **Registry
+Capability** describes a function such as email or file storage, not a browser
+permission or an authorization grant. Being catalogued does not put a service
+in the Sphere. **ServiceSelection** records explicit intent; **AccessProposal**
+freezes the proposed consequence; **ServiceApproval** records confirmed historical
+intent and evidence. Only existing Vault confirmation changes authoritative
+hostname policy. See [service-registry.md](service-registry.md).
+
 ## Usage Rules
 
 - Primary user-facing labels use **Sphere** whenever the interface names the ordinary browsing environment or the Whitelist-backed zone, including in the Vault.

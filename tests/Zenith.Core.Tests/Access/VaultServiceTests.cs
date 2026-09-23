@@ -1,4 +1,4 @@
-using Zenith.Core.Access;
+﻿using Zenith.Core.Access;
 using Zenith.Core.Navigation;
 using Zenith.Core.Vault;
 
@@ -15,7 +15,7 @@ public sealed class VaultServiceTests
     public void WhitelistBatchPreservesVaultWorkflowWithEitherPasswordMode(bool passwordRequired)
     {
         var f = new Fixture();
-        f.Store.Vault = f.Store.Vault with { PasswordRequired = passwordRequired, Sites = [] };
+        f.Store.Vault = VaultPermissionLedger.MigrateLegacy(f.Store.Vault with { PasswordRequired = passwordRequired, Sites = [] });
         var review = f.Service.Review(new(AddSites: [new("mail.google.com"), new("account.google.com")], RemoveSites: []));
         Assert.Equal(2, review.Edit.Additions().Count());
         Assert.Equal(0, f.Store.Verifications);
@@ -53,7 +53,7 @@ public sealed class VaultServiceTests
     public void PasswordDisabledVaultStillRejectsInvalidBlacklistPersistenceAndClockFailures()
     {
         var f = new Fixture();
-        f.Store.Vault = f.Store.Vault with { PasswordRequired = false, Sites = [] };
+        f.Store.Vault = VaultPermissionLedger.MigrateLegacy(f.Store.Vault with { PasswordRequired = false, Sites = [] });
         var original = f.Store.Vault;
         var source = new BlacklistSource { Current = Zenith.Core.Filtering.HostsBlacklist.Parse("0.0.0.0 blocked.example") };
         var service = new VaultService(f.Store, f.Clock, source);
@@ -198,7 +198,7 @@ public sealed class VaultServiceTests
     public void ReviewRejectsInvalidNoOpAndDuplicateEdits()
     {
         var f = new Fixture();
-        f.Store.Vault = f.Store.Vault with { Sites = [new("example.net", AccessClass.Whitelist, false)] };
+        f.Store.Vault = VaultPermissionLedger.MigrateLegacy(f.Store.Vault with { Sites = [new("example.net", AccessClass.Whitelist, false)] });
         Assert.Throws<ArgumentException>(() => f.Service.Review(new()));
         Assert.Throws<ArgumentException>(() => f.Service.Review(new(AddHost: "https://invalid.example/path")));
         Assert.Throws<ArgumentException>(() => f.Service.Review(new(AddHost: "EXAMPLE.NET.")));
@@ -211,10 +211,10 @@ public sealed class VaultServiceTests
     public void ExactEntryCanBeExpandedToSubdomainsThroughTheProtectedFlow()
     {
         var f = new Fixture();
-        f.Store.Vault = f.Store.Vault with
+        f.Store.Vault = VaultPermissionLedger.MigrateLegacy(f.Store.Vault with
         {
             Sites = [new("example.net", AccessClass.Whitelist, false)]
-        };
+        });
 
         var review = f.Service.Review(new(AddHost: "example.net", IncludeSubdomains: true));
         Assert.True(review.Edit.IncludeSubdomains);
@@ -233,10 +233,10 @@ public sealed class VaultServiceTests
     public void ParentScopeMakesChildAdditionsRedundant()
     {
         var f = new Fixture();
-        f.Store.Vault = f.Store.Vault with
+        f.Store.Vault = VaultPermissionLedger.MigrateLegacy(f.Store.Vault with
         {
             Sites = [new("example.net", AccessClass.Whitelist, true)]
-        };
+        });
 
         var error = Assert.Throws<ArgumentException>(() =>
             f.Service.Review(new(AddHost: "docs.example.net", IncludeSubdomains: true)));
@@ -250,7 +250,7 @@ public sealed class VaultServiceTests
     public void AddingBroadParentScopeRemovesOnlyRedundantWhitelistChildren()
     {
         var f = new Fixture();
-        f.Store.Vault = f.Store.Vault with
+        f.Store.Vault = VaultPermissionLedger.MigrateLegacy(f.Store.Vault with
         {
             Sites =
             [
@@ -258,7 +258,7 @@ public sealed class VaultServiceTests
                 new("deep.example.net", AccessClass.Whitelist, true),
                 new("blocked.example.net", AccessClass.Blacklist, false)
             ]
-        };
+        });
 
         Assert.Equal(VaultResult.Staged,
             f.Service.Stage(new(AddHost: "example.net", IncludeSubdomains: true), Password).Result);
@@ -280,7 +280,7 @@ public sealed class VaultServiceTests
     public void RemovingParentScopeIsStagedAndRemovesCoveredWhitelistChildrenOnly()
     {
         var f = new Fixture();
-        f.Store.Vault = f.Store.Vault with
+        f.Store.Vault = VaultPermissionLedger.MigrateLegacy(f.Store.Vault with
         {
             Sites =
             [
@@ -289,7 +289,7 @@ public sealed class VaultServiceTests
                 new("blocked.example.net", AccessClass.Blacklist, false),
                 new("unrelated.net", AccessClass.Whitelist, false)
             ]
-        };
+        });
 
         var review = f.Service.Review(new(RemoveHost: "EXAMPLE.NET."));
         Assert.Equal("example.net", review.Edit.RemoveHost);
@@ -316,14 +316,14 @@ public sealed class VaultServiceTests
     public void RemovalMustNameAnIndependentStoredWhitelistScope()
     {
         var f = new Fixture();
-        f.Store.Vault = f.Store.Vault with
+        f.Store.Vault = VaultPermissionLedger.MigrateLegacy(f.Store.Vault with
         {
             Sites =
             [
                 new("example.net", AccessClass.Whitelist, true),
                 new("docs.example.net", AccessClass.Whitelist, false)
             ]
-        };
+        });
 
         Assert.Throws<ArgumentException>(() => f.Service.Review(new(RemoveHost: "missing.net")));
         Assert.Throws<ArgumentException>(() => f.Service.Review(new(RemoveHost: "docs.example.net")));
@@ -471,7 +471,7 @@ public sealed class VaultServiceTests
     public void ExplicitSubdomainsDoNotOverrideBlacklist()
     {
         var f = new Fixture();
-        f.Store.Vault = f.Store.Vault with { Sites = [new("blocked.example.net", AccessClass.Blacklist, true)] };
+        f.Store.Vault = VaultPermissionLedger.MigrateLegacy(f.Store.Vault with { Sites = [new("blocked.example.net", AccessClass.Blacklist, true)] });
         Assert.Equal(VaultResult.Invalid, f.Service.Stage(new(AddHost: "blocked.example.net"), Password).Result);
         Assert.Equal(VaultResult.Staged, f.Service.Stage(new(AddHost: "EXAMPLE.NET.", IncludeSubdomains: true), Password).Result);
         f.Clock.Advance(5);
@@ -598,12 +598,12 @@ public sealed class VaultServiceTests
     public void BatchReplacesBroadGoogleWithSelectedServicesAtomically()
     {
         var f = new Fixture();
-        f.Store.Vault = f.Store.Vault with { Sites =
+        f.Store.Vault = VaultPermissionLedger.MigrateLegacy(f.Store.Vault with { Sites =
         [
             new("google.com", AccessClass.Whitelist, true),
             new("scholar.google.com", AccessClass.Whitelist, true),
             new("blocked.google.com", AccessClass.Blacklist, false)
-        ] };
+        ] });
         var edit = new VaultEdit(AddSites:
         [
             new("scholar.google.com", DisplayName: "Google Scholar"),
@@ -633,7 +633,7 @@ public sealed class VaultServiceTests
     public void ServiceSubdomainsNeverAuthorizeParentsOrSiblings()
     {
         var f = new Fixture();
-        f.Store.Vault = f.Store.Vault with { Sites = [] };
+        f.Store.Vault = VaultPermissionLedger.MigrateLegacy(f.Store.Vault with { Sites = [] });
         Assert.Equal(VaultResult.Staged, f.Service.Stage(new(AddSites:
             [new("scholar.google.com", true)], RemoveSites: []), Password).Result);
         f.Clock.Advance(5);
@@ -647,8 +647,8 @@ public sealed class VaultServiceTests
     public void BatchCanNarrowExistingScopeAndRemoveSeveralSites()
     {
         var f = new Fixture();
-        f.Store.Vault = f.Store.Vault with { Sites =
-            [new("service.example", AccessClass.Whitelist, true), new("one.example", AccessClass.Whitelist, false), new("two.example", AccessClass.Whitelist, false)] };
+        f.Store.Vault = VaultPermissionLedger.MigrateLegacy(f.Store.Vault with { Sites =
+            [new("service.example", AccessClass.Whitelist, true), new("one.example", AccessClass.Whitelist, false), new("two.example", AccessClass.Whitelist, false)] });
         Assert.Equal(VaultResult.Staged, f.Service.Stage(new(AddSites: [new("service.example")],
             RemoveSites: ["one.example", "two.example"]), Password).Result);
         f.Clock.Advance(5);

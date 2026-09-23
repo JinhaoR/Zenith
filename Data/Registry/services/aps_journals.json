@@ -1,0 +1,20 @@
+{
+  "id": "aps_journals",
+  "name": "APS Journals",
+  "category": "research",
+  "description": "Read and discover American Physical Society journals.",
+  "capabilities": [
+    "document_reading",
+    "research_search"
+  ],
+  "domains": [
+    {
+      "hostname": "journals.aps.org",
+      "purpose": "Primary service website or application.",
+      "required": true
+    }
+  ],
+  "requires": [],
+  "status": "initial",
+  "ecosystems": []
+}

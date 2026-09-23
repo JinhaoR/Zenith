@@ -46,6 +46,15 @@ public sealed class VaultService : ISitePolicySource, IAccessRulesSource
         }
     }
 
+    public IReadOnlyList<string> GetInfrastructureCreatedHosts()
+    {
+        lock (_store.SyncRoot)
+        {
+            try { return ReadState().GetInfrastructureCreatedHosts(); }
+            catch (Exception) { return Array.Empty<string>(); }
+        }
+    }
+
     public AccessTiming? GetAccessTimingSafely()
     {
         try { return GetAccessTiming(); }
@@ -138,7 +147,12 @@ public sealed class VaultService : ISitePolicySource, IAccessRulesSource
                 var sites = VaultProposalRules.ApplySites(state, edit);
                 var next = state with { Revision = checked(state.Revision + 1), Settings = VaultProposalRules.ApplySettings(state.Settings, edit),
                     Sites = sites, Pending = null, LastObservedUtc = now, RetryAfter = DateTimeOffset.MinValue,
+                    ServiceApprovals = edit.ServiceProposal is { } serviceProposal
+                        ? Array.AsReadOnly(state.ServiceApprovals.Append(new ServiceApproval(serviceProposal, pending.Id, now, checked(state.Revision + 1))).ToArray())
+                        : state.ServiceApprovals,
                     PasswordRequired = edit.ChangePassword || (!edit.DisablePassword && state.PasswordRequired) };
+                next = VaultPermissionLedger.RecordConfirmation(next, edit, pending.Id);
+                next = RegistryVaultProposal.RecordConfirmation(next, edit, pending.Id, now);
                 _store.SaveVault(next, pending.PasswordVerifier);
                 return new(VaultResult.Applied, "Changes applied. Your new rules are now active.");
             }
@@ -163,10 +177,13 @@ public sealed class VaultService : ISitePolicySource, IAccessRulesSource
 
     private void ValidateMandatoryBlacklist(VaultEdit edit)
     {
-        if (_blacklist is null || !edit.Additions().Any()) return;
+        var hosts = edit.ServiceProposal is { } service ? service.ProposedDomains.Select(d => d.Hostname) :
+            edit.InfrastructureProposal is { } baseline ? baseline.Hostnames :
+            edit.LocalExtensionProposal is { } local ? new[] { local.Hostname, local.ServiceEntryPointHostname } : edit.Additions().Select(a => a.Host);
+        if (_blacklist is null || !hosts.Any()) return;
         var list = _blacklist.Current ?? throw new InvalidOperationException("Blacklist unavailable.");
-        foreach (var addition in edit.Additions())
-            if (SiteIdentity.TryCreate(addition.Host, out var site) && list.Contains(site))
+        foreach (var host in hosts)
+            if (SiteIdentity.TryCreate(host, out var site) && list.Contains(site))
                 throw new ArgumentException("This hostname is on the permanent Blacklist and cannot be added to your Sphere.");
     }
 

@@ -1,0 +1,21 @@
+{
+  "id": "docs_rs",
+  "name": "docs.rs",
+  "category": "development",
+  "description": "Read Rust crate documentation without enumerating individual libraries as services.",
+  "capabilities": [
+    "document_reading"
+  ],
+  "domains": [
+    {
+      "hostname": "docs.rs",
+      "purpose": "Primary service website or application.",
+      "required": true
+    }
+  ],
+  "requires": [],
+  "status": "initial",
+  "ecosystems": [
+    "rust"
+  ]
+}

@@ -87,6 +87,35 @@ It owns:
 
 It must not reference WPF, WebView2, the filesystem, network clients or Windows UI APIs.
 
+`Zenith.Core.Registry` is a parallel descriptive catalog: immutable service,
+capability, infrastructure and domain-requirement models, validation and read-only
+queries. `Zenith.App.Registry.JsonServiceRegistryLoader` reads the bundled
+`Data/Registry` JSON and returns a complete validated snapshot or a failure result.
+It is not a startup dependency or an input to policy evaluation. Registry knowledge
+does not grant access or browser permissions. See
+[`docs/service-registry.md`](docs/service-registry.md) and ADR 0022.
+
+Settings > Services uses `ServicesViewModel` and native WPF `ServicesPanel`.
+Core's `ServiceAccessProposalBuilder` prepares reviewed visible entry points only;
+shared infrastructure associations are descriptive. `ServiceVaultProposal` adapts
+the frozen result to existing Vault review/stage/confirm, without launching sites.
+`InfrastructureBaselineProposal` independently prepares reviewed shared endpoints;
+`LocalServiceExtensionProposal` records explicit user-specific exact-host exceptions.
+`RegistryVaultProposal` adapts both to the same Vault workflow. Settings > Vault
+provides review controls, never its own policy decisions. Envelope version 8 stores
+rules and receipts atomically, preserving old expanded approvals and identities.
+Navigation consults neither catalog nor receipts. See ADR 0027 and the registry docs.
+
+Registry Phase 4A adds `VaultPermissionLedger`, stable permission-instance IDs,
+and separate manual/service/legacy attribution. Confirmation records identity and
+evidence with the existing policy transaction. Removed/replaced instances remain
+historical; only `VaultState.Sites` becomes SitePolicy. Migration assigns legacy
+attribution without deriving service bindings from hostname overlap. See ADR 0026.
+
+`UnknownAuthenticationSuggestion` is an explanation-only foundation. Native runtime
+observation and suggestion UI are not connected. No ownership/refcount removal,
+discovery, repair, remote catalog update or contextual service authorization exists.
+
 ### Zenith.Core.Tests
 
 Tests Core behavior without launching WPF or WebView2.

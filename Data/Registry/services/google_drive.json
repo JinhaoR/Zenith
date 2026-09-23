@@ -1,0 +1,22 @@
+{
+  "id": "google_drive",
+  "name": "Google Drive",
+  "category": "productivity",
+  "description": "Store and organize files in Google Drive; document editor hosts are not included.",
+  "capabilities": [
+    "file_storage",
+    "authentication"
+  ],
+  "domains": [
+    {
+      "hostname": "drive.google.com",
+      "purpose": "Primary service website or application.",
+      "required": true
+    }
+  ],
+  "requires": [
+    "google_identity"
+  ],
+  "status": "initial",
+  "ecosystems": []
+}

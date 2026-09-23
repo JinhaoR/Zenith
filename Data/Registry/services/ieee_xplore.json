@@ -1,0 +1,20 @@
+{
+  "id": "ieee_xplore",
+  "name": "IEEE Xplore",
+  "category": "research",
+  "description": "Engineering and computing research literature.",
+  "capabilities": [
+    "research_search",
+    "document_reading"
+  ],
+  "domains": [
+    {
+      "hostname": "ieeexplore.ieee.org",
+      "purpose": "Primary service website or application.",
+      "required": true
+    }
+  ],
+  "requires": [],
+  "status": "initial",
+  "ecosystems": []
+}

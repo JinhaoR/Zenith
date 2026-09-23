@@ -1,0 +1,38 @@
+{
+  "id": "gmail",
+  "name": "Gmail",
+  "category": "communication",
+  "description": "Google email web application.",
+  "capabilities": [
+    "email",
+    "authentication"
+  ],
+  "domains": [
+    {
+      "hostname": "mail.google.com",
+      "purpose": "Gmail browser application.",
+      "required": true,
+      "dependencyType": "navigation",
+      "permissionApplicability": "required_navigation",
+      "provenance": {
+        "sourceType": "official_documentation",
+        "sourceReference": "https://support.google.com/mail/answer/8494?hl=en-GB",
+        "review": { "reviewedBy": "Zenith Phase 3 curation (Codex)", "reviewedAt": "2026-09-21T00:00:00Z" },
+        "explanation": "Official desktop Gmail instructions link to mail.google.com. Reviewed for standard Google-account browser sign-in; institutional SSO, recovery and other external navigation are not covered. No authenticated user session was used in this curation."
+      }
+    }
+  ],
+  "requires": [
+    {
+      "id": "google_identity",
+      "provenance": {
+        "sourceType": "official_documentation",
+        "sourceReference": "https://support.google.com/mail/answer/8494?hl=en-GB",
+        "review": { "reviewedBy": "Zenith Phase 3 curation (Codex)", "reviewedAt": "2026-09-21T00:00:00Z" },
+        "explanation": "The official Sign in to Gmail link targets accounts.google.com. This edge is reviewed specifically for Gmail's standard Google-account sign-in. Shared infrastructure does not grant provider-wide access."
+      }
+    }
+  ],
+  "status": "initial",
+  "ecosystems": []
+}

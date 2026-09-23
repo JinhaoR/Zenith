@@ -1,0 +1,19 @@
+{
+  "id": "dropbox",
+  "name": "Dropbox",
+  "category": "productivity",
+  "description": "Cloud file storage and sharing.",
+  "capabilities": [
+    "file_storage"
+  ],
+  "domains": [
+    {
+      "hostname": "www.dropbox.com",
+      "purpose": "Primary service website or application.",
+      "required": true
+    }
+  ],
+  "requires": [],
+  "status": "initial",
+  "ecosystems": []
+}

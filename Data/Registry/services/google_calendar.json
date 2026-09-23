@@ -1,0 +1,22 @@
+{
+  "id": "google_calendar",
+  "name": "Google Calendar",
+  "category": "productivity",
+  "description": "Google calendar and scheduling web application.",
+  "capabilities": [
+    "calendar",
+    "authentication"
+  ],
+  "domains": [
+    {
+      "hostname": "calendar.google.com",
+      "purpose": "Primary service website or application.",
+      "required": true
+    }
+  ],
+  "requires": [
+    "google_identity"
+  ],
+  "status": "initial",
+  "ecosystems": []
+}

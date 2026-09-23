@@ -1,0 +1,25 @@
+{
+  "id": "notion",
+  "name": "Notion",
+  "category": "productivity",
+  "description": "Workspace documents and notes; custom publishing domains are not enumerated.",
+  "capabilities": [
+    "document_reading",
+    "document_writing"
+  ],
+  "domains": [
+    {
+      "hostname": "www.notion.so",
+      "purpose": "Primary service website or application.",
+      "required": true
+    },
+    {
+      "hostname": "www.notion.com",
+      "purpose": "Alternate service entry point; account or product variant may differ.",
+      "required": false
+    }
+  ],
+  "requires": [],
+  "status": "initial",
+  "ecosystems": []
+}

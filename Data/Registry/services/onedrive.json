@@ -1,0 +1,20 @@
+{
+  "id": "onedrive",
+  "name": "OneDrive",
+  "category": "productivity",
+  "description": "Personal OneDrive file storage; organization-specific SharePoint hosts are not enumerated.",
+  "capabilities": [
+    "file_storage",
+    "authentication"
+  ],
+  "domains": [
+    {
+      "hostname": "onedrive.live.com",
+      "purpose": "Primary service website or application.",
+      "required": true
+    }
+  ],
+  "requires": [],
+  "status": "initial",
+  "ecosystems": []
+}

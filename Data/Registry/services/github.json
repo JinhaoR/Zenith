@@ -1,0 +1,28 @@
+{
+  "id": "github",
+  "name": "GitHub",
+  "category": "development",
+  "description": "Code repositories and development collaboration.",
+  "capabilities": [
+    "code_hosting",
+    "community_discussion"
+  ],
+  "domains": [
+    {
+      "hostname": "github.com",
+      "purpose": "GitHub website, repositories and native GitHub sign-in pages.",
+      "required": true,
+      "dependencyType": "navigation",
+      "permissionApplicability": "required_navigation",
+      "provenance": {
+        "sourceType": "official_documentation",
+        "sourceReference": "https://docs.github.com/en/authentication/authenticating-with-a-passkey/signing-in-with-a-passkey",
+        "review": { "reviewedBy": "Zenith Phase 3 curation (Codex)", "reviewedAt": "2026-09-21T00:00:00Z" },
+        "explanation": "Official browser sign-in instructions explicitly target github.com/login. Propose only the exact application host. Enterprise SSO, social login, external documentation and linked hosts are outside this initial scope; native capabilities remain independently controlled."
+      }
+    }
+  ],
+  "requires": [],
+  "status": "initial",
+  "ecosystems": []
+}

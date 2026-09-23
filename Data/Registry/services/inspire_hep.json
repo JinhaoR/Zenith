@@ -1,0 +1,19 @@
+{
+  "id": "inspire_hep",
+  "name": "INSPIRE HEP",
+  "category": "research",
+  "description": "High-energy physics literature and research records.",
+  "capabilities": [
+    "research_search"
+  ],
+  "domains": [
+    {
+      "hostname": "inspirehep.net",
+      "purpose": "Primary service website or application.",
+      "required": true
+    }
+  ],
+  "requires": [],
+  "status": "initial",
+  "ecosystems": []
+}

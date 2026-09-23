@@ -1,0 +1,19 @@
+{
+  "id": "stack_exchange",
+  "name": "Stack Exchange",
+  "category": "development",
+  "description": "Directory of Stack Exchange communities; individual community hosts are not enumerated.",
+  "capabilities": [
+    "community_discussion"
+  ],
+  "domains": [
+    {
+      "hostname": "stackexchange.com",
+      "purpose": "Primary service website or application.",
+      "required": true
+    }
+  ],
+  "requires": [],
+  "status": "initial",
+  "ecosystems": []
+}

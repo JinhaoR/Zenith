@@ -67,6 +67,9 @@ public partial class SettingsWindow : Window
         AdblockStatusText.Text = _adblockStatus?.Invoke() ?? "Resource-filter status is unavailable in this window.";
         VaultEditor.Configure(vaultService, () => { Close(); _openAccess?.Invoke(null); },
             () => { policyChanged?.Invoke(); RefreshSites(); RefreshAccess(); });
+        if (vaultService is not null)
+            ServicesBrowser.Model.ConfigureProposals(() => vaultService.TryGetActivePolicy(out var policy) ? policy : null,
+                proposal => { SelectSection("Vault"); VaultEditor.ReviewServiceProposal(proposal); });
         ExpandedOption.IsChecked = preferences.StartSidebarExpanded;
         CompactOption.IsChecked = !preferences.StartSidebarExpanded;
         UpdateZoom();
@@ -100,7 +103,7 @@ public partial class SettingsWindow : Window
 
         if (_currentSection is not null) _sectionOffsets[_currentSection] = PageScrollViewer.VerticalOffset;
         _currentSection = section;
-        foreach (var page in new[] { GeneralPage, SpherePage, AccessPage, VaultPage, ContentProtectionPage, AboutPage })
+        foreach (var page in new[] { GeneralPage, SpherePage, AccessPage, VaultPage, ContentProtectionPage, ServicesPage, AboutPage })
         {
             page.Visibility = Visibility.Collapsed;
         }
@@ -110,6 +113,7 @@ public partial class SettingsWindow : Window
             "Access" => (AccessPage, "Temporary access", "Make room for an occasional, deliberate visit."),
             "Vault" => (VaultPage, "Vault", "The protected home for your long-term browsing choices."),
             "ContentProtection" => (ContentProtectionPage, "Content Protection", "Content filtering in the current browser profile."),
+            "Services" => (ServicesPage, "Services", "Explore the catalog. Reviewed access changes go through Vault."),
             "About" => (AboutPage, "About Zenith", "A quieter way to find your way around the Internet."),
             _ => (GeneralPage, "Make Zenith yours", "Small preferences for comfortable, everyday browsing.")
         };
@@ -119,6 +123,11 @@ public partial class SettingsWindow : Window
         PageScrollViewer.UpdateLayout();
         PageScrollViewer.ScrollToVerticalOffset(_sectionOffsets.GetValueOrDefault(section));
         SaveStatus.Text = section == "Vault" ? "Vault changes take effect only after review, authentication, waiting and confirmation." : "Preferences are saved on this device.";
+        if (section == "Services")
+        {
+            SaveStatus.Text = "Viewing this catalog does not change permissions.";
+            _ = ServicesBrowser.EnsureLoadedAsync();
+        }
         RuntimeStatusText.Text = _runtimeStatus?.Invoke() ?? "Browser engine status is unavailable.";
         if (section == "Vault") VaultEditor.Refresh();
         if (section == "Sphere") RefreshSites();

@@ -1,0 +1,20 @@
+{
+  "id": "springerlink",
+  "name": "SpringerLink",
+  "category": "research",
+  "description": "Springer Nature Link scholarly books and journals.",
+  "capabilities": [
+    "document_reading",
+    "research_search"
+  ],
+  "domains": [
+    {
+      "hostname": "link.springer.com",
+      "purpose": "Primary service website or application.",
+      "required": true
+    }
+  ],
+  "requires": [],
+  "status": "initial",
+  "ecosystems": []
+}

@@ -1,0 +1,21 @@
+{
+  "id": "npm",
+  "name": "npm",
+  "category": "development",
+  "description": "Discover JavaScript ecosystem packages.",
+  "capabilities": [
+    "package_discovery"
+  ],
+  "domains": [
+    {
+      "hostname": "www.npmjs.com",
+      "purpose": "Primary service website or application.",
+      "required": true
+    }
+  ],
+  "requires": [],
+  "status": "initial",
+  "ecosystems": [
+    "javascript"
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "id": "google_scholar",
+  "name": "Google Scholar",
+  "category": "research",
+  "description": "Search scholarly literature and citations.",
+  "capabilities": [
+    "research_search"
+  ],
+  "domains": [
+    {
+      "hostname": "scholar.google.com",
+      "purpose": "Primary service website or application.",
+      "required": true
+    }
+  ],
+  "requires": [],
+  "status": "initial",
+  "ecosystems": []
+}

@@ -1,0 +1,20 @@
+{
+  "id": "pubmed",
+  "name": "PubMed",
+  "category": "research",
+  "description": "Search biomedical literature and article records.",
+  "capabilities": [
+    "research_search",
+    "document_reading"
+  ],
+  "domains": [
+    {
+      "hostname": "pubmed.ncbi.nlm.nih.gov",
+      "purpose": "Primary service website or application.",
+      "required": true
+    }
+  ],
+  "requires": [],
+  "status": "initial",
+  "ecosystems": []
+}
