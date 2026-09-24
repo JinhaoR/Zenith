@@ -177,3 +177,49 @@ baseline (accounts.google.com). Verify both await Vault confirmation. Add a loca
 exception for an accessible service, remove its hostname through Vault, and verify
 history does not restore access. Restart during waiting and check the same frozen
 proposal remains. Do not use private credentials for these checks.
+
+### Implementation validation, 2026-09-23
+
+Restore and build succeeded with zero warnings/errors. The final full run with
+ZENITH_WEBVIEW_TESTS=1 passed 363 Core tests and 213 App tests (576 total).
+Three separate opt-in scenarios were skipped: the account-boundary investigation,
+upstream Blacklist download, and official adblock subscription download. The normal
+native runner passed its frame/OOPIF enforcement, document clearing, file chooser,
+authentication, Greylist, rendering, browser-data and extension scenarios. All four
+new native Vault UI cases passed (baseline/local exception with passwords on/off).
+
+This change adds 35 cases: 19 Core and 16 App. Existing historical attribution and
+migration cases remain covered. The initial restricted restore could not contact
+NuGet; restore succeeded with network access. An intermediate full run found one
+old storage-version assertion; it was updated before the final passing run.
+
+Ignored test artifacts:
+
+- build/registry-simplification-tests/final_net10.0_20260923162559.trx
+- build/registry-simplification-tests/final_net10.0_20260923162728.trx
+
+### Files changed for this simplification
+
+These are changes from the already-present Phase 3/4A workspace, not an inventory
+of all earlier uncommitted registry work.
+
+- Core registry: ServiceDefinition.cs, ServiceRegistry.cs,
+  ServiceAccessProposalBuilder.cs, RegistryContentIdentity.cs;
+  new InfrastructureBaselineProposal.cs, LocalServiceExtensionProposal.cs and
+  UnknownAuthenticationSuggestion.cs (under src/Zenith.Core/Registry).
+- Core Vault: VaultState.cs, VaultService.cs, VaultProposalRules.cs;
+  new RegistryApproval.cs and RegistryVaultProposal.cs (under src/Zenith.Core/Vault).
+- App: Access/ProtectedAccessStore.cs, MainWindow.xaml.cs,
+  Settings/VaultPanel.xaml, Settings/VaultPanel.xaml.cs;
+  new Settings/VaultPanel.Registry.cs and Registry/RegistryProposalPresentation.cs;
+  Registry/ServicePresentation.cs (under src/Zenith.App).
+- Bundled data: Data/Registry/registry.json and infrastructure.json.
+- Core tests: Registry/ServiceAccessProposalTests.cs,
+  Registry/PermissionAttributionTests.cs and new
+  Registry/InfrastructureAndLocalExtensionTests.cs (under tests/Zenith.Core.Tests).
+- App tests: Access/VaultStoreTests.cs, Registry/ServiceApprovalPersistenceTests.cs,
+  Registry/PermissionIdentityPersistenceTests.cs, Registry/ServicesUiTests.cs and new
+  Registry/RegistryArchitecturePersistenceTests.cs (under tests/Zenith.App.Tests).
+- Documentation: ARCHITECTURE.md; docs/product-experience.md, terminology.md,
+  site-policy.md, threat-model.md, service-registry.md; historical ADRs 0025/0026
+  supersession notes and new docs/decisions/0027-services-infrastructure-and-local-extensions.md.
